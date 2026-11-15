@@ -1,0 +1,8 @@
+* text=auto
+*.png binary
+*.docx binary
+*.xlsx binary
+*.drawio text eol=lf
+*.md text eol=lf
+*.csv text eol=lf
+*.ps1 text eol=crlf
