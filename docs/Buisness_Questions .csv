@@ -1,0 +1,35 @@
+,,,,,,
+,Halifax Transportation Business Questions Matrix,,,,,
+,"Operational cadence, data source availability, and prioritization matrix for municipal transit & logistics",,,,,
+,TOTAL QUESTIONS,HIGH PRIORITY,,OPEN DATA READY,REAL-TIME / DAILY,
+,28,14,,17,14,
+,,,,,,
+Subsector_ID,Sub_Sector,Question_ID,Question,Cadence,Data Availability,Priority
+TRN-01,Passenger Transportation (Bus / Transit System),TRN-Q01,"Where is every bus right now, and is it on time?",Real-time,Open,High
+TRN-01,Passenger Transportation (Bus / Transit System),TRN-Q02,"Which routes are most often late, and at what times of day?",Daily,Open,High
+TRN-01,Passenger Transportation (Bus / Transit System),TRN-Q03,"Where and when do buses bunch together, arriving close together followed by a long gap?",Daily,Open,High
+TRN-01,Passenger Transportation (Bus / Transit System),TRN-Q04,What is the actual wait between buses at each stop compared with the schedule?,Daily,Open,High
+TRN-01,Passenger Transportation (Bus / Transit System),TRN-Q05,Which scheduled trips never run?,Daily,Open,High
+TRN-01,Passenger Transportation (Bus / Transit System),TRN-Q06,"How much do snow days and storms reduce on-time performance, by route?",Periodic,Open,High
+TRN-01,Passenger Transportation (Bus / Transit System),TRN-Q07,Which neighbourhoods are more than a 5-minute walk from frequent service?,Periodic,Open,High
+TRN-01,Passenger Transportation (Bus / Transit System),TRN-Q08,Which areas have the most homes but the least transit service per resident?,Periodic,Open,High
+TRN-01,Passenger Transportation (Bus / Transit System),TRN-Q09,Which roadworks and road closures cause the biggest bus delays?,Periodic,Open,High
+TRN-01,Passenger Transportation (Bus / Transit System),TRN-Q10,"Which routes are most crowded, and where are riders left behind?",Daily,Partner,Medium
+TRN-01,Passenger Transportation (Bus / Transit System),TRN-Q11,Which route segments are consistently slow and could be optimized?,Periodic,Open,High
+TRN-01,Passenger Transportation (Bus / Transit System),TRN-Q12,How reliable are ferries compared with buses?,Daily,Open,Medium
+TRN-02,Rail,TRN-Q13,How reliable is passenger rail service in and out of Halifax?,Periodic,Mixed,Low
+TRN-03,Freight & Goods Movement,TRN-Q14,"How much freight moves through Halifax by mode (port, rail, truck, air)?",Periodic,Mixed,Medium
+TRN-03,Freight & Goods Movement,TRN-Q15,How does port activity affect truck traffic and congestion downtown?,Daily,Mixed,Medium
+TRN-04,Taxi & Ride-Hailing,TRN-Q16,"Where and when is taxi and ride-hailing demand highest, and does it fill gaps in transit?",Daily,Private,Low
+TRN-05,Truck Transport,TRN-Q17,"Which truck routes carry the most traffic through the city, and where are the bottlenecks?",Periodic,Private,Medium
+TRN-06,Warehousing,TRN-Q18,"Where are warehouses clustered, and how far are they from major highways?",Periodic,Open,Low
+TRN-07,Airport & Aviation,TRN-Q19,How do flight arrivals and departures drive ground transportation demand from the airport?,Daily,Mixed,Low
+TRN-08,Active Transportation (Cycling / Walking),TRN-Q20,Where are the gaps in the bike lane and sidewalk network?,Periodic,Open,High
+TRN-08,Active Transportation (Cycling / Walking),TRN-Q21,Which bus stops lack safe walking or cycling access?,Periodic,Open,High
+TRN-08,Active Transportation (Cycling / Walking),TRN-Q22,How quickly are sidewalks and bike lanes cleared after snow?,Daily,Mixed,Medium
+TRN-09,Roads & Traffic Management,TRN-Q23,"Which roads and intersections are most congested, and when?",Daily,Mixed,High
+TRN-09,Roads & Traffic Management,TRN-Q24,"Where do collisions happen most, and what conditions are linked to them?",Periodic,Open,High
+TRN-09,Roads & Traffic Management,TRN-Q25,"How long does each road closure last, and what does it affect?",Real-time,Open,Medium
+TRN-09,Roads & Traffic Management,TRN-Q26,How has traffic volume on major routes changed year over year?,Periodic,Open,Medium
+TRN-10,Parking,TRN-Q27,"Where is parking demand highest, and when?",Daily,Partner,Low
+TRN-10,Parking,TRN-Q28,Do park-and-ride lots increase ridership on nearby routes?,Periodic,Mixed,Low
