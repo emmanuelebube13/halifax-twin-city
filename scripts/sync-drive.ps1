@@ -34,6 +34,14 @@ $excludeArgs = $Exclude | ForEach-Object { "--filter"; "- $_" }
 & $rclone sync $Source (Join-Path $repo "drive") --drive-export-formats "docx,xlsx" @excludeArgs
 if ($LASTEXITCODE -ne 0) { throw "rclone sync of drive/ failed ($LASTEXITCODE)" }
 
+# Drop the editor's "agent" stamp from draw.io files so no tool name is published.
+$utf8 = New-Object System.Text.UTF8Encoding($false)
+Get-ChildItem (Join-Path $repo "drive") -Filter *.drawio | ForEach-Object {
+  $text = [IO.File]::ReadAllText($_.FullName, $utf8)
+  $clean = $text -replace '\s+agent="[^"]*"', ''
+  if ($clean -ne $text) { [IO.File]::WriteAllText($_.FullName, $clean, $utf8) }
+}
+
 # 2. Readable copies (Markdown and CSV only)
 & $rclone sync $Source (Join-Path $repo "docs") --drive-export-formats "md,csv" @excludeArgs `
   --filter "+ *.md" --filter "+ *.csv" --filter "- *"
