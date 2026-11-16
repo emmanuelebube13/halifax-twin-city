@@ -1,0 +1,154 @@
+Sector ID,Sector,Subsector ID,Subsector,Source
+S01-FIN,Finance,FIN-01,Investment Companies,From notes
+S01-FIN,Finance,FIN-02,Banks,From notes
+S01-FIN,Finance,FIN-03,Credit Companies / Credit Unions,From notes
+S01-FIN,Finance,FIN-04,Financial Leasing Companies,From notes
+S01-FIN,Finance,FIN-05,Asset Management,From notes
+S01-FIN,Finance,FIN-06,Insurance,From notes
+S01-FIN,Finance,FIN-07,Fintech,From notes
+S02-HOS,Hospitality,HOS-01,Hotels & Accommodation,From notes
+S02-HOS,Hospitality,HOS-02,Restaurants,From notes
+S02-HOS,Hospitality,HOS-03,Bars & Pubs,From notes
+S02-HOS,Hospitality,HOS-04,Cafes,From notes
+S02-HOS,Hospitality,HOS-05,Convention Centres,From notes
+S02-HOS,Hospitality,HOS-06,Live Music Venues,From notes
+S02-HOS,Hospitality,HOS-07,Short-Term Rentals,Added (review)
+S02-HOS,Hospitality,HOS-08,Tourism & Visitor Attractions,Added (review)
+S02-HOS,Hospitality,HOS-09,Catering & Food Services,Added (review)
+S03-HLT,Healthcare,HLT-01,Hospitals & Acute Care Centres,From notes
+S03-HLT,Healthcare,HLT-02,Nursing & Residential Care,From notes
+S03-HLT,Healthcare,HLT-03,Ambulatory & Outpatient Care,From notes
+S03-HLT,Healthcare,HLT-04,Medical Equipment & Supplies,From notes
+S03-HLT,Healthcare,HLT-05,Home Health & Community Services,From notes
+S03-HLT,Healthcare,HLT-06,Public Health,Added (review)
+S03-HLT,Healthcare,HLT-07,Mental Health & Addictions,Added (review)
+S03-HLT,Healthcare,HLT-08,Pharmacies,Added (review)
+S04-TRN,Transportation,TRN-01,Passenger Transportation (Bus / Transit System),From notes
+S04-TRN,Transportation,TRN-02,Rail,From notes
+S04-TRN,Transportation,TRN-03,Freight & Goods Movement,From notes
+S04-TRN,Transportation,TRN-04,Taxi & Ride-Hailing,From notes
+S04-TRN,Transportation,TRN-05,Truck Transport,From notes
+S04-TRN,Transportation,TRN-06,Warehousing,From notes
+S04-TRN,Transportation,TRN-07,Airport & Aviation,Added (review)
+S04-TRN,Transportation,TRN-08,Active Transportation (Cycling / Walking),Added (review)
+S04-TRN,Transportation,TRN-09,Roads & Traffic Management,Added (review)
+S04-TRN,Transportation,TRN-10,Parking,Added (review)
+S05-PWK,Public Works,PWK-01,Waste Centres & Solid Waste,From notes
+S05-PWK,Public Works,PWK-02,Parks,From notes
+S05-PWK,Public Works,PWK-03,Public Utilities,From notes
+S05-PWK,Public Works,PWK-04,Engineering & Construction,From notes
+S05-PWK,Public Works,PWK-05,Water & Wastewater,Added (review)
+S05-PWK,Public Works,PWK-06,Roads & Sidewalk Maintenance,Added (review)
+S05-PWK,Public Works,PWK-07,Snow & Ice Removal,Added (review)
+S05-PWK,Public Works,PWK-08,Street Lighting,Added (review)
+S05-PWK,Public Works,PWK-09,Municipal Fleet,Added (review)
+S06-EDU,Education,EDU-01,Elementary & Secondary Schools,From notes
+S06-EDU,Education,EDU-02,Junior College,From notes
+S06-EDU,Education,EDU-03,College & University,From notes
+S06-EDU,Education,EDU-04,Business School,From notes
+S06-EDU,Education,EDU-05,Technical & Trade Schools,From notes
+S06-EDU,Education,EDU-06,Other Schools,From notes
+S06-EDU,Education,EDU-07,School Support Services,From notes
+S06-EDU,Education,EDU-08,Early Childhood Education,Added (review)
+S06-EDU,Education,EDU-09,Adult & Continuing Education,Added (review)
+S07-DIG,Digital,DIG-01,Open Data,From notes
+S07-DIG,Digital,DIG-02,Digital Health,From notes
+S07-DIG,Digital,DIG-03,Proptech,From notes
+S07-DIG,Digital,DIG-04,IoT,From notes
+S07-DIG,Digital,DIG-05,Software as a Service (SaaS),From notes
+S07-DIG,Digital,DIG-06,Cleantech,From notes
+S07-DIG,Digital,DIG-07,IT Consulting,From notes
+S07-DIG,Digital,DIG-08,Cybersecurity,From notes
+S07-DIG,Digital,DIG-09,Cloud Computing & DevOps,From notes
+S07-DIG,Digital,DIG-10,E-Commerce,From notes
+S07-DIG,Digital,DIG-11,Telecom,From notes
+S07-DIG,Digital,DIG-12,Data Centres,From notes
+S08-CON,Construction,CON-01,Residential Construction,Added (review)
+S08-CON,Construction,CON-02,Commercial & Institutional Construction,Added (review)
+S08-CON,Construction,CON-03,Infrastructure & Civil Works,Added (review)
+S08-CON,Construction,CON-04,Specialty Trades,Added (review)
+S08-CON,Construction,CON-05,Building Materials & Supply,Added (review)
+S08-CON,Construction,CON-06,Architecture & Design Services,Added (review)
+S08-CON,Construction,CON-07,Demolition & Site Preparation,Added (review)
+S09-RET,Retail,RET-01,Grocery & Food Retail,Added (review)
+S09-RET,Retail,RET-02,General Merchandise & Department Stores,Added (review)
+S09-RET,Retail,RET-03,Shopping Centres & Malls,Added (review)
+S09-RET,Retail,RET-04,Main Street & Small Business,Added (review)
+S09-RET,Retail,RET-05,Automotive & Fuel Retail,Added (review)
+S09-RET,Retail,RET-06,Pharmacy & Health Retail,Added (review)
+S09-RET,Retail,RET-07,Liquor & Cannabis Retail,Added (review)
+S09-RET,Retail,RET-08,Wholesale & Distribution,Added (review)
+S10-HRE,Housing & Real Estate,HRE-01,Home Ownership,Added (review)
+S10-HRE,Housing & Real Estate,HRE-02,Rental Housing,Added (review)
+S10-HRE,Housing & Real Estate,HRE-03,Affordable & Social Housing,Added (review)
+S10-HRE,Housing & Real Estate,HRE-04,Student Housing,Added (review)
+S10-HRE,Housing & Real Estate,HRE-05,Commercial Real Estate (Office),Added (review)
+S10-HRE,Housing & Real Estate,HRE-06,Industrial Real Estate,Added (review)
+S10-HRE,Housing & Real Estate,HRE-07,Property Management,Added (review)
+S10-HRE,Housing & Real Estate,HRE-08,Real Estate Brokerage,Added (review)
+S10-HRE,Housing & Real Estate,HRE-09,Land Development,Added (review)
+S11-GOV,Public Governance & Civic Services,GOV-01,Municipal Government & Council,Added (review)
+S11-GOV,Public Governance & Civic Services,GOV-02,Provincial Government Services,Added (review)
+S11-GOV,Public Governance & Civic Services,GOV-03,Federal Government Services,Added (review)
+S11-GOV,Public Governance & Civic Services,GOV-04,Planning & Zoning,Added (review)
+S11-GOV,Public Governance & Civic Services,GOV-05,"Permits, Licensing & Inspections",Added (review)
+S11-GOV,Public Governance & Civic Services,GOV-06,Property Tax & Assessment,Added (review)
+S11-GOV,Public Governance & Civic Services,GOV-07,311 & Citizen Services,Added (review)
+S11-GOV,Public Governance & Civic Services,GOV-08,Elections & Civic Engagement,Added (review)
+S11-GOV,Public Governance & Civic Services,GOV-09,Courts & Justice,Added (review)
+S12-PSE,Policing (Public Safety & Emergency),PSE-01,Police Services,Added (review)
+S12-PSE,Policing (Public Safety & Emergency),PSE-02,Fire & Rescue,Added (review)
+S12-PSE,Policing (Public Safety & Emergency),PSE-03,Emergency Medical Services,Added (review)
+S12-PSE,Policing (Public Safety & Emergency),PSE-04,911 & Emergency Dispatch,Added (review)
+S12-PSE,Policing (Public Safety & Emergency),PSE-05,Emergency Management & Disaster Response,Added (review)
+S12-PSE,Policing (Public Safety & Emergency),PSE-06,Search & Rescue,Added (review)
+S12-PSE,Policing (Public Safety & Emergency),PSE-07,Traffic Safety & Enforcement,Added (review)
+S12-PSE,Policing (Public Safety & Emergency),PSE-08,Corrections,Added (review)
+S13-ENR,Energy,ENR-01,Electricity Generation,Added (review)
+S13-ENR,Energy,ENR-02,Transmission & Distribution Grid,Added (review)
+S13-ENR,Energy,ENR-03,Renewable Energy (Wind / Solar / Tidal),Added (review)
+S13-ENR,Energy,ENR-04,Natural Gas Distribution,Added (review)
+S13-ENR,Energy,ENR-05,Heating Oil & Fuels,Added (review)
+S13-ENR,Energy,ENR-06,EV Charging,Added (review)
+S13-ENR,Energy,ENR-07,Energy Storage,Added (review)
+S13-ENR,Energy,ENR-08,District Energy,Added (review)
+S13-ENR,Energy,ENR-09,Energy Efficiency & Retrofits,Added (review)
+S14-ENV,Environment,ENV-01,Air Quality,Added (review)
+S14-ENV,Environment,ENV-02,Water Quality & Watersheds,Added (review)
+S14-ENV,Environment,ENV-03,Stormwater & Flood Management,Added (review)
+S14-ENV,Environment,ENV-04,Coastal Change & Sea-Level Rise,Added (review)
+S14-ENV,Environment,ENV-05,Urban Forest & Green Space,Added (review)
+S14-ENV,Environment,ENV-06,Biodiversity & Wildlife,Added (review)
+S14-ENV,Environment,ENV-07,Climate & Emissions Monitoring,Added (review)
+S14-ENV,Environment,ENV-08,Contaminated Sites,Added (review)
+S14-ENV,Environment,ENV-09,Noise,Added (review)
+S15-PRT,Port & Maritime,PRT-01,Container Terminals,Added (review)
+S15-PRT,Port & Maritime,PRT-02,Cruise Operations,Added (review)
+S15-PRT,Port & Maritime,PRT-03,Shipping & Marine Logistics,Added (review)
+S15-PRT,Port & Maritime,PRT-04,Shipbuilding & Repair,Added (review)
+S15-PRT,Port & Maritime,PRT-05,Ferries,Added (review)
+S15-PRT,Port & Maritime,PRT-06,Fisheries & Seafood,Added (review)
+S15-PRT,Port & Maritime,PRT-07,Ocean Technology,Added (review)
+S15-PRT,Port & Maritime,PRT-08,Naval & Defence,Added (review)
+S15-PRT,Port & Maritime,PRT-09,Coast Guard & Marine Safety,Added (review)
+S16-POP,Population & Community,POP-01,Demographics & Census,Added (review)
+S16-POP,Population & Community,POP-02,Immigration & Newcomers,Added (review)
+S16-POP,Population & Community,POP-03,Indigenous Communities,Added (review)
+S16-POP,Population & Community,POP-04,African Nova Scotian Communities,Added (review)
+S16-POP,Population & Community,POP-05,Social Services & Income Support,Added (review)
+S16-POP,Population & Community,POP-06,Homelessness & Shelters,Added (review)
+S16-POP,Population & Community,POP-07,Non-Profits & Community Organizations,Added (review)
+S16-POP,Population & Community,POP-08,Youth & Seniors Services,Added (review)
+S16-POP,Population & Community,POP-09,Childcare,Added (review)
+S16-POP,Population & Community,POP-10,Accessibility,Added (review)
+S16-POP,Population & Community,POP-11,Food Security,Added (review)
+S17-ACR,"Arts, Culture & Recreation",ACR-01,Museums & Heritage Sites,Added (review)
+S17-ACR,"Arts, Culture & Recreation",ACR-02,Performing Arts & Theatres,Added (review)
+S17-ACR,"Arts, Culture & Recreation",ACR-03,Visual Arts & Galleries,Added (review)
+S17-ACR,"Arts, Culture & Recreation",ACR-04,Festivals & Events,Added (review)
+S17-ACR,"Arts, Culture & Recreation",ACR-05,Libraries,Added (review)
+S17-ACR,"Arts, Culture & Recreation",ACR-06,Film & Media Production,Added (review)
+S17-ACR,"Arts, Culture & Recreation",ACR-07,Sports & Recreation Facilities,Added (review)
+S17-ACR,"Arts, Culture & Recreation",ACR-08,Professional Sports & Arenas,Added (review)
+S17-ACR,"Arts, Culture & Recreation",ACR-09,Trails & Outdoor Recreation,Added (review)
+S17-ACR,"Arts, Culture & Recreation",ACR-10,Community Centres,Added (review)
