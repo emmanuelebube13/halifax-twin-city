@@ -42,7 +42,8 @@ def _clean(value):
 def load_settings(config_path: Path = LOCAL_CONFIG, rules_path: Path = BUSINESS_RULES) -> Settings:
     data = {}
     if config_path.exists():
-        data = json.loads(config_path.read_text(encoding="utf-8"))
+        # utf-8-sig: Windows PowerShell 5.1 saves files with a byte order mark.
+        data = json.loads(config_path.read_text(encoding="utf-8-sig"))
 
     asset_id = data.get("cesium_photorealistic_asset_id")
     s = Settings(

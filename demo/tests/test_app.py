@@ -71,3 +71,9 @@ def test_business_rules_file_loads():
     assert rules["on_time"] == {"early_limit_seconds": -60, "late_limit_seconds": 300}
     assert rules["frequent_service"]["max_headway_minutes"] == 15
     assert rules["walk"]["five_minute_walk_metres"] == 400
+
+
+def test_settings_read_file_saved_with_byte_order_mark(tmp_path):
+    cfg = tmp_path / "config.local.json"
+    cfg.write_text(json.dumps({"port": 8030}), encoding="utf-8-sig")
+    assert load_settings(cfg, tmp_path / "missing.yaml").port == 8030
