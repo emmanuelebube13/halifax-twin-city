@@ -1,0 +1,8 @@
+{
+  "_readme": "Copy this file to demo/config.local.json and fill it in. config.local.json is in .gitignore: never commit it. Environment variables HALIFAX_TWIN_DB_URL and CESIUM_ION_TOKEN override these values.",
+  "database_url": "postgresql://postgres:YOUR_PASSWORD@localhost:5432/halifax_twin",
+  "cesium_ion_token": "PASTE_YOUR_CESIUM_ION_TOKEN_HERE",
+  "cesium_photorealistic_asset_id": null,
+  "host": "127.0.0.1",
+  "port": 8000
+}

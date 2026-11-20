@@ -7,3 +7,10 @@ desktop.ini
 # Python
 __pycache__/
 *.pyc
+
+# Demo build: local secrets, virtual environment, downloaded data
+demo/config.local.json
+demo/.venv/
+demo/data/
+.env
+.pytest_cache/

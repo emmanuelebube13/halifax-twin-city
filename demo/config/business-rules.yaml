@@ -1,0 +1,19 @@
+# Interim business rules for the demo (brief, rule 11).
+# These are not decided yet. The architect owns them; change them here, never in code.
+
+on_time:
+  # A bus is on time when it is between 60 s early and 300 s late.
+  early_limit_seconds: -60
+  late_limit_seconds: 300
+
+frequent_service:
+  # A route counts as frequent when a bus comes every 15 minutes or better.
+  max_headway_minutes: 15
+
+walk:
+  # A 5-minute walk is taken as 400 m.
+  five_minute_walk_metres: 400
+
+display:
+  time_zone: America/Halifax
+  clock: 24-hour
