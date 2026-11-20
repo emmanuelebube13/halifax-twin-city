@@ -4,5 +4,5 @@
   "cesium_ion_token": "PASTE_YOUR_CESIUM_ION_TOKEN_HERE",
   "cesium_photorealistic_asset_id": null,
   "host": "127.0.0.1",
-  "port": 8000
+  "port": 8010
 }

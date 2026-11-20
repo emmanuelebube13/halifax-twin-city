@@ -10,11 +10,11 @@ From the repository folder, in PowerShell:
 powershell -ExecutionPolicy Bypass -File demo\start.ps1
 ```
 
-The first run takes a few minutes: it creates `demo\.venv` and installs the packages. After that it starts in seconds. The browser opens http://localhost:8000. Stop with Ctrl+C.
+The first run takes a few minutes: it creates `demo\.venv` and installs the packages. After that it starts in seconds. The browser opens http://localhost:8010. Stop with Ctrl+C.
 
 | Option | Does |
 | --- | --- |
-| `-Port 8010` | Use another port |
+| `-Port 8020` | Use another port (default 8010) |
 | `-NoBrowser` | Don't open the browser |
 | `-Reinstall` | Rebuild `demo\.venv` from scratch |
 | `-Test` | Run the tests instead of the app |

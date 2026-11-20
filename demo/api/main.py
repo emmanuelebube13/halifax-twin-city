@@ -1,7 +1,7 @@
 """Halifax Digital Twin demo: one process that serves the read-only API and the web page.
 
 Start it with demo/start.ps1. By hand, from the demo folder:
-    .venv\\Scripts\\python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+    .venv\\Scripts\\python -m uvicorn api.main:app --host 127.0.0.1 --port 8010
 """
 from __future__ import annotations
 

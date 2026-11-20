@@ -30,10 +30,10 @@ The demo needs one place for its code and one command to start it, before any da
 powershell -ExecutionPolicy Bypass -File demo\start.ps1
 ```
 
-If the live-buses collector is still running on port 8000, the script says so and stops. Use another port:
+The demo runs on port 8010, so it never clashes with the old live-buses app on port 8000. If 8010 is taken, the script says which program has it and stops. Use another port:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File demo\start.ps1 -Port 8010
+powershell -ExecutionPolicy Bypass -File demo\start.ps1 -Port 8020
 ```
 
 Run the tests:
@@ -42,7 +42,7 @@ Run the tests:
 powershell -ExecutionPolicy Bypass -File demo\start.ps1 -Test
 ```
 
-Open http://localhost:8000/api/docs to try the API in the browser.
+Open http://localhost:8010/api/docs to try the API in the browser.
 
 ## Hands-on exercise
 

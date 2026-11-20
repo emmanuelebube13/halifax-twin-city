@@ -26,7 +26,7 @@ class Settings:
     cesium_ion_token: str | None = None
     cesium_photorealistic_asset_id: int | None = None
     host: str = "127.0.0.1"
-    port: int = 8000
+    port: int = 8010
     business_rules: dict = field(default_factory=dict)
 
 
@@ -50,7 +50,7 @@ def load_settings(config_path: Path = LOCAL_CONFIG, rules_path: Path = BUSINESS_
         cesium_ion_token=_clean(os.environ.get("CESIUM_ION_TOKEN") or data.get("cesium_ion_token")),
         cesium_photorealistic_asset_id=int(asset_id) if asset_id else None,
         host=data.get("host", "127.0.0.1"),
-        port=int(data.get("port", 8000)),
+        port=int(data.get("port", 8010)),
     )
     if rules_path.exists():
         s.business_rules = yaml.safe_load(rules_path.read_text(encoding="utf-8")) or {}

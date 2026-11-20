@@ -5,11 +5,11 @@
 .DESCRIPTION
   The first run creates demo\.venv and installs demo\requirements.txt. The packages are
   installed again only when requirements.txt changes. Then the app starts at
-  http://localhost:8000 and the browser opens. Stop with Ctrl+C.
+  http://localhost:8010 and the browser opens. Stop with Ctrl+C.
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File demo\start.ps1
-  powershell -ExecutionPolicy Bypass -File demo\start.ps1 -Port 8010 -NoBrowser
+  powershell -ExecutionPolicy Bypass -File demo\start.ps1 -Port 8020 -NoBrowser
   powershell -ExecutionPolicy Bypass -File demo\start.ps1 -Test
 #>
 param(
@@ -68,9 +68,9 @@ try {
     exit $LASTEXITCODE
   }
 
-  # 3. Port: -Port, else config.local.json, else 8000
+  # 3. Port: -Port, else config.local.json, else 8010 (8000 is the old live-buses app)
   if ($Port -eq 0) {
-    $Port = 8000
+    $Port = 8010
     $local = Join-Path $demo "config.local.json"
     if (Test-Path $local) {
       $cfg = Get-Content $local -Raw | ConvertFrom-Json
@@ -83,7 +83,7 @@ try {
   if ($busy) {
     $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$($busy.OwningProcess)" -ErrorAction SilentlyContinue
     Write-Host "Port $Port is already in use by process $($busy.OwningProcess): $($proc.Name)"
-    Write-Host "Stop that program, or start the demo on another port: demo\start.ps1 -Port 8010"
+    Write-Host "Stop that program, or start the demo on another port: demo\start.ps1 -Port 8020"
     exit 1
   }
 

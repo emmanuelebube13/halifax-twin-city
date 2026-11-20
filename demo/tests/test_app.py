@@ -55,12 +55,12 @@ def test_settings_ignore_placeholders_and_env_overrides(tmp_path, monkeypatch):
     cfg.write_text(json.dumps({
         "database_url": "postgresql://postgres:YOUR_PASSWORD@localhost:5432/halifax_twin",
         "cesium_ion_token": "PASTE_YOUR_CESIUM_ION_TOKEN_HERE",
-        "port": 8010,
+        "port": 8020,
     }), encoding="utf-8")
     monkeypatch.delenv("CESIUM_ION_TOKEN", raising=False)
     monkeypatch.delenv("HALIFAX_TWIN_DB_URL", raising=False)
     s = load_settings(cfg, tmp_path / "missing.yaml")
-    assert s.database_url is None and s.cesium_ion_token is None and s.port == 8010
+    assert s.database_url is None and s.cesium_ion_token is None and s.port == 8020
 
     monkeypatch.setenv("CESIUM_ION_TOKEN", "from-env")
     assert load_settings(cfg, tmp_path / "missing.yaml").cesium_ion_token == "from-env"
