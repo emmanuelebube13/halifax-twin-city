@@ -36,14 +36,11 @@ $collector = $null
 
 function Stop-DemoCollector {
   # Stops the collector this script started, and any left over from a window that was closed.
-  if (Test-Path $pidFile) {
-    $old = Get-Content $pidFile -ErrorAction SilentlyContinue
-    if ($old) {
-      $p = Get-CimInstance Win32_Process -Filter "ProcessId=$old" -ErrorAction SilentlyContinue
-      if ($p -and $p.CommandLine -match "loaders\.transit_realtime") { Stop-Process -Id $old -Force -ErrorAction SilentlyContinue }
-    }
-    Remove-Item $pidFile -ErrorAction SilentlyContinue
-  }
+  # A venv's python.exe on Windows starts a second python process, so stop every collector process.
+  Get-CimInstance Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match "-m loaders\.transit_realtime" } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+  Remove-Item $pidFile -ErrorAction SilentlyContinue
 }
 
 Push-Location $demo
