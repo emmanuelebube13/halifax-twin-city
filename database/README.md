@@ -7,16 +7,17 @@ The Halifax Digital Twin database, built from Logical Model V1 (63 entities). It
 
 | Read this | For |
 | --- | --- |
-| [Physical Model V1](../docs/06%20Physical%20Model/) | Every design decision: naming, types, keys, history, partitions |
-| [Modeling Style by Layer](../docs/06%20Physical%20Model/) | Step 7: why Bronze / 3NF Silver / Kimball Gold |
-| [Learning Notes](../docs/06%20Physical%20Model/) | Ten concepts with queries to try |
+| [Physical Model V1](docs/physical-model-v1.md) | Every design decision: naming, types, keys, history, partitions |
+| [Modeling Style by Layer](docs/modeling-style-by-layer.md) | Step 7: why Bronze / 3NF Silver / Kimball Gold |
+| [Learning Notes](docs/learning-notes-physical-model.md) | Ten concepts with queries to try |
 
-The three documents are written in Google Drive (`Halifax Twin City / 06 Physical Model`). `scripts/sync-drive.ps1` copies them into `docs/06 Physical Model` as Markdown.
+The same three documents are Google Docs in Drive (`Halifax Twin City / 06 Physical Model`), for reading and commenting. The copies here keep the SQL as copy-paste code blocks. If you edit one, update the other.
 
 ## What's in this folder
 
 ```
 database/
+├── docs/                            design notes and learning notes (Markdown)
 ├── sql/
 │   ├── 00_create_database.sql         create the halifax_twin database (run once)
 │   ├── 01_extensions_and_schemas.sql  PostGIS, schemas bronze / silver / gold

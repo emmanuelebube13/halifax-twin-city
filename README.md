@@ -36,10 +36,10 @@ The twin answers these by joining every sector to a shared core of **Location**,
 | Conceptual model: 47 entities | [Image](drive/03%20Conceptual%20Model/Halifax_Digital_Twin_Conceptual_Model_V1%20(1).drawio.png) | [.drawio](drive/03%20Conceptual%20Model/Halifax_Digital_Twin_Conceptual_Model_V1%20(1).drawio) |
 | Data flow diagram v3 | open in [draw.io](https://app.diagrams.net/) | [.drawio](drive/04%20Data%20Flow%20Model/Halifax_Twin_DFD_v3.drawio) |
 | Logical model V1: 63 entities | [Markdown](docs/05%20Logical%20Model/Halifax%20Digital%20Twin%20%E2%80%93%20Logical%20Model%20V1.md) | [.docx](drive/05%20Logical%20Model/Halifax%20Digital%20Twin%20%E2%80%93%20Logical%20Model%20V1.docx) · [erwin import script](drive/05%20Logical%20Model/Halifax_Twin_Logical_V1_RE.sql) |
-| Physical model V1: PostgreSQL + PostGIS | [database/](database) · design notes in [docs/06](docs/06%20Physical%20Model) | SQL scripts in `database/sql` |
+| Physical model V1: PostgreSQL + PostGIS | [database/](database) · [design notes](database/docs/physical-model-v1.md) · [learning notes](database/docs/learning-notes-physical-model.md) | SQL scripts in `database/sql` |
 | Map application plan V1 | [Markdown](docs/08%20Map%20Application/Halifax%20Digital%20Twin%20%E2%80%93%20Map%20Application%20Plan%20V1.md) | [.docx](drive/08%20Map%20Application/Halifax%20Digital%20Twin%20%E2%80%93%20Map%20Application%20Plan%20V1.docx) |
 
-CSV views show the first tab of each sheet; the `.xlsx` files have every tab. The `docs/06 Physical Model` notes appear after the next Drive sync.
+CSV views show the first tab of each sheet; the `.xlsx` files have every tab.
 
 ## Guiding principles
 
