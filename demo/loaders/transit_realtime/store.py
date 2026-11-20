@@ -33,7 +33,10 @@ class Lookups:
         self.loaded_at = dt.datetime.now(dt.timezone.utc)
 
     def stale(self, minutes: int = 10) -> bool:
-        return self.loaded_at is None or dt.datetime.now(dt.timezone.utc) - self.loaded_at > dt.timedelta(minutes=minutes)
+        """Re-read every 10 minutes, and every cycle while the schedule (D03) is not loaded yet."""
+        if self.loaded_at is None or not self.routes or not self.stops:
+            return True
+        return dt.datetime.now(dt.timezone.utc) - self.loaded_at > dt.timedelta(minutes=minutes)
 
 
 def upsert_events(conn, rows: list[dict], batch_id: int, keep_earliest_start: bool) -> dict[str, int]:
