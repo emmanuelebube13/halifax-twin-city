@@ -53,9 +53,6 @@ button { font: inherit; color: inherit; }
 .lens { position: absolute; top: 16px; left: 16px; display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--paper); }
 .lens button { border: 0; background: none; padding: 8px 16px; }
 .lens button.active { background: var(--accent); color: #fff; }
-.map-placeholder { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; color: var(--muted); padding: 16px; }
-.placeholder-title { font-size: 20px; color: var(--ink); margin: 0 0 6px; }
-.credits { position: absolute; right: 16px; bottom: 16px; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; font-size: 13px; color: var(--muted); }
 
 .side-panel { grid-area: panel; border-left: 1px solid var(--line); padding: 20px; overflow-y: auto; }
 .side-panel h1 { font-size: 22px; font-weight: 600; margin: 0 0 6px; }
@@ -82,3 +79,46 @@ button { font: inherit; color: inherit; }
   .sector.sources { margin-top: 0; }
   .side-panel { border-left: 0; }
 }
+
+/* ---- map (D09 early) ---- */
+.map { position: absolute; inset: 0; }
+.map .cesium-viewer, .map .cesium-widget { font-family: inherit; }
+.lens, .map-controls, .legend, .updated, .map-message { z-index: 2; }
+.map-controls { position: absolute; top: 16px; right: 16px; display: flex; flex-direction: column; gap: 8px; }
+.map-controls button {
+  width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper);
+  font-size: 20px; line-height: 1; cursor: pointer;
+}
+.map-controls button:hover, .view-switch button:not(:disabled):hover, .sector:hover { background: var(--accent-soft); }
+.legend {
+  position: absolute; left: 16px; bottom: 44px; display: flex; gap: 14px; flex-wrap: wrap;
+  background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; font-size: 13px;
+}
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line); }
+.dot.on-time { background: #1b1f24; }
+.dot.late { background: #c2500f; }
+.dot.early { background: #fff; border-color: #1b1f24; }
+.dot.unknown { background: #8a939c; }
+.updated {
+  position: absolute; right: 16px; bottom: 16px; background: var(--paper); border: 1px solid var(--line);
+  border-radius: 6px; padding: 6px 12px; font-size: 13px; color: var(--muted);
+}
+.map-message {
+  position: absolute; left: 50%; top: 16px; transform: translateX(-50%); max-width: 70%;
+  background: #fff4ec; border: 1px solid #e8c3a8; color: var(--bad); border-radius: 6px; padding: 8px 12px; font-size: 14px;
+}
+.view-switch button.active { background: var(--accent); color: #fff; }
+.layers { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.layers label { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+.notice { margin: 16px 0 0; padding: 10px 12px; background: var(--accent-soft); border-radius: 6px; font-size: 14px; }
+.selected-head { display: flex; justify-content: space-between; align-items: baseline; }
+.link { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0; }
+.side-panel section h1 { font-size: 22px; font-weight: 600; margin: 0 0 6px; }
+.cesium-viewer-bottom { z-index: 1; }
+
+@media (max-width: 760px) {
+  .legend { bottom: 48px; font-size: 12px; gap: 8px; }
+}
+.bus-photo { width: 100%; height: auto; border-radius: 6px; margin: 8px 0 12px; background: #a9b4c5; }
+#sel-answer { font-size: 18px; color: var(--ink); margin-bottom: 12px; }

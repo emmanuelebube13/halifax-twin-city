@@ -9,8 +9,10 @@ import datetime as dt
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from . import layers
 from .settings import WEB_DIR, Settings, load_settings
 
 APP_VERSION = "0.1.0-d01"
@@ -122,6 +124,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "transportation": live_transit(settings.database_url, settings.business_rules),
                 "public_works": {"available": False, "message": "Arrives with task D06."},
                 "housing": {"available": False, "message": "Arrives with task D07."}}
+
+    def with_db(fn):
+        if not settings.database_url:
+            return JSONResponse({"error": "Database not configured."}, status_code=503)
+        try:
+            import psycopg
+            with psycopg.connect(settings.database_url, connect_timeout=3) as conn:
+                return fn(conn)
+        except Exception as e:
+            return JSONResponse({"error": type(e).__name__ + ": " + str(e).strip()[:300]}, status_code=503)
+
+    @app.get("/api/layers/transportation/buses")
+    def layer_buses():
+        return with_db(lambda conn: layers.buses(conn, settings.business_rules))
+
+    @app.get("/api/layers/transportation/routes")
+    def layer_routes():
+        return with_db(layers.routes)
 
     @app.get("/api/config")
     def config(request: Request):
