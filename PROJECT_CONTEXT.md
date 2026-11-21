@@ -1,0 +1,315 @@
+# Halifax Digital Twin: project context for agents
+
+Written 21 Nov 2026 by Claude (in claude.ai chat, the project's design partner since 8 Nov 2026), at the architect's request, so that any agent picking up this project knows what the chat sessions know. It records what the project is, how it got here, what exists, what has been decided, what is still open, and where it is going.
+
+**How to use this file.** Read it once, end to end, before any work. It is a snapshot, not the source of truth. When it disagrees with a newer document, the newer document wins, in this order:
+
+1. The architect's latest instruction.
+2. "00 Start here: Claude Code handoff, MAIN BUILD" (Drive 08 Map Application; mirrored in `docs/08 Map Application/`). It governs the main build.
+3. This file.
+4. The older design documents (charter, plan, briefs, task cards), which predate several decisions listed below.
+
+Facts about the outside world (URLs, prices, licences, limits) were checked between 7 and 21 Nov 2026. Confirm them again before relying on them.
+
+---
+
+## 1. The project in one page
+
+**What it is.** A digital twin of Halifax Regional Municipality (HRM), Nova Scotia: a living data model of what is happening in the city, in real time and over time. Sectors of the city are joined through one shared core (Location, Time, Party, Asset, Event), so a question can cross sectors as easily as it stays inside one. Example cross-sector questions from the charter: "Is new housing being built where transit and utilities are weakest?" and "Do slower snow-clearing times line up with bus delays and collisions?"
+
+**Who.** Emmanuel Mbachu, the architect, data modeller and sole owner. Independent personal project, not affiliated with or endorsed by HRM. GitHub `emmanuelebube13`.
+
+**Why, for the architect.** The project is deliberately a vehicle for learning enterprise data practice and earning certifications: data modelling (conceptual, logical, physical, in erwin), warehousing (Bronze/Silver/Gold, SCD Type 2, Kimball stars), spatial data (PostGIS, ArcGIS REST sources), streaming ingestion, API design, BI (Power BI, Tableau) and 3D city visualisation. **Learning and documentation rank just behind building a good tool.** Every piece of agent work ends with a learning note the architect can study and repeat by hand. Some work is intentionally kept for the architect to do himself (models, source-to-target mapping, business rules, the first Power BI report, the first Bronze to Gold pipeline by hand).
+
+**What the product is.** One web map of Halifax (laptop and phone, installable) that answers registered business questions one at a time, in realistic 3D with a 2D fallback, fed by open data the project collects into its own PostgreSQL + PostGIS warehouse. Each answered question is a "story".
+
+**Phase 1 sectors.** Transportation, Public Works, Housing & Real Estate, plus the shared core. Chosen by a written scoring rule out of 17 sectors.
+
+**Status on 21 Nov 2026.**
+- Design phase essentially complete (charter, domains, 100 business questions, 77 sources, conceptual, data flow, logical and physical models). Steps 10 to 12 (source-to-target mapping, data dictionary, standards) are still to do.
+- A working demo was built on 20 Nov and presented at a Claude event that day. It works; its interface is poor.
+- The main build is about to start, in Claude Code, on a new workstation. Session 0 (initialization only) is defined in the handoff note.
+
+---
+
+## 2. How to work with the architect
+
+- He is learning as he goes. Explain what you did and why, in plain language, with one hands-on exercise. Keep steps small; he has said the volume of work can be overwhelming (this came up in erwin). One thing at a time, with clear tables, beats a wall of options.
+- He makes the decisions. Propose, give a recommendation with a one-line reason, and wait. Interim defaults are allowed when work would otherwise block, but they live in config files and are labelled "not yet decided".
+- He tracks everything in both GitHub and Google Drive. Design documents live in Drive; code lives in the repo. Durable decisions should be written down where he will find them.
+- Writing style he has asked for, everywhere (interface, documents, commit messages, code comments): no emoji; sentence case; Canadian spelling; Halifax time and the 24-hour clock; dates as 21 Nov 2026; labels of at most three words in the interface.
+- **Spend nothing.** No Azure, no paid cloud, no paid APIs. Local or genuinely free only. Stop and ask if anything would cost money or needs an account or key you were not given.
+- **Secrets.** Never write a key, token or password into the repo (it is public), a document, an issue, a pull request or a chat. The Cesium ion token is read from the environment variable `CESIUM_ION_TOKEN` or a git-ignored local config. The token was pasted into a chat on 20 Nov and should be rotated and restricted to localhost before the main build uses it.
+- He asks for pull requests and reviews them. Merge only when he asks in that session.
+
+---
+
+## 3. Timeline
+
+| Date (2026) | What happened |
+|---|---|
+| 7 to 8 Nov | Research and Project Charter V1 (8 Nov). Sector register (17 sectors, 100+ subsectors), scoring matrix, domain map, Business Questions register (100 questions). |
+| 12 Nov | Source Inventory V1: 77 sources checked. City Domains image. |
+| 14 Nov | Logical Model V1 started: 63 entities, 371 attributes, 3NF. |
+| 15 Nov | Map Application Plan V1, wireframes (3 laptop, 3 phone screens), interface rules, main agent brief and task cards T01 to T30. Realistic 3D declared core, not optional. Repo README and Drive sync script added. |
+| 16 Nov | All 20 proposed logical model changes accepted. Decision: no Azure, no paid cloud; everything local or free. erwin build in progress (reverse-engineered from a SQL Server script). |
+| 20 Nov | Physical Model V1: PostgreSQL + PostGIS, SCD Type 2 Silver. Built and smoke-tested on the demo PC (PostgreSQL 18). PR #1 merged. Demo agent brief (tasks D01 to D12). Demo built (PRs #2 to #5, open) and presented at a Claude event. |
+| 21 Nov | Architect: demo works, interface is poor; build the real thing in Claude Code on a new workstation (NVIDIA GPU 12 GB VRAM, 32 GB RAM, 2 TB). Handoff note written. Drive sync running again (07:02 and 17:04 syncs; script fixed to pull before push). This file written. |
+| 22 Nov | erwin trial ends. Diagrams, reports and DDL must be exported before then. |
+| 29 Nov | The current Halifax Transit GTFS schedule period ends. The schedule loader must be run on the next file. |
+
+---
+
+## 4. Design artifacts and the 12-step method
+
+The project follows a numbered data-design method. Status as of 21 Nov:
+
+| Step | Artifact | Status | Where |
+|---|---|---|---|
+| 1 | Project charter | V1 done (8 Nov). V2 needed: record realistic 3D in scope, local/free platform, PostgreSQL | Drive 00; `docs/00 Project Management/` |
+| 2 | Sector register and domain map (17 sectors) | Done | Drive 01 |
+| 3 | Sector scoring and Phase 1 choice | Done | Drive 01, Domain Mapping |
+| 4 | Business Questions register (100) | Done | Drive 01 |
+| 5 | Source inventory (77) | V1 done (12 Nov) | Drive 02; `docs/02 Sources/` |
+| 6 | Conceptual model (47 entities) and data flow diagram v3 | Done | Drive 03, 04 |
+| 7 | Modelling style by layer | Done: Bronze source-shaped, Silver 3NF + SCD2, Gold Kimball stars | Drive 06; `database/docs/modeling-style-by-layer.md` |
+| 8 | Logical model V1 (63 entities) | Done as a spec; erwin diagram partly built | Drive 05; `database/generator/logical_model_spec.py` |
+| 9 | Physical model V1 | Done, built and tested | `database/` |
+| 10 | Source-to-target mapping (STTM) | Not started as a document. Demo loader READMEs contain per-loader mapping tables that feed it | Drive 07 (empty) |
+| 11 | Data dictionary | Not started. Can be generated from the spec; `COMMENT ON` already covers every table and column | Drive 07 |
+| 12 | Standards and data quality rules | Not started. Known inputs listed in section 13 | Drive 07 |
+
+---
+
+## 5. Domains, sectors and questions
+
+**17 sectors.** Phase 1: Transportation, Public Works, Housing & Real Estate. Phase 2 candidates: Public Safety and Emergency, Environment, Population & Community, Construction, Education, Public Governance & Civic Services. Later: Digital, Energy and Utility, Finance, Healthcare, Retail, Port & Maritime, Arts Culture & Recreation, Hospitality. (The sector numbering differs slightly between the domain image and the Domain Map sheet; the reference data in `database/sql/08_reference_data.sql` is what the database uses.)
+
+**Scoring rule.** Each sector scored 1 to 5 on data availability (weighted x2), value and links to other sectors.
+
+**100 business questions** in the register: Transportation 28 (TRN-Q01 to Q28), Public Works 39 (PWK-Q01 to Q39), Housing & Real Estate 33 (HRE-Q01 to Q33). Each has subsector, cadence (real-time, daily, periodic), data availability (Open, Mixed, Partner, Private) and priority. About 31 need partner or private data and are the backlog for later capabilities. **Rule: no Question_ID, no build.**
+
+**Question roadmap for the app (17 of 100, all Open data):**
+- Wave A: TRN-Q01 Where is every bus right now, and is it on time?
+- Wave B: TRN-Q07 Which neighbourhoods are more than a 5-minute walk from frequent service?
+- Wave C (needs 2 to 4 weeks of archived feed): TRN-Q02 late routes by time of day, Q05 trips that never run, Q04 actual vs scheduled wait, Q03 bunching, Q11 slow segments.
+- Wave D: TRN-Q25, PWK-Q13 utility work restricting street access, PWK-Q07 park space and tree canopy per resident, HRE-Q29 building permits, HRE-Q01 prices and assessed values.
+- Wave E: TRN-Q09 roadworks causing bus delays, PWK-Q16, HRE-Q07 rents near frequent transit, TRN-Q08, TRN-Q06 snow days and on-time performance.
+
+**Demo stories** (demo brief): TRN-Q01, TRN-Q24 or collision hot spots, PWK-Q13, PWK-Q07, HRE-Q08 new rental units per year, HRE-Q03 residential parcels in flood or coastal risk zones (the cross-sector story).
+
+---
+
+## 6. Data sources
+
+**77 sources** in Source Inventory V1 (`docs/02 Sources/Source Inventory V1.csv`): 60 Open, 7 Mixed, 7 Partner, 3 Private; 49 verified, 17 not checked, 9 restricted, 2 not found. 71 are Tier 1 (official), 6 Tier 2 (derived or partner). Columns include licence, attribution, grain, spatial key, time key, core entities, URL, status and reliability tier.
+
+Key sources:
+
+| ID | Source | Access |
+|---|---|---|
+| SRC-001 | Halifax Transit GTFS-RT vehicle positions | `http://gtfs.halifax.ca/realtime/Vehicle/VehiclePositions.pb` |
+| SRC-002 | GTFS-RT trip updates | `http://gtfs.halifax.ca/realtime/TripUpdate/TripUpdates.pb` (confirmed 20 Nov; the inventory still lists a Mobility Database page) |
+| SRC-003 | GTFS-RT service alerts | `http://gtfs.halifax.ca/realtime/Alert/Alerts.pb` |
+| SRC-004 | GTFS schedule (static) | `http://gtfs.halifax.ca/static/google_transit.zip` |
+| SRC-005 | Bus routes, stops, shelters | HRM ArcGIS REST |
+| SRC-012, 015, 016 | Collisions, street closures, bike infrastructure | HRM ArcGIS REST |
+| SRC-027 to 034 | Core: streets, intersections, civic addresses, parcels, service areas, census 2021 tracts and profile, hourly weather (ECCC GeoMet) | ArcGIS REST, CSV, JSON |
+| SRC-036 to 058 | Public Works: 311 requests, work orders, capital projects, right-of-way permits, winter areas, waste areas, parks, trees, canopy, water quality, flood extents, streetlights | Mostly ArcGIS REST |
+| SRC-059 to 077 | Housing: PVSC assessments (check licence), CMHC rental and starts, short-term rental registry, rental registry, building permits, planning applications, zoning, building footprints | CSV, XLSX, ArcGIS REST |
+
+HRM ArcGIS services are read with `query?where=1=1&outSR=4326&f=geojson`, paged. Licence: Open Government Licence – Halifax. Attribution text shown wherever data appears: "Contains information licensed under the Open Government Licence – Halifax", plus each source's own. The demo only uses Open sources with an API or file download.
+
+**Live feed facts observed 20 Nov:** about 118 to 120 buses live; 410 trip update entries (119 with no trip id, 20 repeated trip ids, 272 distinct trips); 58 active alerts. Trip updates are about 150 KB per fetch gzipped, which at a 30 s poll is roughly 425 MB a day or 3 GB a week of raw files if everything is kept.
+
+**GTFS schedule loaded 20 Nov:** version `2026_08_August_20260806`, valid 24 Aug to 29 Nov 2026; 2,358 stops, 81 routes, 9 service patterns, 82 exceptions, 9,239 trips, 324,165 stop times; 4,186 trips and 145,866 stop times planned on Friday 20 Nov.
+
+---
+
+## 7. Data architecture
+
+**Layers.**
+- **Bronze:** raw files on local disk, exactly as the source sent them, under `data/bronze/<source>/<date>/` (gzipped), plus one row per download in `bronze.feed_fetch`. The view `bronze.feed_gap` reports gaps (Gate 0 evidence).
+- **Silver:** 3NF from Logical Model V1, with SCD Type 2 history.
+- **Gold:** Kimball star schemas, later. Currently holds only the demo's `gold.planned_stop_time(day)` function. New tables, if needed, go here; Silver is never changed without the architect's approval.
+- **Hot path:** collector to live cache to API. **Cold path:** collector to Bronze to Silver to Gold to API. The map never queries the warehouse directly.
+
+**Logical Model V1** (spec: `database/generator/logical_model_spec.py`; live spec artifact and Drive 05 doc). 63 entities, 371 attributes, 3NF. Core 25, Transportation 17, Public Works 13, Housing & Real Estate 8. Supertypes: Location (6 subtypes, incomplete), Party (Organization, incomplete), Asset (8, incomplete), Event (26, complete). Key decisions:
+- Trip split into Scheduled Trip (GTFS plan, per schedule version) and Trip (one run per service date). Scheduled Stop Time is reference data. Schedule Version, Service Calendar and Service Calendar Exception keep every GTFS version.
+- Event and Asset carry one optional Location ID, plus a location-rules table.
+- Generic associations: Event Asset Involvement, Event Party Involvement, Event Coverage, Party Asset Role, Location Containment.
+- Surrogate primary keys on kernel entities; the source key is alternate key AK1. Codes are domain valid values, except Sector, Subsector, Source and Measure, which are tables.
+- No personal data. "Presence without a single location" (ride-hailing, online retailers) is handled by Location being a point, line, area, service area or citywide.
+- **Use the model's names exactly. Never invent entity or column names; ask.**
+
+**Physical Model V1** (`database/`, design in `database/docs/physical-model-v1.md`):
+- PostgreSQL + PostGIS 3. Tested on PostgreSQL 16.15 (sandbox) and 18 (demo PC). Schemas `bronze`, `silver` (63 tables, 520 columns), `gold`.
+- Naming: snake_case of logical names; only abbreviation Timestamp to `ts`; prefixes `pk_`, `ak1_`, `fk_`, `ck_`, `ix_`, `trg_`; audit columns `dw_loaded_ts`, `dw_batch_id`.
+- Types: `timestamptz` (UTC), `interval` for GTFS service-day times (which can pass 24:00), `numeric` for money and measures, `geometry(Geometry,4326)`.
+- Keys: identity BY DEFAULT on location, party, asset, event, schedule_version, scheduled_trip. Subtypes share the supertype key. Alternate keys as UNIQUE.
+- History: 22 tables (reference, Location, Party and Asset families) keep current rows with `valid_from_ts`; trigger `silver.fn_scd2_capture` copies old versions to `<table>_hist`; `<table>_timeline` views show the SCD2 shape. Events are not historized in V1.
+- `vehicle_position` is rolled out of Event: PK `(vehicle_asset_id, position_ts)`, generated `position_geom`, monthly partitions Nov 2026 to Dec 2027 plus default.
+- 108 foreign keys, about 60 indexes (56 FK, 2 GiST, 2 event-time). CHECK constraints from domains. `COMMENT ON` for every table and column (the dictionary inside the database).
+- Reference data: 17 sectors, 29 subsectors (28 Phase 1 + CORE-00), Halifax Transit and HRM as parties, SRC-001 to 017, calendar 2015 to 2035 with 6 Nova Scotia general holidays a year (to verify against the Labour Standards Code).
+- Build: `00_create_database.sql`, then `run_all.sql` (01 to 08), then `99_smoke_test.sql` (builds a tiny bus trip, checks 5 things, rolls back). The generator scripts reproduce the SQL byte for byte from the spec.
+
+---
+
+## 8. The application design
+
+Plan: Map Application Plan V1 (Drive 08; `docs/08 Map Application/`). Wireframes: Drive 08 `Wireframes/` (PDF and six PNGs) and a design canvas artifact.
+
+- **Stories.** Question, answer sentence with its number, evidence layers, context, trust (source, as-of time, reliability tier). Stories are configuration, not code.
+- **Lenses.** Live, Replay, Analytics. **City view** shows every sector at once. The map draws the conformed core (Location, Asset, Event plus `sector_id`), so a new sector adds layers, not rewrites. A failed source greys out only its own layer.
+- **Serving API, contract v0** (seven read-only endpoints; the architect approves changes): `GET /v1/stories`, `/v1/stories/{id}`, `/v1/live/{layer}`, `/v1/layers/{layer}`, `/v1/numbers/{id}`, `/v1/features/{kind}/{id}`, `/v1/sources`. Every response uses the envelope `data, as_of, source, reliability_tier, licence`. Every feature carries `kind` (location, asset or event), `sector_id`, `subsector_id`, `id`, `source_key`. This API is also the future public developer API (charter principle 9).
+- **Planned stack** (to confirm in session 0): React + TypeScript + Vite as a PWA; MapLibre GL JS + deck.gl for 2D; Protomaps PMTiles basemap; CesiumJS + Google Photorealistic 3D Tiles through Cesium ion for realistic 3D; Python collectors and FastAPI; PostgreSQL + PostGIS; Power BI then Tableau Public as embedded panels.
+- **Realistic 3D** is core (decided 15 Nov). Google tiles from above; the twin's own open-data 3D model (HRM building footprints plus LiDAR heights and terrain) up close and as the fallback; 2D always works. Google tiles cannot be cached, stored or used for anything but display; show Google and Cesium attribution. Close-up mesh quality is a limit of the data, not a setting.
+- **Interface rules.** Pinned sectors only (max 5) in a left rail (laptop) or chip row (phone); all 17 sectors in a grouped, searchable "All sectors" browser; one search box for places, questions and sectors. Pins from the architect's own Blender models (GLB), three levels of detail; status by shape as well as colour (disc on time, diamond late, ring early). One shared number formatter with units always shown; text in a language file (French-ready). WCAG 2.2 AA, 44 px touch targets, a list view equal to the map, reduced motion respected.
+- **Interim business rules** (not yet decided; kept in `business-rules.yaml`): on time = 60 s early to 300 s late; frequent service = every 15 min or better, weekdays 07:00 to 19:00; 5-minute walk = 400 m in a straight line; keep all raw data; store both the HRM stop number and the GTFS stop_id and show the HRM number.
+- **Stages and gates.** Stage 0 Foundations, Gate 0: 48 hours of feed archived with no gap over 2 minutes; contract approved. Stage 1 Live buses (2D and 3D), Gate 1: live answer matches the raw feed at three sampled moments. Stage 2 First history, Gate 2: one story served from Gold end to end, numbers matching a SQL check. Stage 3 Three sectors, Gate 3: three sectors live in City view. Stage 4 City as a whole, Gate 4: one cross-sector story and one embedded BI panel. Gate verifiers are separate sessions that have not seen the build.
+
+---
+
+## 9. What exists in code
+
+**`main`** (head `dcd9d5d` on 21 Nov): README, `database/` (physical model, generator, docs), `scripts/sync-drive.ps1`, and the Drive mirror in `drive/` and `docs/`.
+
+**Drive mirror.** `scripts/sync-drive.ps1` runs `rclone sync` from the Drive folder "Halifax Twin City" into `drive/` (Docs as .docx, Sheets as .xlsx) and `docs/` (Docs as Markdown, Sheets as CSV, first tab only), then commits and pushes. It excludes the Project Tracker. **`rclone sync` deletes anything in `drive/` or `docs/` that is not on Drive, so never write into those two folders.** Since 21 Nov 17:05 the script pulls and rebases before pushing and fails loudly on push errors (a 07:02 push had been rejected silently). It appears to run on a schedule (syncs at 21:00 on 15 and 16 Nov, 07:02 and 17:04 on 21 Nov).
+
+**Demo, open pull requests (stacked, not merged):**
+
+| PR | Branch | Content |
+|---|---|---|
+| #2 | `d01-demo-skeleton` | `demo/` skeleton; FastAPI serving API and page in one process; `/api/health`, `/api/config` (Cesium token sent only to 127.0.0.1 or ::1; server binds to 127.0.0.1); `start.ps1` (port 8010, `-Port -NoBrowser -Reinstall -Test`); config example; business rules YAML |
+| #3 | `d02-transit-realtime` | Collector for SRC-001 to 003 every 30 s: fetch register, raw files, one transaction per cycle into `vehicle_position`, `asset`/`vehicle`, `event`/`trip`, `event`/`stop_arrival` (passed stops only), `event`/`service_alert` with `event_asset_involvement`; alerts leaving the feed set to Ended. `load.ps1`. Source-to-target mapping in its README |
+| #4 | `d03-gtfs-schedule-loader` | SRC-004 loader: stops and routes as location + asset + stop/route (route lines from shapes), retire missing ones as Inactive, schedule version, calendars, exceptions, scheduled trips and stop times via COPY; `gold.planned_stop_time(day)`; `save_raw_once` |
+| #5 | `d08a-live-summary` | The demo as presented: `/api/now` live numbers with source, as-of and tier; CesiumJS photorealistic 3D and OpenStreetMap 2D; live bus pins from the architect's bus renders, interpolated between GPS reports (60 s behind real time); route lines; bus selection and follow; 30-minute replay; on-time analytics by hour and route; list view; search |
+
+Tests: 20 passing on the last branch. Observed 20 Nov about 20:00: 120 buses, 460 arrivals today, 65 per cent on time under the interim rule, 58 active alerts, 0 failed fetches.
+
+**Verdict and plan for the demo:** it works; its interface is poor and does not follow the wireframes well. Harvest the loaders (`transit_realtime`, `gtfs_schedule`, `common.py`), `gold_planned_stop_time.sql`, the tests, the mapping tables, the learning notes and the bus renders. Rebuild the web app from the wireframes. Session 0 proposes whether to tag `d08a-live-summary` as `demo-2026-11-20` and close the PRs, or merge them.
+
+Older: a first live-bus collector with a Leaflet page was handed over as `halifax-twin-live-buses.zip` and ran on port 8000 on the demo PC.
+
+---
+
+## 10. Machines
+
+- **Build machine (from 21 Nov):** workstation with an NVIDIA GPU (12 GB VRAM), 32 GB RAM, 2 TB storage. OS assumed Windows (repo scripts are PowerShell); to confirm. Everything for the main build runs here. The database does not exist here yet: build it from `database/sql/`.
+- **Demo PC:** Windows, 8 GB RAM, integrated graphics, PostgreSQL 18 + PostGIS 3.7 + pgAdmin, database `halifax_twin` with the demo's collected data. No longer the build target; may stay as the always-on collector host (open question).
+- **Cloud agent sessions** cannot reach either machine's database. Test against a throwaway PostgreSQL + PostGIS in the sandbox and leave runbooks for the architect.
+- **Design for ordinary devices.** The workstation hides performance problems; the app must still run well on a mid-range laptop and a phone. Keep small-device 3D settings (render on change, raised screen-space error, capped pixel ratio) as a device profile.
+
+---
+
+## 11. Decision log
+
+| Date | Decision |
+|---|---|
+| 8 Nov | Phase 1 sectors by scoring rule: Transportation, Public Works, Housing & Real Estate. No personal data in Phase 1. Nine guiding principles (provenance, finest grain first, real-time and history together, additive change, small blast radius, privacy and licences, open by default, one application many layers, API-first). |
+| 14 to 16 Nov | Logical model shape and all 20 proposed changes accepted (see section 7). |
+| 15 Nov | Realistic 3D is core, not optional (Charter V1 says out of scope; V2 must change this). One map, stories as configuration, contract-first. |
+| 16 Nov | No Azure and no paid cloud. Local or genuinely free services only. The plan's Azure, Blob Storage and Static Web Apps references are withdrawn. |
+| 20 Nov | Platform: local PostgreSQL + PostGIS (DuckDB and Databricks no longer needed; Databricks Free Edition only as an optional learning sprint). Silver history: SCD Type 2. Bronze: local raw files plus the fetch register. |
+| 20 Nov | 3D through CesiumJS with the architect's own Cesium ion token (replaces the Google Maps Platform key in the older brief). Token never in the repo or any document. |
+| 20 Nov | Work split for modelling: the architect finishes erwin; Claude drafts steps 9 to 12 for review (step 9 done). |
+| 21 Nov | Main build in Claude Code, on the new workstation. Demo interface to be replaced, demo loaders kept. |
+
+---
+
+## 12. Open questions
+
+For the architect (consolidated from the chats, the handoff note and the demo PRs):
+
+1. Demo PRs #2 to #5: tag and close, or merge into main?
+2. Home for engineering documents outside `docs/` (proposal: `engineering/`).
+3. Build machine: OS, and does it stay on day and night? If not, which machine runs the collector, writing to which database?
+4. Carry the demo PC's collected data over, or start the archive fresh?
+5. Raw retention: trip updates alone are about 425 MB a day. Keep everything, or keep raw vehicle positions and trip updates for a window (proposal: 3 months), then condense to stop arrivals and drop old partitions?
+6. Bronze backup to Drive: yes or no.
+7. `ak1_trip` is unique on `scheduled_trip_id` alone, but a scheduled trip runs on many dates. Proposal: alternate key `(scheduled_trip_id, service date)`, by adding service date to `trip` or enforcing it in step 12 checks. Until then the demo leaves `trip.scheduled_trip_id` empty and links by `<trip_id>|<date>`.
+8. Code values chosen in the demo where the model gives none: GTFS-RT enum names for stop status, occupancy, alert cause and effect; involvement roles "Affected route" and "Affected stop"; wheelchair boarding "No information / Accessible / Not accessible"; stop kind "Stop / Station / Entrance / Node / Boarding area"; location type "Point" for stops and "Line" for route lines. Accept?
+9. `stop_code` unique (`ak1_stop`); a repeat would be stored as empty. Accept?
+10. Event subtype circle in erwin: skip it (same tables either way; recommended) or build it.
+11. Logical model open questions: route patterns; the CORE-00 subsector; merge Area Statistic and Economic Indicator?; PVSC AAN vs PID as the property key; HRM stop number vs GTFS stop_id; waste collection grain.
+12. The interim business rules (on time, frequent service, walking distance): confirm or change.
+13. Charter V2 (3D in scope, local/free platform, PostgreSQL). Public name of the app, sharing of preview links, repository licence.
+14. Free static host for the web app later, if a public URL is wanted.
+15. What exactly felt wrong in the demo interface.
+16. Rotate and restrict the Cesium ion token.
+
+---
+
+## 13. Lessons and gotchas already paid for
+
+- **Windows PowerShell 5.1** saves files with a byte order mark; config readers must accept it. Its stderr handling makes `git` and `rclone` notices look fatal under `$ErrorActionPreference = "Stop"`; judge success by exit codes.
+- **The venv launcher on Windows starts two Python processes**; stopping a collector must stop both.
+- **Port 8000** was taken by the old live-buses app; the demo uses 8010.
+- **GTFS `calendar_dates.txt`** has services with no `calendar.txt` row; give them a calendar row with no weekdays spanning their listed dates, or the foreign key fails.
+- **SCD2 trigger and multi-step writes:** setting a column in a second UPDATE (for example parent stations) creates false history versions. Write the final row in one statement.
+- **GTFS-RT trip updates** include entries with no trip id and repeated trip ids; dedupe on trip id plus service date. The service day rolls over at 03:00, not midnight; GTFS times can exceed 24:00.
+- **Schedule periods end.** The current one ends 29 Nov 2026; reload when Halifax Transit publishes the next file (the loader adds a new version beside the old).
+- **Drive sync deletes** anything in `drive/` and `docs/` not on Drive.
+- **erwin** (for helping the architect): erwin will not attach a subtype that already has a primary key attribute; delete the supertype-to-subtype line first, then add the sub-category. That removes the subtype's key, so child relationships lose role names and must be repaired (Model > Relationships, sort by Parent, Role Name tab). Role names go on the subtype's lines to its children, never on the circle-to-subtype line. Only delete supertype-to-subtype lines. Keep instructions to one subtype at a time.
+
+---
+
+## 14. Where the project is going
+
+**Phases (charter).** 1 Design (nearly done). 2 Prototype: live transit data flowing into the conformed core (the demo did this on one PC; the main build makes it durable). 3 Launch: a public release. 4 Grow.
+
+**Near term (main build).** Session 0 initialization; port the transit collector and run it unattended so the 48-hour Gate 0 archive starts as early as possible (history not archived cannot be rebuilt); contract v0; map shell and design tokens from the wireframes; Cesium 3D view; then stories wave by wave (A to E); then Public Works and Housing loaders; City view; one cross-sector story; one embedded Power BI panel. In parallel, the architect's design steps 10 to 12 and Charter V2.
+
+**Future capabilities (charter).** More sectors (Phase 2 candidates first), more municipalities and provinces on the same model, an AI assistant that answers plain-language questions from the twin's data, predictive analytics and "what if" simulation (rezoning, road closure, 100-year storm), private instances for organisations, partner and IoT sensor data, field data collection, and unstructured sources turned into records with confidence scores. The new GPU makes some of this possible locally later (a local language model, LiDAR processing); nothing is to be installed for it now.
+
+**Learning and certification tracks** (from the plan, adjusted for the local/free decision; confirm current exam names with each vendor): data modelling and data management (erwin, steps 1 to 12); PostgreSQL and PostGIS spatial SQL; medallion pipelines, SCD2, star schemas and data quality (optionally a Databricks Free Edition or Microsoft Fabric trial sprint for those certifications); ArcGIS REST and GIS skills; Power BI data analyst and Tableau for Stage 4. Learning notes from every task are the study material.
+
+**Prior art the charter learns from:** Canada's Digital Twin (Carleton Immersive Media Studio), Toronto's digital twin, Vancouver, Montreal and Calgary twins. Open item: review Virtual Singapore and Helsinki's city model before Charter V2.
+
+---
+
+## 15. Where everything is
+
+**GitHub:** https://github.com/emmanuelebube13/halifax-twin-city (public).
+
+**Google Drive**, folder "Halifax Twin City" (id `1fmeAYY5hzK1uW83A-AeMFY_91DWzE1Jb`):
+
+| Folder | Contents |
+|---|---|
+| 00 Project Management | Project Charter V1; Project Tracker (private, not synced) |
+| 01 Requirements and Domains | Business Questions register, Domain Mapping, Domain Map, City Domains image |
+| 02 Sources | Source Inventory V1 |
+| 03 Conceptual Model | draw.io and PNG |
+| 04 Data Flow Model | `Halifax_Twin_DFD_v3.drawio` |
+| 05 Logical Model (id `1YNQ-lpGQPLmS4ifolNHEoyKqAM56RLld`) | Logical Model V1; erwin import script; `erwin/` subfolder (id `10LYG5sSMIzBbw__mul2DSCWoxlCUEKa5`) |
+| 06 Physical Model (id `19OxER5Uc6Vxu9LJVjF85T8U8BwhLyo_h`) | Physical Model V1, Modeling Style by Layer, Learning Notes |
+| 07 Mapping, Dictionary and Standards (id `14oRyQvJrIkxVfiySJJ8pl9RDETYu4ZT9`) | Empty, for steps 10 to 12 |
+| 08 Map Application (id `19Ip8jbreU-RfPg5cs6jcjYc6vptOe_AQ`) | Plan V1; "00 Start here" briefs (main, DEMO build, Claude Code handoff MAIN BUILD); task cards T01 to T30; `Wireframes/`; `Repository files/` |
+
+Direct links:
+- Claude Code handoff, MAIN BUILD: https://docs.google.com/document/d/1eneC3wDL9Vi3VowNdkD0_WKt-MCdXZvPQSaUkEZhYqM/edit
+- Map Application Plan V1: https://docs.google.com/document/d/13UBh3vM42Ky0p54qcP3HjdFZTR8PMiADtb1MkmFlOwM/edit
+- Main agent brief (15 Nov, partly outdated): https://docs.google.com/document/d/18FLIm3dkRF3D9yK-21ZgVlhMSWhpjW8tbDHJ5xTYkyA/edit
+- Demo agent brief: https://docs.google.com/document/d/1LspsgF49mtfqS5PI0BNIyeRW1k4YcTFkI-s5tab8qg4/edit
+- Task cards T01 to T30 (partly outdated): https://docs.google.com/document/d/1iXvwfDGsk8FTVPvbUZFQkD8iWC9l6eNLWVx2SO4HT80/edit
+- Project Charter V1: https://docs.google.com/document/d/1XowLb9O2JuxJ3-cO5yi6S0cFWsZV9jtJNfaTWLcJ6Bc/edit
+- Business Questions register: https://docs.google.com/spreadsheets/d/1Zl0xTYPy1RzQD5fEkgHTlOl7AjKQeiY0YGt6puWCB1I/edit
+- Domain Mapping: https://docs.google.com/spreadsheets/d/1u9ompZL5ZxIAROX2DkJC5EC1LA5vEcYDzFTdkt0Tii0/edit
+
+**claude.ai artifacts** (the architect's account; may not be reachable from an agent session): Map Application Plan living doc `https://claude.ai/artifact/MmxFJvk5NXcKLHLJKDHVYq`; wireframes canvas `https://claude.ai/artifact/Ayi5rJU8nQfWT6nk2FAtQo`; Logical Model V1 live spec `https://claude.ai/artifact/LDAxLKkDAGVtMeSmtsV39r`. Drive copies exist for each.
+
+**claude.ai project** "Halifax Twin City" holds short running notes (`logical-model-v1.md`, `physical-model-v1.md`, `map-application-plan-v1.md`) that the chat sessions keep up to date. This file consolidates them as of 21 Nov.
+
+---
+
+## 16. Rules for agents, in short
+
+The full rules are in the handoff note, section 5. The ones most often broken:
+
+1. Never write into `drive/` or `docs/`.
+2. Never commit or repeat a secret.
+3. Use the logical model's names exactly; never change Silver without approval.
+4. One task, one branch, one pull request with tests and a "How I verified" section; the architect merges.
+5. End every task with a learning note and every session with a report: done, evidence, blocked, numbered questions.
+6. Spend nothing; stop and ask.
+7. No emoji, sentence case, Canadian spelling, Halifax time, 24-hour clock.
