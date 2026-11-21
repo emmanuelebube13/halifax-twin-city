@@ -7,52 +7,152 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/cesium@1.123.0/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <link rel="stylesheet" href="css/app.css">
+  <script src="https://cdn.jsdelivr.net/npm/cesium@1.123.0/Build/Cesium/Cesium.js"></script>
 </head>
 <body>
   <header class="top-bar">
     <div class="brand"><span class="brand-mark" aria-hidden="true"></span>Halifax Twin</div>
-    <input class="search" type="search" placeholder="Search a place, a question or a sector" disabled
-           aria-label="Search (arrives in a later task)">
-    <div class="view-switch" role="group" aria-label="Map view">
-      <button type="button" id="btn-2d" class="active">2D</button>
-      <button type="button" id="btn-3d" disabled title="Needs a Cesium ion token">3D</button>
+    <div class="search-box">
+      <input class="search" id="search" type="search" placeholder="Search a route, a bus or a sector" autocomplete="off"
+             aria-label="Search a route, a bus or a sector">
+      <ul class="search-results" id="search-results" hidden></ul>
     </div>
-    <button type="button" class="list-view" disabled>List view</button>
+    <div class="view-switch" role="group" aria-label="Map view">
+      <button type="button" id="btn-2d">2D</button>
+      <button type="button" id="btn-3d" title="Needs a Cesium ion token">3D</button>
+    </div>
+    <button type="button" class="list-view" id="btn-list">List view</button>
   </header>
 
   <nav class="sector-rail" aria-label="Sectors">
-    <button type="button" class="sector active">City</button>
-    <button type="button" class="sector">Transportation</button>
-    <button type="button" class="sector">Public Works</button>
-    <button type="button" class="sector">Housing</button>
+    <button type="button" class="sector active" data-sector="city">City</button>
+    <button type="button" class="sector" data-sector="transportation">Transportation</button>
+    <button type="button" class="sector" data-sector="public_works">Public Works</button>
+    <button type="button" class="sector" data-sector="housing">Housing</button>
     <hr>
-    <button type="button" class="sector">All sectors</button>
-    <button type="button" class="sector sources">Sources</button>
+    <button type="button" class="sector" data-sector="all">All sectors</button>
+    <button type="button" class="sector sources" data-sector="sources">Sources</button>
   </nav>
 
-  <main class="map-area" id="map">
+  <main class="map-area">
+    <div id="map" class="map"></div>
     <div class="lens" role="group" aria-label="Lens">
-      <button type="button" class="active">Live</button>
-      <button type="button" disabled>Replay</button>
-      <button type="button" disabled>Analytics</button>
+      <button type="button" data-lens="live" class="active">Live</button>
+      <button type="button" data-lens="replay">Replay</button>
+      <button type="button" data-lens="analytics">Analytics</button>
     </div>
-    <div class="map-placeholder">
-      <p class="placeholder-title">The map arrives in task D09.</p>
-      <p>This is the empty demo shell from task D01. The API and the page run as one process.</p>
+    <div class="map-controls">
+      <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+      <button type="button" id="zoom-out" aria-label="Zoom out">&minus;</button>
+      <button type="button" id="reset-view" aria-label="Reset view" title="Reset view">N</button>
     </div>
-    <div class="credits" id="credits">Updated <span id="as-of">–</span></div>
+    <div class="replay-bar" id="replay-bar" hidden>
+      <span id="replay-clock">Replay</span>
+      <label>Speed
+        <select id="replay-speed">
+          <option value="10">10x</option>
+          <option value="30" selected>30x</option>
+          <option value="60">60x</option>
+        </select>
+      </label>
+      <button type="button" id="replay-pause">Pause</button>
+    </div>
+    <div class="legend" aria-label="Legend">
+      <span><i class="dot on-time"></i>On time</span>
+      <span><i class="dot late"></i>Late</span>
+      <span><i class="dot early"></i>Early</span>
+      <span><i class="dot unknown"></i>No arrival yet</span>
+    </div>
+    <div class="map-message" id="map-message" hidden></div>
+    <div class="updated" id="updated">Loading</div>
   </main>
 
-  <aside class="side-panel" aria-label="Now in Halifax">
-    <h1>Now in Halifax</h1>
-    <p class="lede">Demo shell. No data layers yet.</p>
-    <h2>System check</h2>
-    <dl class="checks" id="checks">
-      <dt>API</dt><dd id="chk-api">Checking</dd>
-      <dt>Database</dt><dd id="chk-db">Checking</dd>
-      <dt>3D view</dt><dd id="chk-3d">Checking</dd>
-    </dl>
+  <aside class="side-panel" aria-label="Details">
+    <!-- one bus -->
+    <section class="panel" id="panel-bus" hidden>
+      <div class="panel-head"><h1 id="sel-title">Bus</h1><button type="button" class="link" data-close>Close</button></div>
+      <img class="bus-photo" src="img/bus-front.png" alt="Halifax Transit bus" width="480" height="254">
+      <p class="answer" id="sel-answer"></p>
+      <dl class="checks">
+        <dt>Route</dt><dd><button type="button" class="link" id="sel-route">–</button></dd>
+        <dt>Last stop</dt><dd id="sel-stop">–</dd>
+        <dt>Delay</dt><dd id="sel-delay">–</dd>
+        <dt>Speed</dt><dd id="sel-speed">–</dd>
+        <dt>Position at</dt><dd id="sel-ts">–</dd>
+      </dl>
+      <button type="button" class="action" id="sel-follow">Follow this bus</button>
+      <p class="footnote">Source: Halifax Transit GTFS Realtime (SRC-001, SRC-002). Reliability: Tier 1 – Official.
+        On time = 60 s early to 300 s late.</p>
+    </section>
+
+    <!-- one route -->
+    <section class="panel" id="panel-route" hidden>
+      <div class="panel-head"><h1 id="route-title">Route</h1><button type="button" class="link" data-close>Close</button></div>
+      <p class="answer" id="route-answer"></p>
+      <h2>Buses on this route now</h2>
+      <ul class="rows" id="route-buses"></ul>
+      <p class="footnote">Source: Halifax Transit GTFS schedule (SRC-004) and realtime (SRC-001, SRC-002).</p>
+    </section>
+
+    <!-- list of buses -->
+    <section class="panel" id="panel-list" hidden>
+      <div class="panel-head"><h1>All buses</h1><button type="button" class="link" data-close>Close</button></div>
+      <p class="lede" id="list-lede"></p>
+      <ul class="rows" id="list-rows"></ul>
+    </section>
+
+    <!-- analytics -->
+    <section class="panel" id="panel-analytics" hidden>
+      <div class="panel-head"><h1>On time today</h1><button type="button" class="link" data-close>Close</button></div>
+      <p class="answer" id="an-answer">Loading</p>
+      <h2>By hour</h2>
+      <div class="bars" id="an-hours"></div>
+      <h2>Routes least on time</h2>
+      <ul class="rows" id="an-routes"></ul>
+      <p class="footnote" id="an-trust"></p>
+    </section>
+
+    <!-- overview -->
+    <section class="panel" id="panel-overview">
+      <h1>Now in Halifax</h1>
+      <p class="lede" id="now-lede">Loading live numbers</p>
+      <ul class="sectors-now">
+        <li><button type="button" data-sector="transportation"><span>Transportation</span><strong id="now-trn">–</strong></button></li>
+        <li><button type="button" data-sector="public_works"><span>Public Works</span><strong id="now-pwk" class="muted">–</strong></button></li>
+        <li><button type="button" data-sector="housing"><span>Housing</span><strong id="now-hre" class="muted">–</strong></button></li>
+      </ul>
+      <p class="notice" id="sector-notice" hidden></p>
+
+      <h2>Questions you can ask</h2>
+      <button type="button" class="question" data-question="TRN-Q01">
+        <small>TRN-Q01</small>Where is every bus right now, and is it on time?
+      </button>
+
+      <h2>Layers</h2>
+      <ul class="layers">
+        <li><label><input type="checkbox" id="layer-buses" checked> Live buses</label></li>
+        <li><label><input type="checkbox" id="layer-routes" checked> Bus routes</label></li>
+      </ul>
+
+      <h2>Transportation now</h2>
+      <dl class="checks">
+        <dt>Buses live</dt><dd id="trn-buses">–</dd>
+        <dt>On time</dt><dd id="trn-ontime">–</dd>
+        <dt>Late / early</dt><dd id="trn-late">–</dd>
+        <dt>Active alerts</dt><dd id="trn-alerts">–</dd>
+        <dt>Trips planned today</dt><dd id="trn-trips">–</dd>
+      </dl>
+      <p class="footnote" id="trn-trust"></p>
+
+      <h2>System check</h2>
+      <dl class="checks">
+        <dt>API</dt><dd id="chk-api">Checking</dd>
+        <dt>Database</dt><dd id="chk-db">Checking</dd>
+        <dt>3D view</dt><dd id="chk-3d">Checking</dd>
+      </dl>
+    </section>
     <p class="footnote">Every number shows its source and the time it was last updated.</p>
     <p class="footnote" id="attribution"></p>
   </aside>

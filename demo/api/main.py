@@ -9,8 +9,10 @@ import datetime as dt
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from . import layers
 from .settings import WEB_DIR, Settings, load_settings
 
 APP_VERSION = "0.1.0-d01"
@@ -45,6 +47,65 @@ def check_database(database_url: str | None) -> dict:
         return {"configured": True, "reachable": False, "message": type(e).__name__ + ": " + str(e).strip()[:300]}
 
 
+NOW_SQL = """
+WITH pos AS (
+    SELECT count(DISTINCT vehicle_asset_id) AS buses, max(position_ts) AS newest
+      FROM silver.vehicle_position WHERE position_ts > now() - interval '3 minutes'
+),
+arr AS (
+    SELECT count(reported_delay_seconds) AS arrivals,
+           count(*) FILTER (WHERE reported_delay_seconds BETWEEN %(early)s AND %(late)s) AS on_time,
+           count(*) FILTER (WHERE reported_delay_seconds > %(late)s) AS late,
+           count(*) FILTER (WHERE reported_delay_seconds < %(early)s) AS early,
+           max(e.event_start_ts) AS newest
+      FROM silver.stop_arrival sa JOIN silver.event e USING (event_id)
+     WHERE e.event_start_ts > now() - interval '30 minutes'
+),
+alr AS (
+    SELECT count(*) AS active FROM silver.event
+     WHERE source_id = 'SRC-003' AND event_type_code = 'Service Alert' AND event_status_code = 'Active'
+),
+sched AS (
+    SELECT count(DISTINCT scheduled_trip_id) AS trips_today
+      FROM gold.planned_stop_time((now() AT TIME ZONE 'America/Halifax')::date)
+     WHERE stop_sequence_number = 1
+)
+SELECT pos.buses, pos.newest, arr.arrivals, arr.on_time, arr.late, arr.early, arr.newest,
+       alr.active, sched.trips_today
+  FROM pos, arr, alr, sched
+"""
+
+
+def live_transit(database_url: str | None, rules: dict) -> dict:
+    """Transportation numbers for the side panel. Never raises: a failure comes back as available = false."""
+    if not database_url:
+        return {"available": False, "message": "Database not configured."}
+    on_time = rules.get("on_time", {})
+    try:
+        import psycopg
+        with psycopg.connect(database_url, connect_timeout=3) as conn:
+            r = conn.execute(NOW_SQL, {"early": on_time.get("early_limit_seconds", -60),
+                                       "late": on_time.get("late_limit_seconds", 300)}).fetchone()
+    except Exception as e:
+        return {"available": False, "message": type(e).__name__ + ": " + str(e).strip()[:300]}
+    buses, pos_ts, arrivals, ok, late, early, arr_ts, alerts, trips_today = r
+    as_of = max([t for t in (pos_ts, arr_ts) if t], default=None)
+    return {
+        "available": True,
+        "as_of": as_of.astimezone(HALIFAX).isoformat(timespec="seconds") if as_of else None,
+        "buses_live": buses,
+        "arrivals_last_30_min": arrivals,
+        "on_time": ok, "late": late, "early": early,
+        "on_time_percent": round(100 * ok / arrivals, 1) if arrivals else None,
+        "alerts_active": alerts,
+        "trips_planned_today": trips_today,
+        "on_time_rule": f"{-on_time.get('early_limit_seconds', -60)} s early to {on_time.get('late_limit_seconds', 300)} s late",
+        "sources": ["SRC-001 vehicle positions", "SRC-002 trip updates", "SRC-003 service alerts", "SRC-004 GTFS schedule"],
+        "reliability_tier": "Tier 1 – Official",
+        "attribution": ATTRIBUTION,
+    }
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or load_settings()
     app = FastAPI(title="Halifax Digital Twin demo API", version=APP_VERSION,
@@ -55,6 +116,40 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def health():
         return {"status": "ok", "app_version": APP_VERSION, "as_of": halifax_now(),
                 "database": check_database(settings.database_url), "attribution": ATTRIBUTION}
+
+    @app.get("/api/now")
+    def now_in_halifax():
+        """Live numbers per sector for the side panel. Public Works and Housing arrive with D06 and D07."""
+        return {"as_of": halifax_now(),
+                "transportation": live_transit(settings.database_url, settings.business_rules),
+                "public_works": {"available": False, "message": "Arrives with task D06."},
+                "housing": {"available": False, "message": "Arrives with task D07."}}
+
+    def with_db(fn):
+        if not settings.database_url:
+            return JSONResponse({"error": "Database not configured."}, status_code=503)
+        try:
+            import psycopg
+            with psycopg.connect(settings.database_url, connect_timeout=3) as conn:
+                return fn(conn)
+        except Exception as e:
+            return JSONResponse({"error": type(e).__name__ + ": " + str(e).strip()[:300]}, status_code=503)
+
+    @app.get("/api/layers/transportation/buses")
+    def layer_buses():
+        return with_db(lambda conn: layers.buses(conn, settings.business_rules))
+
+    @app.get("/api/layers/transportation/routes")
+    def layer_routes():
+        return with_db(layers.routes)
+
+    @app.get("/api/layers/transportation/trails")
+    def layer_trails(minutes: int = 3):
+        return with_db(lambda conn: layers.trails(conn, minutes))
+
+    @app.get("/api/analytics/transportation")
+    def analytics_transportation():
+        return with_db(lambda conn: layers.analytics(conn, settings.business_rules))
 
     @app.get("/api/config")
     def config(request: Request):
