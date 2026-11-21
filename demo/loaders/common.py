@@ -88,6 +88,19 @@ def save_raw(d: Download, name: str, suffix: str, compress: bool = True) -> Path
     return path
 
 
+def save_raw_once(conn, d: Download, name: str, suffix: str, compress: bool = True) -> Path | None:
+    """Like save_raw, but an identical file already kept for this source is reused instead of saved again."""
+    if not d.content:
+        return None
+    row = conn.execute(
+        """SELECT file_path FROM bronze.feed_fetch
+            WHERE source_id = %s AND file_sha256 = %s AND file_path IS NOT NULL
+            ORDER BY fetched_ts DESC LIMIT 1""", (d.source_id, d.sha256)).fetchone()
+    if row and (DEMO_DIR / row[0]).exists():
+        return DEMO_DIR / row[0]
+    return save_raw(d, name, suffix, compress)
+
+
 def log_fetch(conn, d: Download, path: Path | None, header_ts: dt.datetime | None = None,
               entity_count: int | None = None) -> int:
     """One row in bronze.feed_fetch per download. Returns fetch_id, used as dw_batch_id downstream."""

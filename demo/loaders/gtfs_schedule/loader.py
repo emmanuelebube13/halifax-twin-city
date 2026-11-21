@@ -14,7 +14,7 @@ import datetime as dt
 import re
 from pathlib import Path
 
-from ..common import DEMO_DIR, Download, connect, download, halifax_time, log_fetch, save_raw
+from ..common import DEMO_DIR, Download, connect, download, halifax_time, log_fetch, save_raw_once
 from . import gtfs
 
 SOURCE_ID = "SRC-004"
@@ -202,7 +202,7 @@ def run(file: Path | None = None):
         d = download(SOURCE_ID, URL, timeout=120)
 
     with connect() as conn:
-        path = save_raw(d, "google_transit", "zip", compress=False) if d.ok else None
+        path = save_raw_once(conn, d, "google_transit", "zip", compress=False) if d.ok else None
         batch_id = log_fetch(conn, d, path)
         conn.commit()
         if not d.ok:
