@@ -1,74 +1,56 @@
 <#
 .SYNOPSIS
-  Starts the Halifax Digital Twin demo (API and web page, one process).
+  Starts the Halifax Digital Twin demo: the app (API and web page) and the live transit collector.
 
 .DESCRIPTION
   The first run creates demo\.venv and installs demo\requirements.txt. The packages are
-  installed again only when requirements.txt changes. Then the app starts at
-  http://localhost:8010 and the browser opens. Stop with Ctrl+C.
+  installed again only when requirements.txt changes. Then:
+    - the live transit collector starts in the background (when the database is configured),
+      writing to demo\data\logs\transit_realtime.log;
+    - the app starts at http://localhost:8010 and the browser opens.
+  Stop with Ctrl+C: the collector stops with the app.
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File demo\start.ps1
   powershell -ExecutionPolicy Bypass -File demo\start.ps1 -Port 8020 -NoBrowser
+  powershell -ExecutionPolicy Bypass -File demo\start.ps1 -NoCollector
   powershell -ExecutionPolicy Bypass -File demo\start.ps1 -Test
 #>
 param(
   [int]$Port = 0,
   [switch]$NoBrowser,
+  [switch]$NoCollector,
   [switch]$Reinstall,
   [switch]$Test
 )
 
 $ErrorActionPreference = "Stop"
 $demo = $PSScriptRoot
-$venv = Join-Path $demo ".venv"
-$py = Join-Path $venv "Scripts\python.exe"
-$req = Join-Path $demo "requirements.txt"
-$stamp = Join-Path $venv "requirements.sha256"
+. (Join-Path $demo "scripts\venv.ps1")
+$py = Initialize-DemoVenv -Demo $demo -Reinstall:$Reinstall
 
-function Find-Python {
-  # Python 3.12 or newer, from the py launcher first, then PATH.
-  $candidates = @()
-  if (Get-Command py -ErrorAction SilentlyContinue) { $candidates += , @("py", "-3") }
-  if (Get-Command python -ErrorAction SilentlyContinue) { $candidates += , @("python") }
-  foreach ($c in $candidates) {
-    $exe = $c[0]; $pre = @($c | Select-Object -Skip 1)
-    $v = & $exe @pre -c "import sys; print('%d.%d' % sys.version_info[:2])" 2>$null
-    if ($LASTEXITCODE -eq 0 -and [version]$v -ge [version]"3.12") { return , $c }
-  }
-  throw "Python 3.12 or newer was not found. Install it from python.org and tick 'Add python.exe to PATH'."
-}
+$dataDir = Join-Path $demo "data"
+$logDir = Join-Path $dataDir "logs"
+$pidFile = Join-Path $dataDir "transit_realtime.pid"
+$collector = $null
 
-# 1. Virtual environment
-if ($Reinstall -and (Test-Path $venv)) { Remove-Item -Recurse -Force $venv }
-if (-not (Test-Path $py)) {
-  $p = Find-Python
-  Write-Host "Creating demo\.venv with $($p -join ' ')"
-  $pre = @($p | Select-Object -Skip 1)
-  & $p[0] @pre -m venv $venv
-  if ($LASTEXITCODE -ne 0) { throw "Could not create the virtual environment." }
-}
-
-# 2. Packages (only when requirements.txt changed)
-$hash = (Get-FileHash $req -Algorithm SHA256).Hash
-$old = if (Test-Path $stamp) { (Get-Content $stamp -Raw).Trim() } else { "" }
-if ($hash -ne $old) {
-  Write-Host "Installing Python packages (first run, or requirements.txt changed)"
-  & $py -m pip install --disable-pip-version-check -q --upgrade pip
-  & $py -m pip install --disable-pip-version-check -q -r $req
-  if ($LASTEXITCODE -ne 0) { throw "pip install failed." }
-  Set-Content -Path $stamp -Value $hash -Encoding ascii
+function Stop-DemoCollector {
+  # Stops the collector this script started, and any left over from a window that was closed.
+  # A venv's python.exe on Windows starts a second python process, so stop every collector process.
+  Get-CimInstance Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match "-m loaders\.transit_realtime" } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+  Remove-Item $pidFile -ErrorAction SilentlyContinue
 }
 
 Push-Location $demo
 try {
-  # Tests only
   if ($Test) {
     & $py -m pytest -q tests
     exit $LASTEXITCODE
   }
 
-  # 3. Port: -Port, else config.local.json, else 8010 (8000 is the old live-buses app)
+  # Port: -Port, else config.local.json, else 8010 (8000 was the old live-buses app)
   if ($Port -eq 0) {
     $Port = 8010
     $local = Join-Path $demo "config.local.json"
@@ -87,12 +69,25 @@ try {
     exit 1
   }
 
-  if (-not (Test-Path (Join-Path $demo "config.local.json"))) {
-    Write-Host "No demo\config.local.json yet: the app starts without the database and without 3D."
+  $dbReady = Test-DemoDatabaseConfigured -Demo $demo
+  if (-not $dbReady) {
+    Write-Host "No database configured: the app starts without data, and the collector does not start."
     Write-Host "Copy demo\config.example.json to demo\config.local.json and fill it in."
   }
 
-  # 4. Open the browser once the server answers
+  # Live transit collector, in the background
+  if ($dbReady -and -not $NoCollector) {
+    Stop-DemoCollector
+    New-Item -ItemType Directory -Force $logDir | Out-Null
+    $log = Join-Path $logDir "transit_realtime.log"
+    $collector = Start-Process -FilePath $py -ArgumentList "-u", "-m", "loaders.transit_realtime" `
+      -WorkingDirectory $demo -WindowStyle Hidden -PassThru `
+      -RedirectStandardOutput $log -RedirectStandardError (Join-Path $logDir "transit_realtime.err.log")
+    Set-Content -Path $pidFile -Value $collector.Id -Encoding ascii
+    Write-Host "Live transit collector started (log: demo\data\logs\transit_realtime.log)"
+  }
+
+  # Open the browser once the server answers
   if (-not $NoBrowser) {
     Start-Job -ScriptBlock {
       param($u)
@@ -107,6 +102,7 @@ try {
   & $py -m uvicorn api.main:app --host 127.0.0.1 --port $Port
 }
 finally {
+  Stop-DemoCollector
   Pop-Location
   Get-Job | Remove-Job -Force -ErrorAction SilentlyContinue
 }

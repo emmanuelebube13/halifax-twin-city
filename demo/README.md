@@ -10,14 +10,23 @@ From the repository folder, in PowerShell:
 powershell -ExecutionPolicy Bypass -File demo\start.ps1
 ```
 
-The first run takes a few minutes: it creates `demo\.venv` and installs the packages. After that it starts in seconds. The browser opens http://localhost:8010. Stop with Ctrl+C.
+The first run takes a few minutes: it creates `demo\.venv` and installs the packages. After that it starts in seconds. It starts the live transit collector in the background (when the database is configured), then the app, and the browser opens http://localhost:8010. Stop with Ctrl+C: the collector stops too.
 
 | Option | Does |
 | --- | --- |
 | `-Port 8020` | Use another port (default 8010) |
 | `-NoBrowser` | Don't open the browser |
+| `-NoCollector` | Don't start the live transit collector |
 | `-Reinstall` | Rebuild `demo\.venv` from scratch |
 | `-Test` | Run the tests instead of the app |
+
+## Load the data
+
+```powershell
+powershell -ExecutionPolicy Bypass -File demo\load.ps1 all
+```
+
+`all` runs every one-off loader in order. `load.ps1 list` shows them; `load.ps1 <name>` runs one. Each loader has a README in `demo/loaders/<name>/` with its source-to-target mapping.
 
 ## Configure it (once, on the demo PC)
 
