@@ -46,7 +46,21 @@
 
   <aside class="side-panel" aria-label="Now in Halifax">
     <h1>Now in Halifax</h1>
-    <p class="lede">Demo shell. No data layers yet.</p>
+    <p class="lede" id="now-lede">Loading live numbers</p>
+    <ul class="sectors-now">
+      <li><span>Transportation</span><strong id="now-trn">–</strong></li>
+      <li><span>Public Works</span><strong id="now-pwk" class="muted">–</strong></li>
+      <li><span>Housing</span><strong id="now-hre" class="muted">–</strong></li>
+    </ul>
+    <h2>Transportation now</h2>
+    <dl class="checks" id="trn-detail">
+      <dt>Buses live</dt><dd id="trn-buses">–</dd>
+      <dt>On time</dt><dd id="trn-ontime">–</dd>
+      <dt>Late / early</dt><dd id="trn-late">–</dd>
+      <dt>Active alerts</dt><dd id="trn-alerts">–</dd>
+      <dt>Trips planned today</dt><dd id="trn-trips">–</dd>
+    </dl>
+    <p class="footnote" id="trn-trust"></p>
     <h2>System check</h2>
     <dl class="checks" id="checks">
       <dt>API</dt><dd id="chk-api">Checking</dd>

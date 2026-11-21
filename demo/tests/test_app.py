@@ -77,3 +77,9 @@ def test_settings_read_file_saved_with_byte_order_mark(tmp_path):
     cfg = tmp_path / "config.local.json"
     cfg.write_text(json.dumps({"port": 8030}), encoding="utf-8-sig")
     assert load_settings(cfg, tmp_path / "missing.yaml").port == 8030
+
+
+def test_now_without_database_reports_not_available():
+    body = make_client().get("/api/now").json()
+    assert body["transportation"] == {"available": False, "message": "Database not configured."}
+    assert body["public_works"]["available"] is False and body["housing"]["available"] is False
