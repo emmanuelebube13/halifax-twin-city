@@ -143,6 +143,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def layer_routes():
         return with_db(layers.routes)
 
+    @app.get("/api/layers/transportation/trails")
+    def layer_trails(minutes: int = 3):
+        return with_db(lambda conn: layers.trails(conn, minutes))
+
+    @app.get("/api/analytics/transportation")
+    def analytics_transportation():
+        return with_db(lambda conn: layers.analytics(conn, settings.business_rules))
+
     @app.get("/api/config")
     def config(request: Request):
         """Settings the page needs. The Cesium token goes to the page only when it is opened on this PC."""

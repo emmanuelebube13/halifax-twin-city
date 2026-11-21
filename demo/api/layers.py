@@ -100,3 +100,71 @@ def routes(conn) -> dict:
             "attribution": ATTRIBUTION}
     _routes_cache.update(at=time.monotonic(), body=body)
     return body
+
+
+TRAILS_SQL = """
+SELECT vehicle_asset_id, extract(epoch FROM position_ts) * 1000, position_longitude, position_latitude
+  FROM silver.vehicle_position
+ WHERE position_ts > now() - make_interval(mins => %s)
+ ORDER BY vehicle_asset_id, position_ts
+"""
+
+
+def trails(conn, minutes: int) -> dict:
+    """Every GPS point of every bus over the last N minutes, for animation and replay.
+    Shape: {"buses": {"<vehicle_asset_id>": [[epoch_ms, lon, lat], ...]}}"""
+    minutes = max(1, min(int(minutes), 60))
+    out: dict[str, list] = {}
+    for vid, ms, lon, lat in conn.execute(TRAILS_SQL, (minutes,)).fetchall():
+        out.setdefault(str(vid), []).append([int(ms), float(lon), float(lat)])
+    return {"minutes": minutes, "buses": out, "count": len(out),
+            "as_of": dt.datetime.now(HALIFAX).isoformat(timespec="seconds"),
+            "source": "SRC-001 vehicle positions (Halifax Transit)", "reliability_tier": "Tier 1 – Official",
+            "attribution": ATTRIBUTION}
+
+
+ANALYTICS_SQL = """
+SELECT r.route_short_name, r.route_long_name,
+       count(sa.reported_delay_seconds) AS arrivals,
+       count(*) FILTER (WHERE sa.reported_delay_seconds BETWEEN %(early)s AND %(late)s) AS on_time,
+       count(*) FILTER (WHERE sa.reported_delay_seconds > %(late)s) AS late,
+       count(*) FILTER (WHERE sa.reported_delay_seconds < %(early)s) AS early,
+       round(avg(sa.reported_delay_seconds) / 60.0, 1) AS avg_delay_min
+  FROM silver.stop_arrival sa
+  JOIN silver.event e ON e.event_id = sa.event_id
+  JOIN silver.trip t ON t.event_id = sa.trip_event_id
+  JOIN silver.route r ON r.asset_id = t.route_asset_id
+ WHERE e.event_date = (now() AT TIME ZONE 'America/Halifax')::date
+ GROUP BY 1, 2
+HAVING count(sa.reported_delay_seconds) >= 10
+"""
+
+HOURLY_SQL = """
+SELECT extract(hour FROM e.event_start_ts AT TIME ZONE 'America/Halifax')::int AS hour,
+       count(sa.reported_delay_seconds) AS arrivals,
+       count(*) FILTER (WHERE sa.reported_delay_seconds BETWEEN %(early)s AND %(late)s) AS on_time
+  FROM silver.stop_arrival sa JOIN silver.event e ON e.event_id = sa.event_id
+ WHERE e.event_date = (now() AT TIME ZONE 'America/Halifax')::date
+ GROUP BY 1 ORDER BY 1
+"""
+
+
+def analytics(conn, rules: dict) -> dict:
+    on_time = rules.get("on_time", {})
+    p = {"early": on_time.get("early_limit_seconds", -60), "late": on_time.get("late_limit_seconds", 300)}
+    routes = [{"route": r[0], "route_name": r[1], "arrivals": r[2], "on_time": r[3], "late": r[4], "early": r[5],
+               "avg_delay_min": float(r[6]) if r[6] is not None else None,
+               "on_time_percent": round(100 * r[3] / r[2], 1) if r[2] else None}
+              for r in conn.execute(ANALYTICS_SQL, p).fetchall()]
+    routes.sort(key=lambda r: (r["on_time_percent"] if r["on_time_percent"] is not None else 101))
+    hours = [{"hour": h, "arrivals": a, "on_time": o, "on_time_percent": round(100 * o / a, 1) if a else None}
+             for h, a, o in conn.execute(HOURLY_SQL, p).fetchall()]
+    total = sum(r["arrivals"] for r in routes)
+    ok = sum(r["on_time"] for r in routes)
+    return {"as_of": dt.datetime.now(HALIFAX).isoformat(timespec="seconds"),
+            "question": "TRN-Q01: is every bus on time? Today, by route",
+            "arrivals_today": total, "on_time_percent_today": round(100 * ok / total, 1) if total else None,
+            "routes": routes, "hours": hours,
+            "on_time_rule": f"{-p['early']} s early to {p['late']} s late",
+            "source": "SRC-002 trip updates, SRC-004 schedule (Halifax Transit)", "reliability_tier": "Tier 1 – Official",
+            "attribution": ATTRIBUTION}
