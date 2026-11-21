@@ -77,6 +77,8 @@ Code lives alongside these folders and is committed directly, not synced:
 
 - `database/`: the PostgreSQL + PostGIS physical model, with setup steps in its [README](database/README.md)
 
+Agents working on this repository start with [CLAUDE.md](CLAUDE.md) and [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md): the project's history, decisions, current state, open questions and direction in one place.
+
 ## Data sources and licences
 
 Phase 1 uses open data from the [Halifax Open Data catalogue](https://data-hrm.hub.arcgis.com/pages/open-data-downloads) and the [Halifax Transit GTFS feeds](https://www.halifax.ca/transportation/halifax-transit/transit-technology/general-transit-feed-gtfs), under the Halifax Open Data Licence. Every source, its licence and its attribution are listed in the [source inventory](docs/Source%20Inventory%20V1.csv).
