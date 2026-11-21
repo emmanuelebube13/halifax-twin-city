@@ -49,6 +49,14 @@ if ($LASTEXITCODE -ne 0) { throw "rclone sync of docs/ failed ($LASTEXITCODE)" }
 
 # 3. Commit and push if anything changed
 Set-Location $repo
+
+# Bring in commits made elsewhere (e.g. merged pull requests) first, so the
+# push below is not rejected. Stop rather than guess if that is not clean.
+if (-not $NoPush) {
+  git pull -q --rebase --autostash
+  if ($LASTEXITCODE -ne 0) { throw "git pull --rebase failed ($LASTEXITCODE); sort the repo out by hand, then re-run." }
+}
+
 git add -A drive docs
 git diff --cached --quiet
 if ($LASTEXITCODE -eq 0) {
@@ -62,5 +70,6 @@ Write-Host "Committed: Sync from Google Drive ($stamp)"
 
 if (-not $NoPush) {
   git push -q
+  if ($LASTEXITCODE -ne 0) { throw "git push failed ($LASTEXITCODE); the commit is saved locally and will go up on the next successful run." }
   Write-Host "Pushed to GitHub."
 }
