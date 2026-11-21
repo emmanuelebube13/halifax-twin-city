@@ -22,7 +22,7 @@ $demo = $PSScriptRoot
 $py = Initialize-DemoVenv -Demo $demo
 
 # One-off loaders, in the order "all" runs them. Each later task adds its loaders here.
-$oneOff = @()
+$oneOff = @("gtfs_schedule")
 
 # Loaders that run continuously (start.ps1 starts these with the app).
 $continuous = @("transit_realtime")
