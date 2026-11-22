@@ -22,7 +22,11 @@ $logs = Join-Path $dataDir "logs"
 
 # Stop a process and everything it started (npm starts node; the venv launcher starts python).
 function Stop-Tree([int]$Id) {
-  & taskkill.exe /PID $Id /T /F 2>$null | Out-Null
+  # taskkill writes to stderr when the process is already gone; Windows PowerShell 5.1 turns that into an
+  # error under "Stop", so judge by the exit code instead.
+  $old = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try { & taskkill.exe /PID $Id /T /F 2>&1 | Out-Null } finally { $ErrorActionPreference = $old }
 }
 
 function Stop-Port([string]$Name, [int]$Port, [string]$PidFile) {
