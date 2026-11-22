@@ -1,0 +1,72 @@
+{
+  "id": "TRN-Q03",
+  "question": "Where and when do buses bunch together, arriving close together followed by a long gap?",
+  "title": "Bus bunching",
+  "sector_id": "S04",
+  "subsector_id": "TRN-01",
+  "lenses": [
+    "analytics",
+    "replay"
+  ],
+  "status": "live",
+  "requires": [
+    {
+      "check": "gold_function",
+      "signature": "gold.bunching_by_route_hour(date,date,numeric,numeric)",
+      "note": "Waits for the gold transit measures to be installed (workstream B)."
+    },
+    {
+      "check": "archive_days",
+      "min_days": 1,
+      "note": "Needs at least one whole service day of recorded arrivals; the archive started at 21:05 on 21 Nov 2026."
+    }
+  ],
+  "answer": {
+    "template": "{trn.bunched_share_7d} of judged arrivals in the last 7 service days came bunched behind the bus ahead.",
+    "numbers": [
+      "trn.bunched_share_7d"
+    ],
+    "empty_text": "Not enough recorded arrivals yet."
+  },
+  "evidence": {
+    "layers": [
+      {
+        "layer": "bunching-stops",
+        "path": "layers",
+        "title": "Stops where buses bunch",
+        "property": null,
+        "legend": [
+          {
+            "value": "stop",
+            "label": "Bunching stop",
+            "shape": "disc"
+          }
+        ]
+      },
+      {
+        "layer": "routes",
+        "path": "layers",
+        "title": "Routes",
+        "property": null,
+        "legend": [
+          {
+            "value": "route",
+            "label": "Bus route",
+            "shape": "line"
+          }
+        ]
+      }
+    ]
+  },
+  "context": {
+    "number_id": "trn.bunched_by_hour",
+    "title": "Bunched share by hour, last 7 days"
+  },
+  "trust": {
+    "source_ids": [
+      "SRC-002",
+      "SRC-004"
+    ],
+    "note": "Bunched: less than 0.25 x the planned gap behind the bus ahead; long gap: more than 1.5 x (interim, not yet decided)."
+  }
+}

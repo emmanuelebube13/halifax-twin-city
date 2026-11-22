@@ -42,7 +42,11 @@ class AppConfig:
 def _check_layer(name: str, layer: dict) -> None:
     if layer.get("kind") not in {"location", "asset", "event"}:
         raise ValueError(f"layer {name}: kind must be location, asset or event")
+    if layer.get("gold_measure"):
+        return
     names = [layer["subtype_table"]] if layer.get("subtype_table") else []
+    if layer.get("positive_column"):
+        names.append(layer["positive_column"])
     for value in names + list(layer.get("subtype_columns", [])):
         if not IDENTIFIER.match(value):
             raise ValueError(f"layer {name}: {value!r} is not a plain column or table name")

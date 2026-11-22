@@ -66,9 +66,29 @@ def _ensure_database():
 def database_ready():
     if not _ensure_database():
         pytest.skip("Scratch PostgreSQL is not reachable on localhost:5433.")
-    _run_sql_file(TESTS / "fixtures" / "gold_planned_stop_time.sql")
+    install_gold()
     seed()
     return True
+
+
+GOLD_FILES = ["planned_stop_time.sql", "observed_stop_arrival.sql", "stop_headway.sql", "trn_q02_route_lateness.sql",
+              "trn_q03_bunching.sql", "trn_q04_stop_wait.sql", "trn_q05_trip_status.sql", "trn_q11_segment_speed.sql"]
+
+
+def install_gold():
+    """Workstream B's gold functions: from database/gold once merged, else the pinned copy in tests/fixtures/gold."""
+    folder = REPO_DIR / "database" / "gold"
+    if not (folder / GOLD_FILES[-1]).exists():
+        folder = TESTS / "fixtures" / "gold"
+    for name in GOLD_FILES:
+        _run_sql_file(folder / name)
+
+
+def drop_gold():
+    with psycopg.connect(TEST_DB_URL, autocommit=True) as conn:
+        for (sig,) in conn.execute("""SELECT p.oid::regprocedure::text FROM pg_proc p
+                                         JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'gold'""").fetchall():
+            conn.execute(f"DROP FUNCTION IF EXISTS {sig} CASCADE")
 
 
 def seed():
@@ -102,3 +122,11 @@ def unreachable_client():
     # Port 1 refuses connections at once: the database is "down" for this app.
     with make_client(db_url="postgresql://postgres@127.0.0.1:1/halifax_twin_test_api") as c:
         yield c
+
+
+@pytest.fixture()
+def no_gold(database_ready):
+    drop_gold()
+    with make_client() as c:
+        yield c
+    install_gold()

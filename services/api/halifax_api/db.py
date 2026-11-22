@@ -43,6 +43,10 @@ class Database:
         try:
             with self.pool.connection() as conn:
                 return fn(conn)
+        except psycopg.errors.QueryCanceled as e:
+            # The statement timeout ended one slow query: only this answer is affected, no back-off.
+            log.warning("database query cancelled after the statement timeout")
+            raise SourceUnavailable() from e
         except (psycopg.OperationalError, PoolTimeout, OSError) as e:
             # Cannot reach the server: back off. Log the class only, as messages can carry connection details.
             self._down_until = time.monotonic() + self.BACKOFF_SECONDS

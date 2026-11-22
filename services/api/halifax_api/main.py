@@ -9,6 +9,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 from contextlib import asynccontextmanager
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Path, Query, Request
 from fastapi.exceptions import RequestValidationError
@@ -25,6 +26,7 @@ from .settings import Settings, load_settings
 VERSION = "0.1.0"
 log = logging.getLogger("halifax_api")
 LOCAL_HOSTS = {"127.0.0.1", "::1", "localhost"}
+HALIFAX = ZoneInfo("America/Halifax")
 
 
 class ApiError(Exception):
@@ -209,8 +211,13 @@ def create_app(settings: Settings | None = None, database: Database | None = Non
             raise not_found(f"There is no layer called {layer}.")
         box = parse_bbox(bbox)
         try:
-            fc, as_of, seen = cache.get(("layer", layer, box, limit), conf.get("cache_seconds", 60),
-                                        lambda: layers.generic_layer(db, layer, conf, box, limit))
+            if conf.get("gold_measure"):
+                today = dt.datetime.now(HALIFAX).date()
+                thresholds = cfg.rules.get("transit_measures", {})
+                compute = lambda: layers.gold_stop_layer(db, layer, conf, limit, today, thresholds)  # noqa: E731
+            else:
+                compute = lambda: layers.generic_layer(db, layer, conf, box, limit)  # noqa: E731
+            fc, as_of, seen = cache.get(("layer", layer, box, limit), conf.get("cache_seconds", 60), compute)
         except SourceUnavailable:
             raise ApiError(503, "source_unavailable", UNAVAILABLE, conf.get("source_ids", []))
         return ok(fc, as_of, conf.get("source_ids", []) + seen)

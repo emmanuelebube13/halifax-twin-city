@@ -5,8 +5,13 @@ import json
 
 import pytest
 
+from halifax_api.numbers import NUMBERS
+
 from .conftest import FAKE_TOKEN, make_client
 from .contract import errors
+
+ALL_STORIES = ["TRN-Q01", "PWK-Q13", "HRE-Q29", "TRN-Q02", "TRN-Q03", "TRN-Q04", "TRN-Q05", "TRN-Q11",
+               "PWK-Q16", "TRN-Q25", "TRN-Q09", "HRE-Q08", "HRE-Q30"]
 
 ENVELOPE_KEYS = {"data", "as_of", "source", "reliability_tier", "licence"}
 
@@ -16,14 +21,18 @@ ENDPOINTS = {
     "/v1/client-config": "ClientConfigResponse",
     "/v1/sectors": "SectorRegisterResponse",
     "/v1/stories": "StoryListResponse",
-    "/v1/stories/TRN-Q01": "StoryResponse",
-    "/v1/stories/PWK-Q13": "StoryResponse",
-    "/v1/stories/HRE-Q29": "StoryResponse",
+    **{f"/v1/stories/{sid}": "StoryResponse" for sid in ALL_STORIES},
     "/v1/live/vehicles": "VehicleCollectionResponse",
     "/v1/layers/routes": "FeatureCollectionResponse",
     "/v1/layers/stops": "FeatureCollectionResponse",
     "/v1/layers/road-closures": "FeatureCollectionResponse",
     "/v1/layers/building-permits": "FeatureCollectionResponse",
+    "/v1/layers/road-closures-all": "FeatureCollectionResponse",
+    "/v1/layers/road-closures-upcoming": "FeatureCollectionResponse",
+    "/v1/layers/new-units": "FeatureCollectionResponse",
+    "/v1/layers/completed-permits": "FeatureCollectionResponse",
+    "/v1/layers/bunching-stops": "FeatureCollectionResponse",
+    "/v1/layers/stop-wait": "FeatureCollectionResponse",
     "/v1/layers/stops?bbox=-63.58,44.64,-63.57,44.65&limit=10": "FeatureCollectionResponse",
     "/v1/replay/vehicles?minutes=10": "ReplayResponse",
     "/v1/features/asset/900301": "FeatureDetailResponse",
@@ -34,9 +43,7 @@ ENDPOINTS = {
     "/v1/features/location/900005": "FeatureDetailResponse",
     "/v1/sources": "SourceListResponse",
 }
-NUMBER_IDS = ["trn.buses_live", "trn.on_time_share", "trn.on_time_count", "trn.late_count", "trn.early_count",
-              "trn.on_time_share_24h", "trn.trips_planned_today", "pwk.closures_active", "pwk.closure_median_days",
-              "pwk.closures_by_month", "hre.permits_ytd", "hre.units_created_ytd", "hre.permits_by_year"]
+NUMBER_IDS = sorted(NUMBERS)
 ERRORS = {
     "/v1/layers/parking": 404,
     "/v1/live/ferries": 404,
@@ -113,7 +120,7 @@ def test_transit_numbers(client):
 def test_public_works_and_housing(client):
     closures = client.get("/v1/layers/road-closures").json()["data"]["features"]
     assert [f["id"] for f in closures] == [900011]  # the ended closure is left out
-    assert closures[0]["properties"]["closure_reason_code"] == "Utility work"
+    assert closures[0]["properties"]["closure_reason_code"] == "Utility"
     assert closures[0]["properties"]["sector_id"] == "S05"
     value = lambda n: client.get(f"/v1/numbers/{n}").json()["data"]["value"]  # noqa: E731
     assert value("pwk.closures_active") == 1
@@ -265,3 +272,61 @@ def test_database_down_breaks_only_data_endpoints(unreachable_client):
         assert c.get(url).status_code == 200, url
     health = c.get("/v1/health").json()["data"]
     assert health["status"] == "degraded" and health["database"]["reachable"] is False
+
+
+# ---------------------------------------------------------------- the wider release 1 stories
+
+def test_thirteen_stories_with_honest_status(client):
+    stories = {s["id"]: s for s in client.get("/v1/stories").json()["data"]}
+    assert set(ALL_STORIES) <= set(stories)
+    for sid in ("TRN-Q01", "PWK-Q13", "HRE-Q29", "TRN-Q25", "PWK-Q16"):
+        assert stories[sid]["status"] == "live", sid
+    # The seeded archive spans minutes, not days: analytics stories must say they are collecting data.
+    for sid in ("TRN-Q02", "TRN-Q03", "TRN-Q04", "TRN-Q05", "TRN-Q11", "TRN-Q09"):
+        assert stories[sid]["status"] == "collecting_data", sid
+        assert stories[sid]["status_note"]
+    for sid in ("HRE-Q08", "HRE-Q30"):
+        assert stories[sid]["status"] == "source_incomplete" and stories[sid]["status_note"], sid
+
+
+def test_closures_and_routes(client):
+    upcoming = client.get("/v1/layers/road-closures-upcoming").json()["data"]["features"]
+    assert [f["id"] for f in upcoming] == [900013]
+    assert upcoming[0]["properties"]["near_route_short_names"] == ["1"]
+    assert upcoming[0]["properties"]["duration_days"] == 7.0
+    value = lambda n: client.get(f"/v1/numbers/{n}").json()["data"]["value"]  # noqa: E731
+    assert value("pwk.upcoming_closures_30d") == 1
+    assert value("pwk.upcoming_on_routes_30d") == 1
+    assert value("pwk.upcoming_sidewalk_30d") == 1
+    assert value("trn.closures_in_effect") == 1
+    assert value("trn.closures_on_routes") == 0
+    assert value("trn.closure_delay_gap") is None  # fewer than 30 arrivals beside closures: no answer
+
+
+def test_permit_timing_and_units(client):
+    value = lambda n: client.get(f"/v1/numbers/{n}").json()["data"]["value"]  # noqa: E731
+    assert value("hre.issue_to_completion_median_days") == 370
+    assert [f["id"] for f in client.get("/v1/layers/new-units").json()["data"]["features"]] == [900021]
+    assert [f["id"] for f in client.get("/v1/layers/completed-permits").json()["data"]["features"]] == [900022]
+
+
+def test_gold_measures_answer_from_gold(client):
+    # Today's seeded service day: the gold functions run and return contract-shaped numbers.
+    body = client.get("/v1/numbers/trn.late_share_7d").json()
+    assert errors(body, "NumberResponse") == []
+    body = client.get("/v1/numbers/trn.trips_not_run_by_day").json()
+    assert errors(body, "NumberResponse") == []
+
+
+def test_without_gold_functions(no_gold):
+    c = no_gold
+    for n in ("trn.late_share_7d", "trn.bunched_share_7d", "trn.excess_wait_7d", "trn.trips_not_run_yesterday",
+              "trn.slow_segments_count", "trn.trips_planned_today"):
+        body = c.get(f"/v1/numbers/{n}").json()
+        assert errors(body, "NumberResponse") == [] and body["data"]["value"] is None, n
+    for layer in ("bunching-stops", "stop-wait"):
+        body = c.get(f"/v1/layers/{layer}").json()
+        assert body["data"]["features"] == [], layer
+    story = c.get("/v1/stories/TRN-Q02").json()["data"]
+    assert story["status"] == "collecting_data" and "gold" in story["status_note"]
+    assert c.get("/v1/health").json()["data"]["gold_planned_stop_time"] is False

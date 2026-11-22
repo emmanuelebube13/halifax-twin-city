@@ -1,0 +1,61 @@
+{
+  "id": "TRN-Q25",
+  "question": "How long does each road closure last, and what does it affect?",
+  "title": "Road closures now",
+  "sector_id": "S04",
+  "subsector_id": "TRN-09",
+  "lenses": [
+    "live"
+  ],
+  "status": "live",
+  "answer": {
+    "template": "{trn.closures_in_effect} road closures are in effect now, planned to last {trn.closure_median_days_all} days at the median; {trn.closures_on_routes} of them are on bus routes.",
+    "numbers": [
+      "trn.closures_in_effect",
+      "trn.closure_median_days_all",
+      "trn.closures_on_routes"
+    ],
+    "empty_text": "No road closures are recorded as in effect now."
+  },
+  "evidence": {
+    "layers": [
+      {
+        "layer": "road-closures-all",
+        "path": "layers",
+        "title": "Closures in effect",
+        "property": null,
+        "legend": [
+          {
+            "value": "closure",
+            "label": "Closure in effect",
+            "shape": "line"
+          }
+        ]
+      },
+      {
+        "layer": "routes",
+        "path": "layers",
+        "title": "Routes",
+        "property": null,
+        "legend": [
+          {
+            "value": "route",
+            "label": "Bus route",
+            "shape": "line"
+          }
+        ]
+      }
+    ]
+  },
+  "context": {
+    "number_id": "trn.closure_length_bands",
+    "title": "Closures in effect by planned length"
+  },
+  "trust": {
+    "source_ids": [
+      "SRC-015",
+      "SRC-004"
+    ],
+    "note": "What a closure affects is shown as the bus routes within 20 m and its extent (full, lane or sidewalk). The publisher's notes and evening or weekend reopening are not in the database."
+  }
+}

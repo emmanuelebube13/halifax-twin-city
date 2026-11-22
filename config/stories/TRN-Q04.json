@@ -1,0 +1,58 @@
+{
+  "id": "TRN-Q04",
+  "question": "What is the actual wait between buses at each stop compared with the schedule?",
+  "title": "Waits at stops",
+  "sector_id": "S04",
+  "subsector_id": "TRN-01",
+  "lenses": [
+    "analytics"
+  ],
+  "status": "live",
+  "requires": [
+    {
+      "check": "gold_function",
+      "signature": "gold.stop_wait_comparison(date,date)",
+      "note": "Waits for the gold transit measures to be installed (workstream B)."
+    },
+    {
+      "check": "archive_days",
+      "min_days": 1,
+      "note": "Needs at least one whole service day of recorded arrivals; the archive started at 21:05 on 21 Nov 2026."
+    }
+  ],
+  "answer": {
+    "template": "A rider arriving at random waited {trn.excess_wait_7d} longer than the schedule implies, averaged over stops in the last 7 service days.",
+    "numbers": [
+      "trn.excess_wait_7d"
+    ],
+    "empty_text": "Not enough recorded arrivals yet."
+  },
+  "evidence": {
+    "layers": [
+      {
+        "layer": "stop-wait",
+        "path": "layers",
+        "title": "Extra wait at stops",
+        "property": null,
+        "legend": [
+          {
+            "value": "stop",
+            "label": "Stop with extra wait",
+            "shape": "disc"
+          }
+        ]
+      }
+    ]
+  },
+  "context": {
+    "number_id": "trn.excess_wait_by_route",
+    "title": "Extra wait by route, last 7 days"
+  },
+  "trust": {
+    "source_ids": [
+      "SRC-002",
+      "SRC-004"
+    ],
+    "note": "Expected wait = sum of squared gaps / (2 x sum of gaps), recorded against planned."
+  }
+}

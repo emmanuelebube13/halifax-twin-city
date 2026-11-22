@@ -1,6 +1,9 @@
--- Demo build, task D03. Gold layer, read-only helper. Silver is not changed.
+-- Gold layer, read-only helper. Silver is not changed.
 -- gold.planned_stop_time(day): every stop time the schedule plans for one service day, in Halifax time.
--- The D03 loader runs this file after each load (CREATE OR REPLACE, so it is safe to run again).
+-- Ported from the demo (task D03, demo/sql/gold_planned_stop_time.sql) without change to the function.
+-- The GTFS schedule loader (services/collector/gtfs_schedule) runs this file after each load
+-- (CREATE OR REPLACE, so it is safe to run again). By hand:
+--   psql -h localhost -p 5433 -U postgres -w -d halifax_twin -f database/gold/planned_stop_time.sql
 
 CREATE OR REPLACE FUNCTION gold.planned_stop_time(p_day date)
 RETURNS TABLE (
@@ -70,4 +73,4 @@ SELECT p_day,
 $$;
 
 COMMENT ON FUNCTION gold.planned_stop_time(date) IS
-  'Demo D03: planned stop times for one service day (newest schedule covering it), times in Halifax time. Read-only.';
+  'Planned stop times for one service day (newest schedule covering it), times in Halifax time. Read-only.';

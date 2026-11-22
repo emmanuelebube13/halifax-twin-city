@@ -57,10 +57,17 @@
         "group_id": "moving-around",
         "pinned": true,
         "question_count": 28,
-        "status": "live",
         "phase_number": 1,
+        "status": "live",
         "story_ids": [
-          "TRN-Q01"
+          "TRN-Q01",
+          "TRN-Q02",
+          "TRN-Q03",
+          "TRN-Q04",
+          "TRN-Q05",
+          "TRN-Q09",
+          "TRN-Q11",
+          "TRN-Q25"
         ]
       },
       {
@@ -69,8 +76,8 @@
         "group_id": "moving-around",
         "pinned": false,
         "question_count": null,
-        "status": "planned",
         "phase_number": 3,
+        "status": "planned",
         "story_ids": []
       },
       {
@@ -79,10 +86,11 @@
         "group_id": "built-city",
         "pinned": true,
         "question_count": 39,
-        "status": "live",
         "phase_number": 1,
+        "status": "live",
         "story_ids": [
-          "PWK-Q13"
+          "PWK-Q13",
+          "PWK-Q16"
         ]
       },
       {
@@ -91,10 +99,12 @@
         "group_id": "built-city",
         "pinned": true,
         "question_count": 33,
-        "status": "live",
         "phase_number": 1,
+        "status": "live",
         "story_ids": [
-          "HRE-Q29"
+          "HRE-Q08",
+          "HRE-Q29",
+          "HRE-Q30"
         ]
       },
       {
@@ -103,8 +113,8 @@
         "group_id": "built-city",
         "pinned": false,
         "question_count": null,
-        "status": "planned",
         "phase_number": 2,
+        "status": "planned",
         "story_ids": []
       },
       {
@@ -113,8 +123,8 @@
         "group_id": "built-city",
         "pinned": false,
         "question_count": null,
-        "status": "planned",
         "phase_number": 3,
+        "status": "planned",
         "story_ids": []
       },
       {
@@ -123,8 +133,8 @@
         "group_id": "people-and-services",
         "pinned": false,
         "question_count": null,
-        "status": "planned",
         "phase_number": 2,
+        "status": "planned",
         "story_ids": []
       },
       {
@@ -133,8 +143,8 @@
         "group_id": "people-and-services",
         "pinned": false,
         "question_count": null,
-        "status": "planned",
         "phase_number": 2,
+        "status": "planned",
         "story_ids": []
       },
       {
@@ -143,8 +153,8 @@
         "group_id": "people-and-services",
         "pinned": false,
         "question_count": null,
-        "status": "planned",
         "phase_number": 3,
+        "status": "planned",
         "story_ids": []
       },
       {
@@ -153,8 +163,8 @@
         "group_id": "people-and-services",
         "pinned": false,
         "question_count": null,
-        "status": "planned",
         "phase_number": 2,
+        "status": "planned",
         "story_ids": []
       },
       {
@@ -163,8 +173,8 @@
         "group_id": "economy",
         "pinned": false,
         "question_count": null,
-        "status": "planned",
         "phase_number": 3,
+        "status": "planned",
         "story_ids": []
       },
       {
@@ -173,8 +183,8 @@
         "group_id": "economy",
         "pinned": false,
         "question_count": null,
-        "status": "planned",
         "phase_number": 3,
+        "status": "planned",
         "story_ids": []
       },
       {
@@ -183,8 +193,8 @@
         "group_id": "economy",
         "pinned": false,
         "question_count": null,
-        "status": "planned",
         "phase_number": 3,
+        "status": "planned",
         "story_ids": []
       },
       {
@@ -193,8 +203,8 @@
         "group_id": "economy",
         "pinned": false,
         "question_count": null,
-        "status": "planned",
         "phase_number": 3,
+        "status": "planned",
         "story_ids": []
       },
       {
@@ -203,8 +213,8 @@
         "group_id": "civic-life-and-nature",
         "pinned": false,
         "question_count": null,
-        "status": "planned",
         "phase_number": 2,
+        "status": "planned",
         "story_ids": []
       },
       {
@@ -213,8 +223,8 @@
         "group_id": "civic-life-and-nature",
         "pinned": false,
         "question_count": null,
-        "status": "planned",
         "phase_number": 2,
+        "status": "planned",
         "story_ids": []
       },
       {
@@ -223,13 +233,13 @@
         "group_id": "civic-life-and-nature",
         "pinned": false,
         "question_count": null,
-        "status": "planned",
         "phase_number": 3,
+        "status": "planned",
         "story_ids": []
       }
     ]
   },
-  "as_of": "2026-11-21T23:15:04Z",
+  "as_of": "2026-11-22T05:39:36Z",
   "source": [],
   "reliability_tier": null,
   "licence": "Contains information licensed under the Open Government Licence – Halifax"

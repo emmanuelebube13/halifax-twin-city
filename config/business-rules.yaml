@@ -41,3 +41,28 @@ display:
   time_zone: America/Halifax
   clock: 24-hour
   date_format: "21 Nov 2026"
+
+transit_measures:
+  # Thresholds passed to the gold transit functions (database/gold, workstream B). Not yet decided.
+  # A bus is bunched when it arrives less than 0.25 x the scheduled gap behind the bus ahead.
+  bunched_ratio: 0.25
+  # A long gap is more than 1.5 x the scheduled gap.
+  long_gap_ratio: 1.5
+  # A segment day is slow when its median time is above 1.2 x the planned time.
+  slow_ratio: 1.2
+  # A trip can be called "not run" only if trip updates were fetched with no gap over 300 s.
+  coverage_gap_seconds: 300
+  # Days of archive the analytics numbers look back over.
+  window_days: 7
+  segment_window_days: 28
+  # A segment is consistently slow when at least half its observed days are slow, over at least 5 days.
+  consistently_slow_share: 0.5
+  consistently_slow_min_days: 5
+
+closures:
+  # A closure affects a bus route when the closure line is within 20 m of the route line (not yet decided).
+  route_buffer_metres: 20
+  # A stop is beside a closure when it is within 30 m of the closure line (not yet decided).
+  stop_buffer_metres: 30
+  # How far ahead "planned closures" look.
+  upcoming_days: 30

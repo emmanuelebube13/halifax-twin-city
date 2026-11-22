@@ -23,7 +23,8 @@ INSERT INTO silver.location (location_id, location_type_code, location_name, geo
  (900005, 'Line', 'Cogswell St from Barrington St to Brunswick St', 'Line', ST_GeomFromText('LINESTRING(-63.5801 44.6512,-63.5779 44.6519)', 4326), 'SRC-015', 'closure-1'),
  (900006, 'Point', '3700 Kempt Rd', 'Point', ST_GeomFromText('POINT(-63.6125 44.6702)', 4326), 'SRC-066', 'permit-1'),
  (900007, 'Point', '10 Old Rd', 'Point', ST_GeomFromText('POINT(-63.6000 44.6600)', 4326), 'SRC-066', 'permit-2'),
- (900008, 'Line', 'Ended closure line', 'Line', ST_GeomFromText('LINESTRING(-63.59 44.65,-63.58 44.65)', 4326), 'SRC-015', 'closure-2');
+ (900008, 'Line', 'Ended closure line', 'Line', ST_GeomFromText('LINESTRING(-63.59 44.65,-63.58 44.65)', 4326), 'SRC-015', 'closure-2'),
+ (900009, 'Line', 'Spring Garden Rd sidewalk', 'Line', ST_GeomFromText('LINESTRING(-63.5772 44.6458,-63.5768 44.6462)', 4326), 'SRC-015', 'closure-3');
 
 INSERT INTO silver.asset (asset_id, asset_type_code, asset_name, location_id, subsector_id, source_id,
                           source_asset_key, asset_status_code) VALUES
@@ -83,17 +84,25 @@ INSERT INTO silver.event (event_id, event_type_code, event_start_ts, event_end_t
  (900011, 'Road Closure', now() - interval '2 days', now() + interval '5 days', current_date - 2, 900005,
   'PWK-03', 'SRC-015', 'SC-1', 'Active'),
  (900012, 'Road Closure', now() - interval '10 days', now() - interval '1 day', current_date - 10, 900008,
-  'PWK-03', 'SRC-015', 'SC-2', 'Ended');
+  'PWK-03', 'SRC-015', 'SC-2', 'Ended'),
+ (900013, 'Road Closure', now() + interval '3 days', now() + interval '10 days', current_date + 3, 900009,
+  'PWK-04', 'SRC-015', 'SC-3', NULL),
+ -- No end: unknown length, so never counted as in effect.
+ (900014, 'Road Closure', now() - interval '1 day', NULL, current_date - 1, 900005,
+  'PWK-03', 'SRC-015', 'SC-4', 'Approved');
 INSERT INTO silver.road_closure (event_id, closure_type_code, closure_reason_code, detour_description) VALUES
- (900011, 'Full closure', 'Utility work', 'Use Barrington St.'),
- (900012, 'Lane closure', 'Paving', NULL);
+ (900011, 'Full', 'Utility', 'Use Barrington St.'),
+ (900012, 'Lane', 'Construction', NULL),
+ (900013, 'Sidewalk', 'Development', NULL),
+ (900014, 'Full', 'Utility', NULL);
 
 -- Housing: one permit today (10 units), one more than a year ago.
-INSERT INTO silver.event (event_id, event_type_code, event_start_ts, event_date, location_id, subsector_id,
-                          source_id, source_event_key, event_status_code) VALUES
- (900021, 'Building Permit', now(), (now() AT TIME ZONE 'America/Halifax')::date, 900006, 'HRE-09', 'SRC-066', 'BP-1', 'Issued'),
- (900022, 'Building Permit', now() - interval '400 days', ((now() - interval '400 days') AT TIME ZONE 'America/Halifax')::date,
-  900007, 'HRE-09', 'SRC-066', 'BP-2', 'Issued');
+INSERT INTO silver.event (event_id, event_type_code, event_start_ts, event_end_ts, event_date, location_id,
+                          subsector_id, source_id, source_event_key, event_status_code) VALUES
+ (900021, 'Building Permit', now(), NULL, (now() AT TIME ZONE 'America/Halifax')::date, 900006, 'HRE-09', 'SRC-066',
+  'BP-1', 'Issued'),
+ (900022, 'Building Permit', now() - interval '400 days', now() - interval '30 days',
+  ((now() - interval '400 days') AT TIME ZONE 'America/Halifax')::date, 900007, 'HRE-09', 'SRC-066', 'BP-2', 'Completed');
 INSERT INTO silver.building_permit (event_id, permit_type_code, work_description, construction_value_amount,
                                     units_created_count, units_removed_count) VALUES
  (900021, 'New construction', 'Six-storey residential building', 18250000.00, 10, 0),
