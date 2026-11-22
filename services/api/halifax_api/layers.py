@@ -21,6 +21,7 @@ WITH latest AS (
            bearing_degrees, speed_metres_per_second, current_stop_sequence_number, vehicle_stop_status_code
       FROM silver.vehicle_position
      WHERE position_ts > now() - make_interval(secs => %(window)s)
+       AND (%(vehicle_id)s::bigint IS NULL OR vehicle_asset_id = %(vehicle_id)s::bigint)
        AND position_ts <= now() + interval '5 minutes'
      ORDER BY vehicle_asset_id, position_ts DESC
 )
@@ -82,11 +83,17 @@ def _float(v):
     return float(v) if v is not None else None
 
 
-def vehicles(db, window_seconds: int, on_time: tuple[int, int]) -> tuple[dict, object, list[str]]:
-    """Returns (FeatureCollection, as_of, source ids seen)."""
+LIVE_VEHICLE_FIELDS = ("route_short_name", "route_long_name", "route_id", "trip_id", "headsign", "status",
+                       "delay_seconds", "next_stop_name")
+
+
+def vehicles(db, window_seconds: int, on_time: tuple[int, int], vehicle_id: int | None = None
+             ) -> tuple[dict, object, list[str]]:
+    """Returns (FeatureCollection, as_of, source ids seen). With vehicle_id, only that bus."""
     features, as_of, sources = [], None, set()
     for (vid, key, subsector, sector, source_id, label, pos_ts, lat, lon, bearing, speed, trip_id, route_id,
-         short, long_name, delay, headsign, next_stop) in db.fetch(VEHICLES_SQL, {"window": window_seconds}):
+         short, long_name, delay, headsign, next_stop) in db.fetch(
+            VEHICLES_SQL, {"window": window_seconds, "vehicle_id": vehicle_id}):
         as_of = newest(as_of, pos_ts)
         sources.add(source_id)
         features.append({

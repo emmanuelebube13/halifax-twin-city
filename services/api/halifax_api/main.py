@@ -259,7 +259,10 @@ def create_app(settings: Settings | None = None, database: Database | None = Non
         fn = features.DETAIL.get(kind)
         if not fn:
             raise not_found("kind must be location, asset or event.")
-        found = fn(db, feature_id)
+        if kind == "asset":
+            found = fn(db, feature_id, live=(int(cfg.live.get("vehicle_window_seconds", 180)), cfg.on_time))
+        else:
+            found = fn(db, feature_id)
         if not found:
             raise not_found(f"There is no {kind} {feature_id}.")
         feature, as_of, source_ids = found

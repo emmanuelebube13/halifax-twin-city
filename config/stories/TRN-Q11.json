@@ -22,6 +22,7 @@
   ],
   "answer": {
     "template": "{trn.slow_segments_count} stop-to-stop segments were slow on at least half of the days observed in the last 28 days.",
+    "template_one": "{trn.slow_segments_count} stop-to-stop segment was slow on at least half of the days observed in the last 28 days.",
     "numbers": [
       "trn.slow_segments_count"
     ],

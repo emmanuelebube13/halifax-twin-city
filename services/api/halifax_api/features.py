@@ -5,6 +5,7 @@ import json
 
 from psycopg import sql
 
+from . import layers
 from .envelope import iso, json_value, newest
 
 AUDIT = {"dw_loaded_ts", "dw_batch_id", "valid_from_ts"}
@@ -89,7 +90,7 @@ def _versions(db, table: str, key_col: str, key: int, label_col: str) -> list[di
              "properties": {"valid_to_ts": iso(to)}} for f, to, lbl in rows]
 
 
-def asset_detail(db, asset_id: int):
+def asset_detail(db, asset_id: int, live: tuple | None = None):
     r = db.fetch_one(ASSET_SQL, (asset_id,))
     if not r:
         return None
@@ -115,9 +116,17 @@ def asset_detail(db, asset_id: int):
                                ORDER BY p.position_ts DESC LIMIT 1""", (aid,))
         if pos:
             geometry = {"type": "Point", "coordinates": [float(pos[1]), float(pos[2])]}
-            props.update(position_ts=iso(pos[0]), trip_id=pos[3], route_short_name=pos[4],
-                         bearing=json_value(pos[5]))
+            props.update(position_ts=iso(pos[0]), bearing=json_value(pos[5]))
             as_of = newest(as_of, pos[0])
+        # The same current-trip fields as the live vehicles layer, with the same meaning. Null when the bus
+        # is not live (no position within the live window) or has no current trip.
+        props.update({f: None for f in layers.LIVE_VEHICLE_FIELDS})
+        props["status"] = "unknown"
+        if live:
+            fc, _, _ = layers.vehicles(db, live[0], live[1], vehicle_id=aid)
+            if fc["features"]:
+                current = fc["features"][0]["properties"]
+                props.update({f: current[f] for f in layers.LIVE_VEHICLE_FIELDS})
     history = _arrivals(db, type_code, aid)
     if history:
         sources.append("SRC-002")

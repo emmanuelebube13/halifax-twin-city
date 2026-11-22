@@ -5,7 +5,13 @@ invented from nothing. Counts are zero only when the data that would be counted 
 """
 from __future__ import annotations
 
+import datetime as dt
+import threading
+import time
+import weakref
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from zoneinfo import ZoneInfo
 from typing import Callable
 
 from .config import AppConfig
@@ -351,20 +357,54 @@ def excess_wait_by_route(db, cfg):
 
 
 TRIP_STATUS = "gold.scheduled_trip_status(date,timestamp with time zone,integer)"
-YESTERDAY = f"{HALIFAX_TODAY} - 1"
 
 
-def _trip_status_counts(db, cfg, day_expr):
-    gap = int(_measures(cfg).get("coverage_gap_seconds", 300))
-    return dict(db.fetch(f"""SELECT trip_status, count(*)
-                               FROM gold.scheduled_trip_status({day_expr}, now(), %s) GROUP BY 1""", (gap,)))
+# Trip status counts per service day. A finished day cannot change, so its counts are kept for a day;
+# today's and yesterday's (until 06:00 the next morning, when the last trips are due) are kept 10 minutes.
+# Each day is its own call with a constant date: one call is about 0.1 s, while one query over a
+# generate_series of days was several seconds (the inlined function plans badly with a lateral date).
+_DAY_COUNTS: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()  # per Database: {(day, gap): (at, counts)}
+_DAY_LOCK = threading.Lock()
+
+
+def _halifax_now():
+    return dt.datetime.now(ZoneInfo("America/Halifax"))
+
+
+def _day_complete(day: dt.date) -> bool:
+    return _halifax_now() >= dt.datetime.combine(day + dt.timedelta(days=1), dt.time(6, 0),
+                                                 tzinfo=ZoneInfo("America/Halifax"))
+
+
+def _day_counts(db, gap: int, day: dt.date) -> dict:
+    key = (day, gap)
+    with _DAY_LOCK:
+        hit = _DAY_COUNTS.setdefault(db, {}).get(key)
+    ttl = 86400 if _day_complete(day) else 600
+    if hit and time.monotonic() - hit[0] < ttl:
+        return hit[1]
+    counts = dict(db.fetch("""SELECT trip_status, count(*)
+                                FROM gold.scheduled_trip_status(%s::date, now(), %s::int) GROUP BY 1""", (day, gap)))
+    with _DAY_LOCK:
+        _DAY_COUNTS.setdefault(db, {})[key] = (time.monotonic(), counts)
+    return counts
+
+
+def _days_counts(db, gap: int, days: list[dt.date]) -> list[dict]:
+    """Several days at once, each on its own pooled connection."""
+    with ThreadPoolExecutor(max_workers=min(4, len(days))) as pool:
+        return list(pool.map(lambda d: _day_counts(db, gap, d), days))
+
+
+def _trip_status_counts(db, cfg, day: dt.date):
+    return _day_counts(db, int(_measures(cfg).get("coverage_gap_seconds", 300)), day)
 
 
 def _trip_number(kind):
     def compute(db, cfg):
         if not _gold(db, TRIP_STATUS):
             return None, None, None
-        counts = _trip_status_counts(db, cfg, YESTERDAY)
+        counts = _trip_status_counts(db, cfg, _halifax_now().date() - dt.timedelta(days=1))
         if not counts:
             return None, None, None
         value = {"not_run": counts.get("Not seen", 0) + counts.get("Cancelled", 0),
@@ -381,16 +421,16 @@ def trips_not_run_by_day(db, cfg):
     if not _gold(db, TRIP_STATUS):
         return None, [], None
     gap = int(_measures(cfg).get("coverage_gap_seconds", 300))
-    rows = db.fetch(f"""SELECT d.day::date,
-                               count(*) FILTER (WHERE s.trip_status IN ('Not seen', 'Cancelled')),
-                               count(*) FILTER (WHERE s.trip_status = 'Not covered'),
-                               count(*)
-                          FROM generate_series({HALIFAX_TODAY} - 7, {HALIFAX_TODAY} - 1, interval '1 day') d(day)
-                          CROSS JOIN LATERAL gold.scheduled_trip_status(d.day::date, now(), %s::int) s
-                         GROUP BY 1 ORDER BY 1""", (gap,))
-    # A day the collector did not cover at all has no answer, not zero.
-    series = [{"t": day.isoformat(), "value": (None if not_covered == total else not_run)}
-              for day, not_run, not_covered, total in rows]
+    today = _halifax_now().date()
+    days = [today - dt.timedelta(days=n) for n in range(7, 0, -1)]
+    series = []
+    for day, counts in zip(days, _days_counts(db, gap, days)):
+        total = sum(counts.values())
+        if not total:
+            continue  # no schedule covers the day: no point, as before
+        not_run = counts.get("Not seen", 0) + counts.get("Cancelled", 0)
+        # A day the collector did not cover at all has no answer, not zero.
+        series.append({"t": day.isoformat(), "value": None if counts.get("Not covered", 0) == total else not_run})
     return (series[-1]["value"] if series else None), series, _feed_as_of(db)
 
 

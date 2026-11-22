@@ -345,3 +345,50 @@ def test_buses_live_is_zero_when_the_feed_answers_with_no_vehicles(empty_databas
         body = fresh.get("/v1/numbers/trn.buses_live").json()
     assert body["data"]["value"] == 0
     assert body["as_of"] is not None
+
+
+# ---------------------------------------------------------------- release 1 follow-up (22 Nov 2026)
+
+def test_vehicle_detail_carries_current_trip(client):
+    bus = client.get("/v1/features/asset/900301").json()
+    assert errors(bus, "FeatureDetailResponse") == []
+    p = bus["data"]["properties"]
+    live = {f["id"]: f["properties"] for f in client.get("/v1/live/vehicles").json()["data"]["features"]}[900301]
+    for field in ("route_short_name", "route_long_name", "route_id", "trip_id", "headsign", "status",
+                  "delay_seconds", "next_stop_name"):
+        assert p[field] == live[field], field
+    assert p["headsign"] == "1 Spring Garden to Mumford" and p["status"] == "late"
+    assert p["next_stop_name"] == "Mumford Terminal" and p["delay_seconds"] == 420
+
+
+def test_vehicle_detail_without_current_trip(client):
+    # 900303 last reported 10 minutes ago: not live, so no current trip.
+    body = client.get("/v1/features/asset/900303").json()
+    assert errors(body, "FeatureDetailResponse") == []
+    p = body["data"]["properties"]
+    assert p["status"] == "unknown"
+    for field in ("route_short_name", "headsign", "delay_seconds", "next_stop_name", "trip_id"):
+        assert p[field] is None, field
+
+
+def test_trips_not_run_by_day_is_fast_when_warm(client):
+    import time
+    first = client.get("/v1/numbers/trn.trips_not_run_by_day").json()
+    assert errors(first, "NumberResponse") == []
+    client.app.state.cache.clear()  # drop the 10-minute number cache; finished days stay cached
+    t = time.perf_counter()
+    second = client.get("/v1/numbers/trn.trips_not_run_by_day").json()
+    assert time.perf_counter() - t < 1.0
+    assert second["data"]["series"] == first["data"]["series"]
+
+
+def test_singular_templates(client):
+    for s in client.get("/v1/stories").json()["data"]:
+        answer = client.get(f"/v1/stories/{s['id']}").json()["data"]["answer"]
+        if "template_one" not in answer:
+            continue
+        first = "{" + answer["numbers"][0] + "}"
+        assert answer["template_one"] != answer["template"], s["id"]
+        assert answer["template"].startswith(first) and answer["template_one"].startswith(first), s["id"]
+        placeholders = lambda t: sorted(p.split("}")[0] for p in t.split("{")[1:])  # noqa: E731
+        assert placeholders(answer["template_one"]) == placeholders(answer["template"]), s["id"]
