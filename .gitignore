@@ -7,3 +7,27 @@ desktop.ini
 # Python
 __pycache__/
 *.pyc
+
+# Local config and secrets (never commit)
+.env
+.env.*
+!.env.example
+config.local.json
+*.local.json
+
+# Local data, kept outside the repo where possible
+data/
+*.pmtiles
+
+# Python
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+.vite/
+playwright-report/
+test-results/
