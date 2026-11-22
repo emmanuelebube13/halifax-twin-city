@@ -16,7 +16,7 @@ import { sheetOnFollow, storyAsOf, storyNumberIds } from "./lib/story";
 import { usePins, useView } from "./lib/useView";
 import type { Globe3DHandle } from "./map/Globe3D";
 import type { Place } from "./lib/camera";
-import { PROFILES, chooseProfile, hasWebGL, readDeviceHints, saveProfile, savedProfile, type ProfileName } from "./lib/profile";
+import { hasWebGL, saveProfile, savedProfile, type ProfileName } from "./lib/profileChoice";
 import { threeDDecision, type ThreeDFailure } from "./lib/threeD";
 import { MapView, type MapHandle, type MapSelect } from "./map/MapView";
 import { featureName, lookFor, anchorOf } from "./map/registry";
@@ -58,10 +58,10 @@ export function App() {
   const globeRef = useRef<Globe3DHandle>(null);
   const show3dRef = useRef(false);
   const [startPlace, setStartPlace] = useState<Place | null>(null);
-  const [webgl] = useState(() => hasWebGL());
-  const [autoProfile] = useState<ProfileName>(() => chooseProfile(readDeviceHints()));
+  // WebGL is checked only when the user asks for 3D; the automatic profile is chosen inside the 3D chunk
+  const [webgl, setWebgl] = useState(true);
+  const [autoProfile, setAutoProfile] = useState<ProfileName | null>(null);
   const [profileChoice, setProfileChoice] = useState<ProfileName | null>(() => savedProfile());
-  const profileName: ProfileName = profileChoice ?? autoProfile;
 
   // ---- registers
   const cfgP = usePoll("cfg", api.clientConfig, null);
@@ -399,6 +399,9 @@ export function App() {
   const switchView = useCallback(
     (v: "2d" | "3d") => {
       if (v === "3d") {
+        const gl = hasWebGL();
+        setWebgl(gl);
+        if (!gl) return;
         setThreeDFailed(null);
         setStartPlace(mapRef.current?.place() ?? null);
       } else {
@@ -544,7 +547,7 @@ export function App() {
           saveProfile(v);
         }}
       >
-        <option value="auto">{t("view.detailAuto", { level: t(`view.detail.${autoProfile}`) })}</option>
+        <option value="auto">{autoProfile ? t("view.detailAuto", { level: t(`view.detail.${autoProfile}`) }) : t("view.detailAutoShort")}</option>
         <option value="high">{t("view.detail.high")}</option>
         <option value="medium">{t("view.detail.medium")}</option>
         <option value="low">{t("view.detail.low")}</option>
@@ -596,7 +599,8 @@ export function App() {
         token={NO_ION ? null : (cfg?.cesium_ion_token ?? null)}
         noIon={NO_ION}
         assetId={cfg?.cesium_photorealistic_asset_id ?? 2275207}
-        profile={PROFILES[profileName]}
+        profileChoice={profileChoice}
+        onAutoProfile={setAutoProfile}
         vehicles={vehicleInput?.features ?? []}
         positionFor={(id, n) => vehicleInput?.positionFor(id, n) ?? null}
         routes={routesForThreeD}

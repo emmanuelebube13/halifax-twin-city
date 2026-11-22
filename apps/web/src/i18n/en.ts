@@ -28,6 +28,7 @@ export const en = {
   "view.3dFailed": "3D could not load. Showing 2D.",
   "view.detail": "3D detail",
   "view.detailAuto": "Automatic ({level})",
+  "view.detailAutoShort": "Automatic",
   "view.detail.high": "High",
   "view.detail.medium": "Medium",
   "view.detail.low": "Low",

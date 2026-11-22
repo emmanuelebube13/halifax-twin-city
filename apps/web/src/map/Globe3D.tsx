@@ -15,10 +15,12 @@ import type * as CesiumNS from "cesium";
 import type { Feature, VehicleProperties } from "../api/types";
 import { t } from "../i18n";
 import { CAMERA_LIMITS, HALIFAX_3D_START, clampCameraPosition, clampOrbit, orbitToPlace, placeToOrbit, rangeForZoom, type Orbit, type Place } from "../lib/camera";
-import { resolutionScaleFor, type Profile3D } from "../lib/profile";
+import { PROFILES, chooseProfile, readDeviceHints, resolutionScaleFor, type Profile3D } from "../lib/profile";
+import type { ProfileName } from "../lib/profileChoice";
 import { busStatus } from "../lib/status";
 import type { ThreeDFailure } from "../lib/threeD";
-import { COLOURS, PIXEL_RATIO, busRenderImage, buildPinImages, drawBusBadge, drawBusPin, drawCluster } from "./pins";
+import { COLOURS, PIXEL_RATIO, busRenderImage, buildPinImages, drawBusPin, drawCluster } from "./pins";
+import { drawBusBadge } from "./badge";
 import { clusterScreenPoints } from "./declutter";
 
 type Cesium = typeof CesiumNS;
@@ -80,7 +82,9 @@ interface Props {
   token: string | null;
   noIon: boolean;
   assetId: number;
-  profile: Profile3D;
+  /** The user's choice; null means automatic, chosen here from device hints. */
+  profileChoice: ProfileName | null;
+  onAutoProfile?: (p: ProfileName) => void;
   vehicles: Feature<VehicleProperties>[];
   positionFor: (id: number, now: number) => { lon: number; lat: number } | null;
   /** Buses are moving on the glide clock: keep asking for frames. */
@@ -114,7 +118,11 @@ interface BusPrims {
 const rad = (d: number) => (d * Math.PI) / 180;
 const deg = (r: number) => (r * 180) / Math.PI;
 
-const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(props, ref) {
+let autoProfile: ProfileName | null = null;
+
+const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref) {
+  if (!autoProfile) autoProfile = chooseProfile(readDeviceHints());
+  const props = { ...rawProps, profile: PROFILES[rawProps.profileChoice ?? autoProfile] as Profile3D };
   const el = useRef<HTMLDivElement>(null);
   const creditsEl = useRef<HTMLDivElement>(null);
   const popupEl = useRef<HTMLDivElement>(null);
@@ -125,6 +133,10 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(props, ref) {
   const busesRef = useRef(new Map<number, BusPrims>());
   const drawRef = useRef<() => void>(() => undefined);
   const [status, setStatus] = useState<"loading" | "ready">("loading");
+  useEffect(() => {
+    if (autoProfile) rawProps.onAutoProfile?.(autoProfile);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ---- create the viewer once
   useEffect(() => {

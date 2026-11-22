@@ -1,7 +1,8 @@
 // 3D device profiles. Chosen once at start from GPU and device hints, and switchable by the user.
 // high: workstation with a discrete GPU. medium: mid-range laptop. low: phone, integrated or software GPU.
 
-export type ProfileName = "high" | "medium" | "low";
+import type { ProfileName } from "./profileChoice";
+export type { ProfileName };
 
 export interface DeviceHints {
   /** WebGL UNMASKED_RENDERER string, if the browser shares it. */
@@ -137,42 +138,8 @@ export function readDeviceHints(): DeviceHints {
   };
 }
 
-/** Is WebGL there at all? 3D needs it; without it the app stays in 2D. */
-export function hasWebGL(): boolean {
-  try {
-    const c = document.createElement("canvas");
-    const gl = c.getContext("webgl2") ?? c.getContext("webgl");
-    if (!gl) return false;
-    (gl as WebGLRenderingContext).getExtension("WEBGL_lose_context")?.loseContext();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /** Cesium resolutionScale for a pixel-ratio cap: rendering at min(dpr, cap). */
 export function resolutionScaleFor(devicePixelRatio: number, maxPixelRatio: number): number {
   const dpr = devicePixelRatio > 0 ? devicePixelRatio : 1;
   return Math.min(dpr, maxPixelRatio) / dpr;
-}
-
-const PROFILE_KEY = "halifax-twin.profile3d";
-
-/** The user's own choice, if they made one in this browser. */
-export function savedProfile(): ProfileName | null {
-  try {
-    const v = localStorage.getItem(PROFILE_KEY);
-    return v === "high" || v === "medium" || v === "low" ? v : null;
-  } catch {
-    return null;
-  }
-}
-
-export function saveProfile(p: ProfileName | null): void {
-  try {
-    if (p) localStorage.setItem(PROFILE_KEY, p);
-    else localStorage.removeItem(PROFILE_KEY);
-  } catch {
-    // storage blocked: the choice lasts for this visit only
-  }
 }
