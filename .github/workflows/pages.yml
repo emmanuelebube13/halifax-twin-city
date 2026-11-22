@@ -1,0 +1,48 @@
+# Deploy the static project site in site/ to GitHub Pages.
+#
+# Not active until the architect decides: GitHub Pages must first be turned on
+# in the repository settings (Settings > Pages > Source: GitHub Actions).
+# Until then this workflow runs only when started by hand, so merging it does
+# not attempt a deployment. To deploy on every change to site/ on main, add:
+#
+#   push:
+#     branches: [main]
+#     paths: ["site/**", ".github/workflows/pages.yml"]
+#
+# The site is plain HTML and CSS: there is no build step.
+
+name: Deploy project site to GitHub Pages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload the site folder
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
