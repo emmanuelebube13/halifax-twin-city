@@ -28,7 +28,7 @@ Each data quality rule has a stable id (`DQ-001` and so on). An id is never reus
 | K2 | A subtype table shares its supertype's key: a Trip is one row in `event` and one in `trip` with the same `event_id` |
 | K3 | Reference tables use their own codes as keys: `sector` (S04), `subsector` (TRN-01), `source` (SRC-001), `measure`, `calendar_date` |
 | K4 | The source's own key is alternate key 1: `(source_id, source_<entity>_key)`, unique. Loads are idempotent on it: a re-run updates, never duplicates |
-| K5 | A source key is stored exactly as the source sends it. Where one source row becomes several silver rows, the key is built with `|` separators and documented in the source-to-target mapping (for example Trip `<trip_id>|<service date>`, Stop Arrival `<trip_id>|<service date>|<stop_sequence>`) |
+| K5 | A source key is stored exactly as the source sends it. Where one source row becomes several silver rows, the key is built with `\|` separators and documented in the source-to-target mapping (for example Trip `<trip_id>\|<service date>`, Stop Arrival `<trip_id>\|<service date>\|<stop_sequence>`) |
 | K6 | The supertype's discriminator and the subtype row agree: every `event` typed "Trip" has a `trip` row, and every `trip` row's event is typed "Trip" |
 | K7 | `vehicle_position` is the one rolled-down event: key `(vehicle_asset_id, position_ts)`, no `event` row |
 
@@ -126,7 +126,7 @@ Severity: **error** means the data breaks the model and the load or the source m
 | DQ-002 | Source key (AK1) is unique | `event`, `asset`, `location` | `(source_id, source_event_key)` and the like | error | `dq_002_*` (unique_combination) |
 | DQ-003 | One arrival per trip and stop sequence | `stop_arrival` | `(trip_event_id, stop_sequence_number)` | error | `dq_003_*` |
 | DQ-004 | One trip per scheduled trip and service date (not enforceable by `ak1_trip`; open question 7) | `trip` + `event` | `scheduled_trip_id`, `event_date` | error | `dq_004_*` (singular) |
-| DQ-005 | A Trip's source key carries its service date: `<trip_id>|<event_date>` | `event` (Trip) | `source_event_key`, `event_date` | error | `dq_005_*` |
+| DQ-005 | A Trip's source key carries its service date: `<trip_id>\|<event_date>` | `event` (Trip) | `source_event_key`, `event_date` | error | `dq_005_*` |
 
 ### Subtypes and discriminators
 
