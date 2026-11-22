@@ -1,0 +1,532 @@
+schema_name,table_name,entity_name,subject_area,entity_kind,supertype,history,column_position,column_name,attribute_name,column_class,domain,data_type,nullable,default_or_generated,logical_key,physical_keys,references,check_rule,description
+silver,sector,Sector,Core,Reference,,SCD Type 2,1,sector_id,Sector ID,Logical,Reference Code,varchar(30),No,,PK,pk_sector,,,Sector ID. Domain: Reference Code. S04
+silver,sector,Sector,Core,Reference,,SCD Type 2,2,sector_name,Sector Name,Logical,Name,varchar(200),No,,,,,,Sector Name. Domain: Name.
+silver,sector,Sector,Core,Reference,,SCD Type 2,3,sector_description,Sector Description,Logical,Description,varchar(2000),Yes,,,,,,Sector Description. Domain: Description.
+silver,sector,Sector,Core,Reference,,SCD Type 2,4,phase_number,Phase Number,Logical,Count,integer,Yes,,,,,phase_number >= 0,Phase Number. Domain: Count. 1 = Phase 1 sector
+silver,sector,Sector,Core,Reference,,SCD Type 2,5,valid_from_ts,,SCD2,,timestamptz,No,default now(),,,,,SCD2: when this version of the row became current.
+silver,sector,Sector,Core,Reference,,SCD Type 2,6,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,sector,Sector,Core,Reference,,SCD Type 2,7,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,subsector,Subsector,Core,Reference,,SCD Type 2,1,subsector_id,Subsector ID,Logical,Reference Code,varchar(30),No,,PK,pk_subsector,,,Subsector ID. Domain: Reference Code. TRN-01; CORE-00 for shared core data
+silver,subsector,Subsector,Core,Reference,,SCD Type 2,2,sector_id,Sector ID,Logical,Reference Code,varchar(30),No,,FK,,silver.sector.sector_id,,Sector ID. Domain: Reference Code.
+silver,subsector,Subsector,Core,Reference,,SCD Type 2,3,subsector_name,Subsector Name,Logical,Name,varchar(200),No,,,,,,Subsector Name. Domain: Name.
+silver,subsector,Subsector,Core,Reference,,SCD Type 2,4,valid_from_ts,,SCD2,,timestamptz,No,default now(),,,,,SCD2: when this version of the row became current.
+silver,subsector,Subsector,Core,Reference,,SCD Type 2,5,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,subsector,Subsector,Core,Reference,,SCD Type 2,6,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,source,Source,Core,Reference,,SCD Type 2,1,source_id,Source ID,Logical,Reference Code,varchar(30),No,,PK,pk_source,,,Source ID. Domain: Reference Code. SRC-001
+silver,source,Source,Core,Reference,,SCD Type 2,2,publisher_party_id,Publisher Party ID,Logical,Identifier,bigint,No,,FK,,silver.party.party_id,,Publisher Party ID. Domain: Identifier. Role name of Party ID
+silver,source,Source,Core,Reference,,SCD Type 2,3,dataset_name,Dataset Name,Logical,Name,varchar(200),No,,,,,,Dataset Name. Domain: Name.
+silver,source,Source,Core,Reference,,SCD Type 2,4,source_format_code,Source Format Code,Logical,Code,varchar(30),No,,,,,,"Source Format Code. Domain: Code. GTFS, GTFS-RT, ArcGIS REST API, CSV …"
+silver,source,Source,Core,Reference,,SCD Type 2,5,access_method_code,Access Method Code,Logical,Code,varchar(30),No,,,,,,"Access Method Code. Domain: Code. Live feed, API, File download …"
+silver,source,Source,Core,Reference,,SCD Type 2,6,cadence_code,Cadence Code,Logical,Code,varchar(30),Yes,,,,,,"Cadence Code. Domain: Code. Real-time, Daily … Irregular"
+silver,source,Source,Core,Reference,,SCD Type 2,7,availability_code,Availability Code,Logical,Code,varchar(30),No,,,,,,"Availability Code. Domain: Code. Open, Mixed, Partner, Private"
+silver,source,Source,Core,Reference,,SCD Type 2,8,licence_name,Licence Name,Logical,Name,varchar(200),No,,,,,,Licence Name. Domain: Name.
+silver,source,Source,Core,Reference,,SCD Type 2,9,attribution_required_flag,Attribution Required Flag,Logical,Flag,boolean,No,,,,,,Attribution Required Flag. Domain: Flag.
+silver,source,Source,Core,Reference,,SCD Type 2,10,record_grain_description,Record Grain Description,Logical,Description,varchar(2000),No,,,,,,Record Grain Description. Domain: Description. What one record is
+silver,source,Source,Core,Reference,,SCD Type 2,11,source_url,Source URL,Logical,URL,varchar(500),No,,,,,source_url ~ '^https?://',Source URL. Domain: URL.
+silver,source,Source,Core,Reference,,SCD Type 2,12,reliability_tier_code,Reliability Tier Code,Logical,Code,varchar(30),No,,,,,,Reliability Tier Code. Domain: Code. Tier 1 to Tier 3
+silver,source,Source,Core,Reference,,SCD Type 2,13,source_status_code,Source Status Code,Logical,Code,varchar(30),No,,,,,,"Source Status Code. Domain: Code. Verified, Not checked …"
+silver,source,Source,Core,Reference,,SCD Type 2,14,last_checked_date,Last Checked Date,Logical,Date,date,Yes,,,,,,Last Checked Date. Domain: Date.
+silver,source,Source,Core,Reference,,SCD Type 2,15,valid_from_ts,,SCD2,,timestamptz,No,default now(),,,,,SCD2: when this version of the row became current.
+silver,source,Source,Core,Reference,,SCD Type 2,16,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,source,Source,Core,Reference,,SCD Type 2,17,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,calendar_date,Calendar Date,Core,Reference,,None,1,calendar_date,Calendar Date,Logical,Date,date,No,,PK,pk_calendar_date,,,Calendar Date. Domain: Date.
+silver,calendar_date,Calendar Date,Core,Reference,,None,2,calendar_year,Calendar Year,Logical,Year,smallint,No,,,,,calendar_year BETWEEN 1700 AND 2100,Calendar Year. Domain: Year.
+silver,calendar_date,Calendar Date,Core,Reference,,None,3,quarter_number,Quarter Number,Logical,Count,integer,No,,,,,quarter_number >= 0,Quarter Number. Domain: Count.
+silver,calendar_date,Calendar Date,Core,Reference,,None,4,month_number,Month Number,Logical,Count,integer,No,,,,,month_number >= 0,Month Number. Domain: Count.
+silver,calendar_date,Calendar Date,Core,Reference,,None,5,week_of_year_number,Week Of Year Number,Logical,Count,integer,No,,,,,week_of_year_number >= 0,Week Of Year Number. Domain: Count. ISO week
+silver,calendar_date,Calendar Date,Core,Reference,,None,6,day_of_week_name,Day Of Week Name,Logical,Name,varchar(200),No,,,,,,Day Of Week Name. Domain: Name.
+silver,calendar_date,Calendar Date,Core,Reference,,None,7,weekend_flag,Weekend Flag,Logical,Flag,boolean,No,,,,,,Weekend Flag. Domain: Flag.
+silver,calendar_date,Calendar Date,Core,Reference,,None,8,statutory_holiday_flag,Statutory Holiday Flag,Logical,Flag,boolean,No,,,,,,Statutory Holiday Flag. Domain: Flag. Nova Scotia
+silver,calendar_date,Calendar Date,Core,Reference,,None,9,holiday_name,Holiday Name,Logical,Name,varchar(200),Yes,,,,,,Holiday Name. Domain: Name.
+silver,calendar_date,Calendar Date,Core,Reference,,None,10,season_name,Season Name,Logical,Name,varchar(200),No,,,,,,Season Name. Domain: Name.
+silver,calendar_date,Calendar Date,Core,Reference,,None,11,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,calendar_date,Calendar Date,Core,Reference,,None,12,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,measure,Measure,Core,Reference,,SCD Type 2,1,measure_code,Measure Code,Logical,Reference Code,varchar(30),No,,PK,pk_measure,,,Measure Code. Domain: Reference Code.
+silver,measure,Measure,Core,Reference,,SCD Type 2,2,measure_name,Measure Name,Logical,Name,varchar(200),No,,,,,,Measure Name. Domain: Name.
+silver,measure,Measure,Core,Reference,,SCD Type 2,3,unit_of_measure_code,Unit Of Measure Code,Logical,Code,varchar(30),No,,,,,,"Unit Of Measure Code. Domain: Code. CAD, %, mg/L, count …"
+silver,measure,Measure,Core,Reference,,SCD Type 2,4,measure_description,Measure Description,Logical,Description,varchar(2000),Yes,,,,,,Measure Description. Domain: Description.
+silver,measure,Measure,Core,Reference,,SCD Type 2,5,valid_from_ts,,SCD2,,timestamptz,No,default now(),,,,,SCD2: when this version of the row became current.
+silver,measure,Measure,Core,Reference,,SCD Type 2,6,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,measure,Measure,Core,Reference,,SCD Type 2,7,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,location,Location,Core,Supertype,,SCD Type 2,1,location_id,Location ID,Logical,Identifier,bigint,No,identity (by default),PK,pk_location,,,Location ID. Domain: Identifier.
+silver,location,Location,Core,Supertype,,SCD Type 2,2,location_type_code,Location Type Code,Logical,Code,varchar(30),No,,,,,,Location Type Code. Domain: Code. Discriminator
+silver,location,Location,Core,Supertype,,SCD Type 2,3,location_name,Location Name,Logical,Name,varchar(200),Yes,,,,,,Location Name. Domain: Name.
+silver,location,Location,Core,Supertype,,SCD Type 2,4,geometry_type_code,Geometry Type Code,Logical,Code,varchar(30),No,,,,,,"Geometry Type Code. Domain: Code. Point, Line, Polygon, None"
+silver,location,Location,Core,Supertype,,SCD Type 2,5,location_geometry,Location Geometry,Logical,Geometry,"geometry(Geometry, 4326)",Yes,,,,,,Location Geometry. Domain: Geometry. None for Citywide
+silver,location,Location,Core,Supertype,,SCD Type 2,6,centroid_latitude,Centroid Latitude,Logical,Latitude,"numeric(9,6)",Yes,,,,,centroid_latitude BETWEEN -90 AND 90,Centroid Latitude. Domain: Latitude.
+silver,location,Location,Core,Supertype,,SCD Type 2,7,centroid_longitude,Centroid Longitude,Logical,Longitude,"numeric(9,6)",Yes,,,,,centroid_longitude BETWEEN -180 AND 180,Centroid Longitude. Domain: Longitude.
+silver,location,Location,Core,Supertype,,SCD Type 2,8,source_id,Source ID,Logical,Reference Code,varchar(30),No,,FK AK1,ak1_location (2 columns),silver.source.source_id,,Source ID. Domain: Reference Code.
+silver,location,Location,Core,Supertype,,SCD Type 2,9,source_location_key,Source Location Key,Logical,Source Key,varchar(100),No,,AK1,ak1_location (2 columns),,,Source Location Key. Domain: Source Key. Key as the source gives it
+silver,location,Location,Core,Supertype,,SCD Type 2,10,start_date,Start Date,Logical,Date,date,Yes,,,,,,Start Date. Domain: Date. Lifecycle: created
+silver,location,Location,Core,Supertype,,SCD Type 2,11,end_date,End Date,Logical,Date,date,Yes,,,,,,End Date. Domain: Date. Lifecycle: retired
+silver,location,Location,Core,Supertype,,SCD Type 2,12,valid_from_ts,,SCD2,,timestamptz,No,default now(),,,,,SCD2: when this version of the row became current.
+silver,location,Location,Core,Supertype,,SCD Type 2,13,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,location,Location,Core,Supertype,,SCD Type 2,14,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,street,Street,Core,Subtype,Location,SCD Type 2,1,location_id,Location ID,Logical,Identifier,bigint,No,,PK/FK,pk_street,silver.location.location_id,,Location ID. Domain: Identifier.
+silver,street,Street,Core,Subtype,Location,SCD Type 2,2,street_name,Street Name,Logical,Name,varchar(200),No,,,,,,Street Name. Domain: Name.
+silver,street,Street,Core,Subtype,Location,SCD Type 2,3,street_type_code,Street Type Code,Logical,Code,varchar(30),Yes,,,,,,"Street Type Code. Domain: Code. St, Ave, Rd …"
+silver,street,Street,Core,Subtype,Location,SCD Type 2,4,street_direction_code,Street Direction Code,Logical,Code,varchar(30),Yes,,,,,,Street Direction Code. Domain: Code.
+silver,street,Street,Core,Subtype,Location,SCD Type 2,5,road_jurisdiction_code,Road Jurisdiction Code,Logical,Code,varchar(30),No,,,,,,"Road Jurisdiction Code. Domain: Code. Municipal, Provincial, Private"
+silver,street,Street,Core,Subtype,Location,SCD Type 2,6,valid_from_ts,,SCD2,,timestamptz,No,default now(),,,,,SCD2: when this version of the row became current.
+silver,street,Street,Core,Subtype,Location,SCD Type 2,7,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,street,Street,Core,Subtype,Location,SCD Type 2,8,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,street_segment,Street Segment,Core,Subtype,Location,SCD Type 2,1,location_id,Location ID,Logical,Identifier,bigint,No,,PK/FK,pk_street_segment,silver.location.location_id,,Location ID. Domain: Identifier.
+silver,street_segment,Street Segment,Core,Subtype,Location,SCD Type 2,2,street_location_id,Street Location ID,Logical,Identifier,bigint,No,,FK,,silver.street.location_id,,Street Location ID. Domain: Identifier. Role name: the street
+silver,street_segment,Street Segment,Core,Subtype,Location,SCD Type 2,3,from_intersection_location_id,From Intersection Location ID,Logical,Identifier,bigint,Yes,,FK,,silver.intersection.location_id,,From Intersection Location ID. Domain: Identifier. Role name
+silver,street_segment,Street Segment,Core,Subtype,Location,SCD Type 2,4,to_intersection_location_id,To Intersection Location ID,Logical,Identifier,bigint,Yes,,FK,,silver.intersection.location_id,,To Intersection Location ID. Domain: Identifier. Role name
+silver,street_segment,Street Segment,Core,Subtype,Location,SCD Type 2,5,segment_length_metres,Segment Length Metres,Logical,Length Metres,"numeric(12,2)",Yes,,,,,segment_length_metres >= 0,Segment Length Metres. Domain: Length Metres.
+silver,street_segment,Street Segment,Core,Subtype,Location,SCD Type 2,6,road_class_code,Road Class Code,Logical,Code,varchar(30),Yes,,,,,,"Road Class Code. Domain: Code. Arterial, Collector, Local …"
+silver,street_segment,Street Segment,Core,Subtype,Location,SCD Type 2,7,speed_limit_kph,Speed Limit Kph,Logical,Count,integer,Yes,,,,,speed_limit_kph >= 0,Speed Limit Kph. Domain: Count.
+silver,street_segment,Street Segment,Core,Subtype,Location,SCD Type 2,8,lane_count,Lane Count,Logical,Count,integer,Yes,,,,,lane_count >= 0,Lane Count. Domain: Count.
+silver,street_segment,Street Segment,Core,Subtype,Location,SCD Type 2,9,one_way_flag,One Way Flag,Logical,Flag,boolean,Yes,,,,,,One Way Flag. Domain: Flag.
+silver,street_segment,Street Segment,Core,Subtype,Location,SCD Type 2,10,valid_from_ts,,SCD2,,timestamptz,No,default now(),,,,,SCD2: when this version of the row became current.
+silver,street_segment,Street Segment,Core,Subtype,Location,SCD Type 2,11,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,street_segment,Street Segment,Core,Subtype,Location,SCD Type 2,12,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,intersection,Intersection,Core,Subtype,Location,SCD Type 2,1,location_id,Location ID,Logical,Identifier,bigint,No,,PK/FK,pk_intersection,silver.location.location_id,,Location ID. Domain: Identifier.
+silver,intersection,Intersection,Core,Subtype,Location,SCD Type 2,2,intersection_name,Intersection Name,Logical,Name,varchar(200),Yes,,,,,,Intersection Name. Domain: Name. Barrington St & Spring Garden Rd
+silver,intersection,Intersection,Core,Subtype,Location,SCD Type 2,3,traffic_control_code,Traffic Control Code,Logical,Code,varchar(30),Yes,,,,,,"Traffic Control Code. Domain: Code. Signal, Stop, Roundabout, None"
+silver,intersection,Intersection,Core,Subtype,Location,SCD Type 2,4,valid_from_ts,,SCD2,,timestamptz,No,default now(),,,,,SCD2: when this version of the row became current.
+silver,intersection,Intersection,Core,Subtype,Location,SCD Type 2,5,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,intersection,Intersection,Core,Subtype,Location,SCD Type 2,6,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,area,Area,Core,Subtype,Location,SCD Type 2,1,location_id,Location ID,Logical,Identifier,bigint,No,,PK/FK,pk_area,silver.location.location_id,,Location ID. Domain: Identifier.
+silver,area,Area,Core,Subtype,Location,SCD Type 2,2,area_type_code,Area Type Code,Logical,Code,varchar(30),No,,,,,,Area Type Code. Domain: Code.
+silver,area,Area,Core,Subtype,Location,SCD Type 2,3,area_code,Area Code,Logical,Code,varchar(30),Yes,,,,,,"Area Code. Domain: Code. Official code, e.g. census DGUID"
+silver,area,Area,Core,Subtype,Location,SCD Type 2,4,parent_area_location_id,Parent Area Location ID,Logical,Identifier,bigint,Yes,,FK,,silver.area.location_id,,Parent Area Location ID. Domain: Identifier. Recursive; role name
+silver,area,Area,Core,Subtype,Location,SCD Type 2,5,area_square_km,Area Square Km,Logical,Area Square Km,"numeric(12,2)",Yes,,,,,area_square_km >= 0,Area Square Km. Domain: Area Square Km.
+silver,area,Area,Core,Subtype,Location,SCD Type 2,6,valid_from_ts,,SCD2,,timestamptz,No,default now(),,,,,SCD2: when this version of the row became current.
+silver,area,Area,Core,Subtype,Location,SCD Type 2,7,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,area,Area,Core,Subtype,Location,SCD Type 2,8,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,civic_address,Civic Address,Core,Subtype,Location,SCD Type 2,1,location_id,Location ID,Logical,Identifier,bigint,No,,PK/FK,pk_civic_address,silver.location.location_id,,Location ID. Domain: Identifier.
+silver,civic_address,Civic Address,Core,Subtype,Location,SCD Type 2,2,street_location_id,Street Location ID,Logical,Identifier,bigint,No,,FK,,silver.street.location_id,,Street Location ID. Domain: Identifier. Role name: the street
+silver,civic_address,Civic Address,Core,Subtype,Location,SCD Type 2,3,parcel_location_id,Parcel Location ID,Logical,Identifier,bigint,No,,FK,,silver.parcel.location_id,,Parcel Location ID. Domain: Identifier. Role name: the parcel
+silver,civic_address,Civic Address,Core,Subtype,Location,SCD Type 2,4,civic_number,Civic Number,Logical,Count,integer,No,,,,,civic_number >= 0,Civic Number. Domain: Count.
+silver,civic_address,Civic Address,Core,Subtype,Location,SCD Type 2,5,civic_number_suffix,Civic Number Suffix,Logical,Code,varchar(30),Yes,,,,,,"Civic Number Suffix. Domain: Code. A, B, ½"
+silver,civic_address,Civic Address,Core,Subtype,Location,SCD Type 2,6,postal_code,Postal Code,Logical,Code,varchar(30),Yes,,,,,,Postal Code. Domain: Code.
+silver,civic_address,Civic Address,Core,Subtype,Location,SCD Type 2,7,valid_from_ts,,SCD2,,timestamptz,No,default now(),,,,,SCD2: when this version of the row became current.
+silver,civic_address,Civic Address,Core,Subtype,Location,SCD Type 2,8,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,civic_address,Civic Address,Core,Subtype,Location,SCD Type 2,9,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,parcel,Parcel,Core,Subtype,Location,SCD Type 2,1,location_id,Location ID,Logical,Identifier,bigint,No,,PK/FK,pk_parcel,silver.location.location_id,,Location ID. Domain: Identifier.
+silver,parcel,Parcel,Core,Subtype,Location,SCD Type 2,2,parcel_pid,Parcel PID,Logical,Reference Code,varchar(30),No,,AK2,ak1_parcel,,,Parcel PID. Domain: Reference Code. Property Identification Number
+silver,parcel,Parcel,Core,Subtype,Location,SCD Type 2,3,parcel_area_square_metres,Parcel Area Square Metres,Logical,Area Square Metres,"numeric(12,2)",Yes,,,,,parcel_area_square_metres >= 0,Parcel Area Square Metres. Domain: Area Square Metres.
+silver,parcel,Parcel,Core,Subtype,Location,SCD Type 2,4,land_use_code,Land Use Code,Logical,Code,varchar(30),Yes,,,,,,Land Use Code. Domain: Code.
+silver,parcel,Parcel,Core,Subtype,Location,SCD Type 2,5,valid_from_ts,,SCD2,,timestamptz,No,default now(),,,,,SCD2: when this version of the row became current.
+silver,parcel,Parcel,Core,Subtype,Location,SCD Type 2,6,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,parcel,Parcel,Core,Subtype,Location,SCD Type 2,7,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,location_containment,Location Containment,Core,Associative,,None,1,containing_location_id,Containing Location ID,Logical,Identifier,bigint,No,,PK/FK,pk_location_containment (2 columns),silver.location.location_id,,Containing Location ID. Domain: Identifier. Role name; usually an Area
+silver,location_containment,Location Containment,Core,Associative,,None,2,contained_location_id,Contained Location ID,Logical,Identifier,bigint,No,,PK/FK,pk_location_containment (2 columns),silver.location.location_id,,Contained Location ID. Domain: Identifier. Role name
+silver,location_containment,Location Containment,Core,Associative,,None,3,overlap_percent,Overlap Percent,Logical,Percent,"numeric(5,2)",Yes,,,,,overlap_percent BETWEEN 0 AND 100,Overlap Percent. Domain: Percent. Share of the contained location inside
+silver,location_containment,Location Containment,Core,Associative,,None,4,containment_method_code,Containment Method Code,Logical,Code,varchar(30),No,,,,,,"Containment Method Code. Domain: Code. Spatial join, Published by source"
+silver,location_containment,Location Containment,Core,Associative,,None,5,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,location_containment,Location Containment,Core,Associative,,None,6,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,party,Party,Core,Supertype,,SCD Type 2,1,party_id,Party ID,Logical,Identifier,bigint,No,identity (by default),PK,pk_party,,,Party ID. Domain: Identifier.
+silver,party,Party,Core,Supertype,,SCD Type 2,2,party_type_code,Party Type Code,Logical,Code,varchar(30),No,,,,,,Party Type Code. Domain: Code. Discriminator: Organization (Person reserved)
+silver,party,Party,Core,Supertype,,SCD Type 2,3,party_name,Party Name,Logical,Name,varchar(200),No,,,,,,Party Name. Domain: Name.
+silver,party,Party,Core,Supertype,,SCD Type 2,4,source_id,Source ID,Logical,Reference Code,varchar(30),Yes,,FK AK1,ak1_party (2 columns),silver.source.source_id,,Source ID. Domain: Reference Code. Optional: avoids a loop with Source
+silver,party,Party,Core,Supertype,,SCD Type 2,5,source_party_key,Source Party Key,Logical,Source Key,varchar(100),Yes,,AK1,ak1_party (2 columns),,,Source Party Key. Domain: Source Key.
+silver,party,Party,Core,Supertype,,SCD Type 2,6,valid_from_ts,,SCD2,,timestamptz,No,default now(),,,,,SCD2: when this version of the row became current.
+silver,party,Party,Core,Supertype,,SCD Type 2,7,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,party,Party,Core,Supertype,,SCD Type 2,8,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,organization,Organization,Core,Subtype,Party,SCD Type 2,1,party_id,Party ID,Logical,Identifier,bigint,No,,PK/FK,pk_organization,silver.party.party_id,,Party ID. Domain: Identifier.
+silver,organization,Organization,Core,Subtype,Party,SCD Type 2,2,organization_type_code,Organization Type Code,Logical,Code,varchar(30),No,,,,,,Organization Type Code. Domain: Code.
+silver,organization,Organization,Core,Subtype,Party,SCD Type 2,3,legal_name,Legal Name,Logical,Name,varchar(200),Yes,,,,,,Legal Name. Domain: Name.
+silver,organization,Organization,Core,Subtype,Party,SCD Type 2,4,business_number,Business Number,Logical,Reference Code,varchar(30),Yes,,,,,,Business Number. Domain: Reference Code. CRA business number
+silver,organization,Organization,Core,Subtype,Party,SCD Type 2,5,website_url,Website URL,Logical,URL,varchar(500),Yes,,,,,website_url ~ '^https?://',Website URL. Domain: URL.
+silver,organization,Organization,Core,Subtype,Party,SCD Type 2,6,valid_from_ts,,SCD2,,timestamptz,No,default now(),,,,,SCD2: when this version of the row became current.
+silver,organization,Organization,Core,Subtype,Party,SCD Type 2,7,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,organization,Organization,Core,Subtype,Party,SCD Type 2,8,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,party_sector_classification,Party Sector Classification,Core,Associative,,None,1,party_id,Party ID,Logical,Identifier,bigint,No,,PK/FK,pk_party_sector_classification (2 columns),silver.party.party_id,,Party ID. Domain: Identifier.
+silver,party_sector_classification,Party Sector Classification,Core,Associative,,None,2,subsector_id,Subsector ID,Logical,Reference Code,varchar(30),No,,PK/FK,pk_party_sector_classification (2 columns),silver.subsector.subsector_id,,Subsector ID. Domain: Reference Code.
+silver,party_sector_classification,Party Sector Classification,Core,Associative,,None,3,primary_classification_flag,Primary Classification Flag,Logical,Flag,boolean,No,,,,,,Primary Classification Flag. Domain: Flag.
+silver,party_sector_classification,Party Sector Classification,Core,Associative,,None,4,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,party_sector_classification,Party Sector Classification,Core,Associative,,None,5,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,asset,Asset,Core,Supertype,,SCD Type 2,1,asset_id,Asset ID,Logical,Identifier,bigint,No,identity (by default),PK,pk_asset,,,Asset ID. Domain: Identifier.
+silver,asset,Asset,Core,Supertype,,SCD Type 2,2,asset_type_code,Asset Type Code,Logical,Code,varchar(30),No,,,,,,Asset Type Code. Domain: Code. Discriminator
+silver,asset,Asset,Core,Supertype,,SCD Type 2,3,asset_name,Asset Name,Logical,Name,varchar(200),Yes,,,,,,Asset Name. Domain: Name.
+silver,asset,Asset,Core,Supertype,,SCD Type 2,4,location_id,Location ID,Logical,Identifier,bigint,Yes,,FK,,silver.location.location_id,,Location ID. Domain: Identifier. Located at; empty for vehicles
+silver,asset,Asset,Core,Supertype,,SCD Type 2,5,subsector_id,Subsector ID,Logical,Reference Code,varchar(30),No,,FK,,silver.subsector.subsector_id,,Subsector ID. Domain: Reference Code.
+silver,asset,Asset,Core,Supertype,,SCD Type 2,6,source_id,Source ID,Logical,Reference Code,varchar(30),No,,FK AK1,ak1_asset (2 columns),silver.source.source_id,,Source ID. Domain: Reference Code.
+silver,asset,Asset,Core,Supertype,,SCD Type 2,7,source_asset_key,Source Asset Key,Logical,Source Key,varchar(100),No,,AK1,ak1_asset (2 columns),,,"Source Asset Key. Domain: Source Key. e.g. GTFS route_id, stop_id"
+silver,asset,Asset,Core,Supertype,,SCD Type 2,8,asset_status_code,Asset Status Code,Logical,Code,varchar(30),No,,,,,,"Asset Status Code. Domain: Code. Active, Planned, Retired"
+silver,asset,Asset,Core,Supertype,,SCD Type 2,9,in_service_date,In Service Date,Logical,Date,date,Yes,,,,,,In Service Date. Domain: Date.
+silver,asset,Asset,Core,Supertype,,SCD Type 2,10,out_of_service_date,Out Of Service Date,Logical,Date,date,Yes,,,,,,Out Of Service Date. Domain: Date.
+silver,asset,Asset,Core,Supertype,,SCD Type 2,11,valid_from_ts,,SCD2,,timestamptz,No,default now(),,,,,SCD2: when this version of the row became current.
+silver,asset,Asset,Core,Supertype,,SCD Type 2,12,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,asset,Asset,Core,Supertype,,SCD Type 2,13,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,party_asset_role,Party Asset Role,Core,Associative,,None,1,party_id,Party ID,Logical,Identifier,bigint,No,,PK/FK,pk_party_asset_role (4 columns),silver.party.party_id,,Party ID. Domain: Identifier.
+silver,party_asset_role,Party Asset Role,Core,Associative,,None,2,asset_id,Asset ID,Logical,Identifier,bigint,No,,PK/FK,pk_party_asset_role (4 columns),silver.asset.asset_id,,Asset ID. Domain: Identifier.
+silver,party_asset_role,Party Asset Role,Core,Associative,,None,3,asset_role_code,Asset Role Code,Logical,Code,varchar(30),No,,PK,pk_party_asset_role (4 columns),,,"Asset Role Code. Domain: Code. Owner, Operator, Maintainer"
+silver,party_asset_role,Party Asset Role,Core,Associative,,None,4,role_start_date,Role Start Date,Logical,Date,date,No,,PK,pk_party_asset_role (4 columns),,,Role Start Date. Domain: Date.
+silver,party_asset_role,Party Asset Role,Core,Associative,,None,5,role_end_date,Role End Date,Logical,Date,date,Yes,,,,,,Role End Date. Domain: Date.
+silver,party_asset_role,Party Asset Role,Core,Associative,,None,6,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,party_asset_role,Party Asset Role,Core,Associative,,None,7,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,event,Event,Core,Supertype,,None,1,event_id,Event ID,Logical,Identifier,bigint,No,identity (by default),PK,pk_event,,,Event ID. Domain: Identifier.
+silver,event,Event,Core,Supertype,,None,2,event_type_code,Event Type Code,Logical,Code,varchar(30),No,,,,,,Event Type Code. Domain: Code. Discriminator
+silver,event,Event,Core,Supertype,,None,3,event_start_ts,Event Start Timestamp,Logical,Timestamp,timestamptz,No,,,,,,Event Start Timestamp. Domain: Timestamp. UTC
+silver,event,Event,Core,Supertype,,None,4,event_end_ts,Event End Timestamp,Logical,Timestamp,timestamptz,Yes,,,,,,Event End Timestamp. Domain: Timestamp. UTC
+silver,event,Event,Core,Supertype,,None,5,event_date,Event Date,Logical,Date,date,No,,FK,,silver.calendar_date.calendar_date,,Event Date. Domain: Date. Role name of Calendar Date; occurs on
+silver,event,Event,Core,Supertype,,None,6,location_id,Location ID,Logical,Identifier,bigint,Yes,,FK,,silver.location.location_id,,Location ID. Domain: Identifier. Occurs at; see the location rules
+silver,event,Event,Core,Supertype,,None,7,subsector_id,Subsector ID,Logical,Reference Code,varchar(30),No,,FK,,silver.subsector.subsector_id,,Subsector ID. Domain: Reference Code.
+silver,event,Event,Core,Supertype,,None,8,source_id,Source ID,Logical,Reference Code,varchar(30),No,,FK AK1,ak1_event (2 columns),silver.source.source_id,,Source ID. Domain: Reference Code. Reported by
+silver,event,Event,Core,Supertype,,None,9,source_event_key,Source Event Key,Logical,Source Key,varchar(100),No,,AK1,ak1_event (2 columns),,,"Source Event Key. Domain: Source Key. Permit no., request no. …"
+silver,event,Event,Core,Supertype,,None,10,event_status_code,Event Status Code,Logical,Code,varchar(30),Yes,,,,,,Event Status Code. Domain: Code.
+silver,event,Event,Core,Supertype,,None,11,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,event,Event,Core,Supertype,,None,12,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,event_asset_involvement,Event Asset Involvement,Core,Associative,,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_event_asset_involvement (3 columns),silver.event.event_id,,Event ID. Domain: Identifier.
+silver,event_asset_involvement,Event Asset Involvement,Core,Associative,,None,2,asset_id,Asset ID,Logical,Identifier,bigint,No,,PK/FK,pk_event_asset_involvement (3 columns),silver.asset.asset_id,,Asset ID. Domain: Identifier.
+silver,event_asset_involvement,Event Asset Involvement,Core,Associative,,None,3,involvement_role_code,Involvement Role Code,Logical,Code,varchar(30),No,,PK,pk_event_asset_involvement (3 columns),,,"Involvement Role Code. Domain: Code. Affected, Measured, Used …"
+silver,event_asset_involvement,Event Asset Involvement,Core,Associative,,None,4,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,event_asset_involvement,Event Asset Involvement,Core,Associative,,None,5,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,event_party_involvement,Event Party Involvement,Core,Associative,,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_event_party_involvement (3 columns),silver.event.event_id,,Event ID. Domain: Identifier.
+silver,event_party_involvement,Event Party Involvement,Core,Associative,,None,2,party_id,Party ID,Logical,Identifier,bigint,No,,PK/FK,pk_event_party_involvement (3 columns),silver.party.party_id,,Party ID. Domain: Identifier.
+silver,event_party_involvement,Event Party Involvement,Core,Associative,,None,3,involvement_role_code,Involvement Role Code,Logical,Code,varchar(30),No,,PK,pk_event_party_involvement (3 columns),,,"Involvement Role Code. Domain: Code. Reporter, Responsible, Contractor, Applicant"
+silver,event_party_involvement,Event Party Involvement,Core,Associative,,None,4,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,event_party_involvement,Event Party Involvement,Core,Associative,,None,5,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,event_coverage,Event Coverage,Core,Associative,,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_event_coverage (3 columns),silver.event.event_id,,Event ID. Domain: Identifier.
+silver,event_coverage,Event Coverage,Core,Associative,,None,2,location_id,Location ID,Logical,Identifier,bigint,No,,PK/FK,pk_event_coverage (3 columns),silver.location.location_id,,Location ID. Domain: Identifier.
+silver,event_coverage,Event Coverage,Core,Associative,,None,3,coverage_role_code,Coverage Role Code,Logical,Code,varchar(30),No,,PK,pk_event_coverage (3 columns),,,"Coverage Role Code. Domain: Code. Affected, Closed, Detour"
+silver,event_coverage,Event Coverage,Core,Associative,,None,4,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,event_coverage,Event Coverage,Core,Associative,,None,5,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,weather_observation,Weather Observation,Core,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_weather_observation,silver.event.event_id,,Event ID. Domain: Identifier.
+silver,weather_observation,Weather Observation,Core,Subtype,Event,None,2,observation_interval_code,Observation Interval Code,Logical,Code,varchar(30),No,,,,,,"Observation Interval Code. Domain: Code. Hourly, Daily"
+silver,weather_observation,Weather Observation,Core,Subtype,Event,None,3,air_temperature_celsius,Air Temperature Celsius,Logical,Measure Value,"numeric(18,6)",Yes,,,,,,Air Temperature Celsius. Domain: Measure Value.
+silver,weather_observation,Weather Observation,Core,Subtype,Event,None,4,precipitation_mm,Precipitation Mm,Logical,Measure Value,"numeric(18,6)",Yes,,,,,,Precipitation Mm. Domain: Measure Value.
+silver,weather_observation,Weather Observation,Core,Subtype,Event,None,5,snowfall_cm,Snowfall Cm,Logical,Measure Value,"numeric(18,6)",Yes,,,,,,Snowfall Cm. Domain: Measure Value.
+silver,weather_observation,Weather Observation,Core,Subtype,Event,None,6,snow_on_ground_cm,Snow On Ground Cm,Logical,Measure Value,"numeric(18,6)",Yes,,,,,,Snow On Ground Cm. Domain: Measure Value.
+silver,weather_observation,Weather Observation,Core,Subtype,Event,None,7,mean_wind_speed_kph,Mean Wind Speed Kph,Logical,Measure Value,"numeric(18,6)",Yes,,,,,,Mean Wind Speed Kph. Domain: Measure Value.
+silver,weather_observation,Weather Observation,Core,Subtype,Event,None,8,max_gust_kph,Max Gust Kph,Logical,Measure Value,"numeric(18,6)",Yes,,,,,,Max Gust Kph. Domain: Measure Value.
+silver,weather_observation,Weather Observation,Core,Subtype,Event,None,9,weather_condition_code,Weather Condition Code,Logical,Code,varchar(30),Yes,,,,,,Weather Condition Code. Domain: Code.
+silver,weather_observation,Weather Observation,Core,Subtype,Event,None,10,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,weather_observation,Weather Observation,Core,Subtype,Event,None,11,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,area_statistic,Area Statistic,Core,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_area_statistic,silver.event.event_id,,Event ID. Domain: Identifier.
+silver,area_statistic,Area Statistic,Core,Subtype,Event,None,2,measure_code,Measure Code,Logical,Reference Code,varchar(30),No,,FK,,silver.measure.measure_code,,Measure Code. Domain: Reference Code.
+silver,area_statistic,Area Statistic,Core,Subtype,Event,None,3,statistic_value,Statistic Value,Logical,Measure Value,"numeric(18,6)",No,,,,,,Statistic Value. Domain: Measure Value.
+silver,area_statistic,Area Statistic,Core,Subtype,Event,None,4,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,area_statistic,Area Statistic,Core,Subtype,Event,None,5,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,economic_indicator,Economic Indicator,Core,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_economic_indicator,silver.event.event_id,,Event ID. Domain: Identifier.
+silver,economic_indicator,Economic Indicator,Core,Subtype,Event,None,2,measure_code,Measure Code,Logical,Reference Code,varchar(30),No,,FK,,silver.measure.measure_code,,Measure Code. Domain: Reference Code.
+silver,economic_indicator,Economic Indicator,Core,Subtype,Event,None,3,indicator_value,Indicator Value,Logical,Measure Value,"numeric(18,6)",No,,,,,,Indicator Value. Domain: Measure Value.
+silver,economic_indicator,Economic Indicator,Core,Subtype,Event,None,4,period_type_code,Period Type Code,Logical,Code,varchar(30),No,,,,,,"Period Type Code. Domain: Code. Monthly, Quarterly, Annual"
+silver,economic_indicator,Economic Indicator,Core,Subtype,Event,None,5,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,economic_indicator,Economic Indicator,Core,Subtype,Event,None,6,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,schedule_version,Schedule Version,Transportation,Reference,,None,1,schedule_version_id,Schedule Version ID,Logical,Identifier,bigint,No,identity (by default),PK,pk_schedule_version,,,Schedule Version ID. Domain: Identifier.
+silver,schedule_version,Schedule Version,Transportation,Reference,,None,2,source_id,Source ID,Logical,Reference Code,varchar(30),No,,FK,,silver.source.source_id,,Source ID. Domain: Reference Code. SRC-004
+silver,schedule_version,Schedule Version,Transportation,Reference,,None,3,feed_version_label,Feed Version Label,Logical,Name,varchar(200),Yes,,,,,,Feed Version Label. Domain: Name. feed_info.feed_version
+silver,schedule_version,Schedule Version,Transportation,Reference,,None,4,feed_published_date,Feed Published Date,Logical,Date,date,No,,,,,,Feed Published Date. Domain: Date.
+silver,schedule_version,Schedule Version,Transportation,Reference,,None,5,service_period_start_date,Service Period Start Date,Logical,Date,date,No,,,,,,Service Period Start Date. Domain: Date.
+silver,schedule_version,Schedule Version,Transportation,Reference,,None,6,service_period_end_date,Service Period End Date,Logical,Date,date,No,,,,,,Service Period End Date. Domain: Date.
+silver,schedule_version,Schedule Version,Transportation,Reference,,None,7,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,schedule_version,Schedule Version,Transportation,Reference,,None,8,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,service_calendar,Service Calendar,Transportation,Reference,,None,1,schedule_version_id,Schedule Version ID,Logical,Identifier,bigint,No,,PK/FK,pk_service_calendar (2 columns),silver.schedule_version.schedule_version_id,,Schedule Version ID. Domain: Identifier.
+silver,service_calendar,Service Calendar,Transportation,Reference,,None,2,service_code,Service Code,Logical,Source Key,varchar(100),No,,PK,pk_service_calendar (2 columns),,,Service Code. Domain: Source Key. GTFS service_id
+silver,service_calendar,Service Calendar,Transportation,Reference,,None,3,monday_flag,Monday Flag,Logical,Flag,boolean,No,,,,,,Monday Flag. Domain: Flag.
+silver,service_calendar,Service Calendar,Transportation,Reference,,None,4,tuesday_flag,Tuesday Flag,Logical,Flag,boolean,No,,,,,,Tuesday Flag. Domain: Flag.
+silver,service_calendar,Service Calendar,Transportation,Reference,,None,5,wednesday_flag,Wednesday Flag,Logical,Flag,boolean,No,,,,,,Wednesday Flag. Domain: Flag.
+silver,service_calendar,Service Calendar,Transportation,Reference,,None,6,thursday_flag,Thursday Flag,Logical,Flag,boolean,No,,,,,,Thursday Flag. Domain: Flag.
+silver,service_calendar,Service Calendar,Transportation,Reference,,None,7,friday_flag,Friday Flag,Logical,Flag,boolean,No,,,,,,Friday Flag. Domain: Flag.
+silver,service_calendar,Service Calendar,Transportation,Reference,,None,8,saturday_flag,Saturday Flag,Logical,Flag,boolean,No,,,,,,Saturday Flag. Domain: Flag.
+silver,service_calendar,Service Calendar,Transportation,Reference,,None,9,sunday_flag,Sunday Flag,Logical,Flag,boolean,No,,,,,,Sunday Flag. Domain: Flag.
+silver,service_calendar,Service Calendar,Transportation,Reference,,None,10,start_date,Start Date,Logical,Date,date,No,,,,,,Start Date. Domain: Date.
+silver,service_calendar,Service Calendar,Transportation,Reference,,None,11,end_date,End Date,Logical,Date,date,No,,,,,,End Date. Domain: Date.
+silver,service_calendar,Service Calendar,Transportation,Reference,,None,12,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,service_calendar,Service Calendar,Transportation,Reference,,None,13,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,service_calendar_exception,Service Calendar Exception,Transportation,Reference,,None,1,schedule_version_id,Schedule Version ID,Logical,Identifier,bigint,No,,PK/FK,pk_service_calendar_exception (3 columns),silver.service_calendar.schedule_version_id,,Schedule Version ID. Domain: Identifier.
+silver,service_calendar_exception,Service Calendar Exception,Transportation,Reference,,None,2,service_code,Service Code,Logical,Source Key,varchar(100),No,,PK/FK,pk_service_calendar_exception (3 columns),silver.service_calendar.service_code,,Service Code. Domain: Source Key.
+silver,service_calendar_exception,Service Calendar Exception,Transportation,Reference,,None,3,exception_date,Exception Date,Logical,Date,date,No,,PK/FK,pk_service_calendar_exception (3 columns),silver.calendar_date.calendar_date,,Exception Date. Domain: Date. Role name of Calendar Date
+silver,service_calendar_exception,Service Calendar Exception,Transportation,Reference,,None,4,exception_type_code,Exception Type Code,Logical,Code,varchar(30),No,,,,,,"Exception Type Code. Domain: Code. Added, Removed"
+silver,service_calendar_exception,Service Calendar Exception,Transportation,Reference,,None,5,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,service_calendar_exception,Service Calendar Exception,Transportation,Reference,,None,6,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,route,Route,Transportation,Subtype,Asset,SCD Type 2,1,asset_id,Asset ID,Logical,Identifier,bigint,No,,PK/FK,pk_route,silver.asset.asset_id,,Asset ID. Domain: Identifier.
+silver,route,Route,Transportation,Subtype,Asset,SCD Type 2,2,route_short_name,Route Short Name,Logical,Name,varchar(200),No,,,,,,"Route Short Name. Domain: Name. 1, 9A, Alderney Ferry"
+silver,route,Route,Transportation,Subtype,Asset,SCD Type 2,3,route_long_name,Route Long Name,Logical,Name,varchar(200),Yes,,,,,,Route Long Name. Domain: Name.
+silver,route,Route,Transportation,Subtype,Asset,SCD Type 2,4,route_mode_code,Route Mode Code,Logical,Code,varchar(30),No,,,,,,"Route Mode Code. Domain: Code. Bus, Ferry"
+silver,route,Route,Transportation,Subtype,Asset,SCD Type 2,5,valid_from_ts,,SCD2,,timestamptz,No,default now(),,,,,SCD2: when this version of the row became current.
+silver,route,Route,Transportation,Subtype,Asset,SCD Type 2,6,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,route,Route,Transportation,Subtype,Asset,SCD Type 2,7,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,stop,Stop,Transportation,Subtype,Asset,SCD Type 2,1,asset_id,Asset ID,Logical,Identifier,bigint,No,,PK/FK,pk_stop,silver.asset.asset_id,,Asset ID. Domain: Identifier.
+silver,stop,Stop,Transportation,Subtype,Asset,SCD Type 2,2,stop_code,Stop Code,Logical,Reference Code,varchar(30),Yes,,AK2,ak1_stop,,,Stop Code. Domain: Reference Code. Public stop number
+silver,stop,Stop,Transportation,Subtype,Asset,SCD Type 2,3,stop_name,Stop Name,Logical,Name,varchar(200),No,,,,,,Stop Name. Domain: Name.
+silver,stop,Stop,Transportation,Subtype,Asset,SCD Type 2,4,stop_kind_code,Stop Kind Code,Logical,Code,varchar(30),No,,,,,,"Stop Kind Code. Domain: Code. Stop, Station, Ferry terminal"
+silver,stop,Stop,Transportation,Subtype,Asset,SCD Type 2,5,parent_stop_asset_id,Parent Stop Asset ID,Logical,Identifier,bigint,Yes,,FK,,silver.stop.asset_id,,Parent Stop Asset ID. Domain: Identifier. Recursive; role name
+silver,stop,Stop,Transportation,Subtype,Asset,SCD Type 2,6,wheelchair_boarding_code,Wheelchair Boarding Code,Logical,Code,varchar(30),Yes,,,,,,Wheelchair Boarding Code. Domain: Code.
+silver,stop,Stop,Transportation,Subtype,Asset,SCD Type 2,7,shelter_flag,Shelter Flag,Logical,Flag,boolean,Yes,,,,,,Shelter Flag. Domain: Flag. From Transit Shelters layer
+silver,stop,Stop,Transportation,Subtype,Asset,SCD Type 2,8,valid_from_ts,,SCD2,,timestamptz,No,default now(),,,,,SCD2: when this version of the row became current.
+silver,stop,Stop,Transportation,Subtype,Asset,SCD Type 2,9,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,stop,Stop,Transportation,Subtype,Asset,SCD Type 2,10,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,vehicle,Vehicle,Transportation,Subtype,Asset,SCD Type 2,1,asset_id,Asset ID,Logical,Identifier,bigint,No,,PK/FK,pk_vehicle,silver.asset.asset_id,,Asset ID. Domain: Identifier.
+silver,vehicle,Vehicle,Transportation,Subtype,Asset,SCD Type 2,2,vehicle_label,Vehicle Label,Logical,Name,varchar(200),Yes,,,,,,Vehicle Label. Domain: Name. Fleet number
+silver,vehicle,Vehicle,Transportation,Subtype,Asset,SCD Type 2,3,vehicle_mode_code,Vehicle Mode Code,Logical,Code,varchar(30),No,,,,,,"Vehicle Mode Code. Domain: Code. Bus, Ferry"
+silver,vehicle,Vehicle,Transportation,Subtype,Asset,SCD Type 2,4,valid_from_ts,,SCD2,,timestamptz,No,default now(),,,,,SCD2: when this version of the row became current.
+silver,vehicle,Vehicle,Transportation,Subtype,Asset,SCD Type 2,5,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,vehicle,Vehicle,Transportation,Subtype,Asset,SCD Type 2,6,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,route_segment,Route Segment,Transportation,Subtype,Asset,SCD Type 2,1,asset_id,Asset ID,Logical,Identifier,bigint,No,,PK/FK,pk_route_segment,silver.asset.asset_id,,Asset ID. Domain: Identifier.
+silver,route_segment,Route Segment,Transportation,Subtype,Asset,SCD Type 2,2,from_stop_asset_id,From Stop Asset ID,Logical,Identifier,bigint,No,,FK AK2,ak1_route_segment (2 columns),silver.stop.asset_id,,From Stop Asset ID. Domain: Identifier. Starts at; role name
+silver,route_segment,Route Segment,Transportation,Subtype,Asset,SCD Type 2,3,to_stop_asset_id,To Stop Asset ID,Logical,Identifier,bigint,No,,FK AK2,ak1_route_segment (2 columns),silver.stop.asset_id,,To Stop Asset ID. Domain: Identifier. Ends at; role name
+silver,route_segment,Route Segment,Transportation,Subtype,Asset,SCD Type 2,4,segment_length_metres,Segment Length Metres,Logical,Length Metres,"numeric(12,2)",Yes,,,,,segment_length_metres >= 0,Segment Length Metres. Domain: Length Metres.
+silver,route_segment,Route Segment,Transportation,Subtype,Asset,SCD Type 2,5,valid_from_ts,,SCD2,,timestamptz,No,default now(),,,,,SCD2: when this version of the row became current.
+silver,route_segment,Route Segment,Transportation,Subtype,Asset,SCD Type 2,6,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,route_segment,Route Segment,Transportation,Subtype,Asset,SCD Type 2,7,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,route_segment_sequence,Route Segment Sequence,Transportation,Associative,,None,1,schedule_version_id,Schedule Version ID,Logical,Identifier,bigint,No,,PK/FK,pk_route_segment_sequence (4 columns),silver.schedule_version.schedule_version_id,,Schedule Version ID. Domain: Identifier.
+silver,route_segment_sequence,Route Segment Sequence,Transportation,Associative,,None,2,route_asset_id,Route Asset ID,Logical,Identifier,bigint,No,,PK/FK,pk_route_segment_sequence (4 columns),silver.route.asset_id,,Route Asset ID. Domain: Identifier. Role name
+silver,route_segment_sequence,Route Segment Sequence,Transportation,Associative,,None,3,direction_code,Direction Code,Logical,Code,varchar(30),No,,PK,pk_route_segment_sequence (4 columns),,,"Direction Code. Domain: Code. 0, 1"
+silver,route_segment_sequence,Route Segment Sequence,Transportation,Associative,,None,4,segment_sequence_number,Segment Sequence Number,Logical,Count,integer,No,,PK,pk_route_segment_sequence (4 columns),,segment_sequence_number >= 0,Segment Sequence Number. Domain: Count.
+silver,route_segment_sequence,Route Segment Sequence,Transportation,Associative,,None,5,route_segment_asset_id,Route Segment Asset ID,Logical,Identifier,bigint,No,,FK,,silver.route_segment.asset_id,,Route Segment Asset ID. Domain: Identifier. Role name
+silver,route_segment_sequence,Route Segment Sequence,Transportation,Associative,,None,6,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,route_segment_sequence,Route Segment Sequence,Transportation,Associative,,None,7,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,route_segment_street_segment,Route Segment Street Segment,Transportation,Associative,,None,1,route_segment_asset_id,Route Segment Asset ID,Logical,Identifier,bigint,No,,PK/FK,pk_route_segment_street_segment (2 columns),silver.route_segment.asset_id,,Route Segment Asset ID. Domain: Identifier. Role name
+silver,route_segment_street_segment,Route Segment Street Segment,Transportation,Associative,,None,2,street_segment_location_id,Street Segment Location ID,Logical,Identifier,bigint,No,,PK/FK,pk_route_segment_street_segment (2 columns),silver.street_segment.location_id,,Street Segment Location ID. Domain: Identifier. Role name
+silver,route_segment_street_segment,Route Segment Street Segment,Transportation,Associative,,None,3,path_sequence_number,Path Sequence Number,Logical,Count,integer,No,,,,,path_sequence_number >= 0,Path Sequence Number. Domain: Count.
+silver,route_segment_street_segment,Route Segment Street Segment,Transportation,Associative,,None,4,overlap_length_metres,Overlap Length Metres,Logical,Length Metres,"numeric(12,2)",Yes,,,,,overlap_length_metres >= 0,Overlap Length Metres. Domain: Length Metres.
+silver,route_segment_street_segment,Route Segment Street Segment,Transportation,Associative,,None,5,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,route_segment_street_segment,Route Segment Street Segment,Transportation,Associative,,None,6,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,scheduled_trip,Scheduled Trip,Transportation,Reference,,None,1,scheduled_trip_id,Scheduled Trip ID,Logical,Identifier,bigint,No,identity (by default),PK,pk_scheduled_trip,,,Scheduled Trip ID. Domain: Identifier.
+silver,scheduled_trip,Scheduled Trip,Transportation,Reference,,None,2,schedule_version_id,Schedule Version ID,Logical,Identifier,bigint,No,,FK AK1,ak1_scheduled_trip (2 columns),silver.service_calendar.schedule_version_id,,Schedule Version ID. Domain: Identifier. Part of the FK to Service Calendar
+silver,scheduled_trip,Scheduled Trip,Transportation,Reference,,None,3,service_code,Service Code,Logical,Source Key,varchar(100),No,,FK,,silver.service_calendar.service_code,,Service Code. Domain: Source Key. Part of the FK to Service Calendar
+silver,scheduled_trip,Scheduled Trip,Transportation,Reference,,None,4,source_trip_key,Source Trip Key,Logical,Source Key,varchar(100),No,,AK1,ak1_scheduled_trip (2 columns),,,Source Trip Key. Domain: Source Key. GTFS trip_id
+silver,scheduled_trip,Scheduled Trip,Transportation,Reference,,None,5,route_asset_id,Route Asset ID,Logical,Identifier,bigint,No,,FK,,silver.route.asset_id,,Route Asset ID. Domain: Identifier. Role name
+silver,scheduled_trip,Scheduled Trip,Transportation,Reference,,None,6,direction_code,Direction Code,Logical,Code,varchar(30),No,,,,,,"Direction Code. Domain: Code. 0, 1"
+silver,scheduled_trip,Scheduled Trip,Transportation,Reference,,None,7,trip_headsign,Trip Headsign,Logical,Name,varchar(200),Yes,,,,,,Trip Headsign. Domain: Name.
+silver,scheduled_trip,Scheduled Trip,Transportation,Reference,,None,8,block_code,Block Code,Logical,Source Key,varchar(100),Yes,,,,,,Block Code. Domain: Source Key. Vehicle duty
+silver,scheduled_trip,Scheduled Trip,Transportation,Reference,,None,9,shape_key,Shape Key,Logical,Source Key,varchar(100),Yes,,,,,,Shape Key. Domain: Source Key. GTFS shape_id
+silver,scheduled_trip,Scheduled Trip,Transportation,Reference,,None,10,wheelchair_accessible_code,Wheelchair Accessible Code,Logical,Code,varchar(30),Yes,,,,,,Wheelchair Accessible Code. Domain: Code.
+silver,scheduled_trip,Scheduled Trip,Transportation,Reference,,None,11,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,scheduled_trip,Scheduled Trip,Transportation,Reference,,None,12,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,scheduled_stop_time,Scheduled Stop Time,Transportation,Reference,,None,1,scheduled_trip_id,Scheduled Trip ID,Logical,Identifier,bigint,No,,PK/FK,pk_scheduled_stop_time (2 columns),silver.scheduled_trip.scheduled_trip_id,,Scheduled Trip ID. Domain: Identifier.
+silver,scheduled_stop_time,Scheduled Stop Time,Transportation,Reference,,None,2,stop_sequence_number,Stop Sequence Number,Logical,Count,integer,No,,PK,pk_scheduled_stop_time (2 columns),,stop_sequence_number >= 0,Stop Sequence Number. Domain: Count.
+silver,scheduled_stop_time,Scheduled Stop Time,Transportation,Reference,,None,3,stop_asset_id,Stop Asset ID,Logical,Identifier,bigint,No,,FK,,silver.stop.asset_id,,Stop Asset ID. Domain: Identifier. Role name
+silver,scheduled_stop_time,Scheduled Stop Time,Transportation,Reference,,None,4,scheduled_arrival_time,Scheduled Arrival Time,Logical,Service Day Time,interval,Yes,,,,,,Scheduled Arrival Time. Domain: Service Day Time. Can pass 24:00:00
+silver,scheduled_stop_time,Scheduled Stop Time,Transportation,Reference,,None,5,scheduled_departure_time,Scheduled Departure Time,Logical,Service Day Time,interval,Yes,,,,,,Scheduled Departure Time. Domain: Service Day Time.
+silver,scheduled_stop_time,Scheduled Stop Time,Transportation,Reference,,None,6,timepoint_flag,Timepoint Flag,Logical,Flag,boolean,Yes,,,,,,Timepoint Flag. Domain: Flag.
+silver,scheduled_stop_time,Scheduled Stop Time,Transportation,Reference,,None,7,pickup_type_code,Pickup Type Code,Logical,Code,varchar(30),Yes,,,,,,Pickup Type Code. Domain: Code.
+silver,scheduled_stop_time,Scheduled Stop Time,Transportation,Reference,,None,8,drop_off_type_code,Drop Off Type Code,Logical,Code,varchar(30),Yes,,,,,,Drop Off Type Code. Domain: Code.
+silver,scheduled_stop_time,Scheduled Stop Time,Transportation,Reference,,None,9,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,scheduled_stop_time,Scheduled Stop Time,Transportation,Reference,,None,10,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,trip,Trip,Transportation,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_trip,silver.event.event_id,,Event ID. Domain: Identifier. Event Date = service date
+silver,trip,Trip,Transportation,Subtype,Event,None,2,scheduled_trip_id,Scheduled Trip ID,Logical,Identifier,bigint,Yes,,FK AK2,ak1_trip,silver.scheduled_trip.scheduled_trip_id,,Scheduled Trip ID. Domain: Identifier. Empty for added trips
+silver,trip,Trip,Transportation,Subtype,Event,None,3,route_asset_id,Route Asset ID,Logical,Identifier,bigint,No,,FK,,silver.route.asset_id,,Route Asset ID. Domain: Identifier. Role name; must match the scheduled trip's route
+silver,trip,Trip,Transportation,Subtype,Event,None,4,vehicle_asset_id,Vehicle Asset ID,Logical,Identifier,bigint,Yes,,FK,,silver.vehicle.asset_id,,Vehicle Asset ID. Domain: Identifier. Operates; role name
+silver,trip,Trip,Transportation,Subtype,Event,None,5,trip_schedule_status_code,Trip Schedule Status Code,Logical,Code,varchar(30),No,,,,,,"Trip Schedule Status Code. Domain: Code. Scheduled, Added, Cancelled"
+silver,trip,Trip,Transportation,Subtype,Event,None,6,actual_start_ts,Actual Start Timestamp,Logical,Timestamp,timestamptz,Yes,,,,,,Actual Start Timestamp. Domain: Timestamp. Event Start = planned start
+silver,trip,Trip,Transportation,Subtype,Event,None,7,actual_end_ts,Actual End Timestamp,Logical,Timestamp,timestamptz,Yes,,,,,,Actual End Timestamp. Domain: Timestamp.
+silver,trip,Trip,Transportation,Subtype,Event,None,8,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,trip,Trip,Transportation,Subtype,Event,None,9,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,stop_arrival,Stop Arrival,Transportation,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_stop_arrival,silver.event.event_id,,Event ID. Domain: Identifier. Event Start = actual arrival
+silver,stop_arrival,Stop Arrival,Transportation,Subtype,Event,None,2,trip_event_id,Trip Event ID,Logical,Identifier,bigint,No,,FK AK2,ak1_stop_arrival (2 columns),silver.trip.event_id,,Trip Event ID. Domain: Identifier. Role name
+silver,stop_arrival,Stop Arrival,Transportation,Subtype,Event,None,3,stop_sequence_number,Stop Sequence Number,Logical,Count,integer,No,,AK2,ak1_stop_arrival (2 columns),,stop_sequence_number >= 0,Stop Sequence Number. Domain: Count.
+silver,stop_arrival,Stop Arrival,Transportation,Subtype,Event,None,4,stop_asset_id,Stop Asset ID,Logical,Identifier,bigint,No,,FK,,silver.stop.asset_id,,Stop Asset ID. Domain: Identifier. Role name
+silver,stop_arrival,Stop Arrival,Transportation,Subtype,Event,None,5,actual_departure_ts,Actual Departure Timestamp,Logical,Timestamp,timestamptz,Yes,,,,,,Actual Departure Timestamp. Domain: Timestamp.
+silver,stop_arrival,Stop Arrival,Transportation,Subtype,Event,None,6,reported_delay_seconds,Reported Delay Seconds,Logical,Count,integer,Yes,,,,,,Reported Delay Seconds. Domain: Count. As the feed reports it; signed
+silver,stop_arrival,Stop Arrival,Transportation,Subtype,Event,None,7,arrival_observation_method_code,Arrival Observation Method Code,Logical,Code,varchar(30),No,,,,,,"Arrival Observation Method Code. Domain: Code. Reported, Inferred from positions"
+silver,stop_arrival,Stop Arrival,Transportation,Subtype,Event,None,8,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,stop_arrival,Stop Arrival,Transportation,Subtype,Event,None,9,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,vehicle_position,Vehicle Position,Transportation,Rolled-down event,Event,None,1,vehicle_asset_id,Vehicle Asset ID,Logical,Identifier,bigint,No,,FK,pk_vehicle_position (2 columns),silver.vehicle.asset_id,,Vehicle that reported the position (logical: Vehicle Asset ID).
+silver,vehicle_position,Vehicle Position,Transportation,Rolled-down event,Event,None,2,position_ts,Event Start Timestamp,Logical,Timestamp,timestamptz,No,,,pk_vehicle_position (2 columns),,,"When the position was recorded, UTC (logical: Event Start Timestamp)."
+silver,vehicle_position,Vehicle Position,Transportation,Rolled-down event,Event,None,3,trip_event_id,Trip Event ID,Logical,Identifier,bigint,Yes,,FK,,silver.trip.event_id,,"Trip being run, empty when not in service (logical: Trip Event ID)."
+silver,vehicle_position,Vehicle Position,Transportation,Rolled-down event,Event,None,4,source_id,Source ID,Logical,Reference Code,varchar(30),No,,FK,,silver.source.source_id,,Feed the position came from (logical: Event.Source ID).
+silver,vehicle_position,Vehicle Position,Transportation,Rolled-down event,Event,None,5,position_latitude,Position Latitude,Logical,Latitude,"numeric(9,6)",No,,,,,position_latitude BETWEEN -90 AND 90,Position Latitude. Domain: Latitude.
+silver,vehicle_position,Vehicle Position,Transportation,Rolled-down event,Event,None,6,position_longitude,Position Longitude,Logical,Longitude,"numeric(9,6)",No,,,,,position_longitude BETWEEN -180 AND 180,Position Longitude. Domain: Longitude.
+silver,vehicle_position,Vehicle Position,Transportation,Rolled-down event,Event,None,7,bearing_degrees,Bearing Degrees,Logical,Measure Value,"numeric(18,6)",Yes,,,,,,Bearing Degrees. Domain: Measure Value.
+silver,vehicle_position,Vehicle Position,Transportation,Rolled-down event,Event,None,8,speed_metres_per_second,Speed Metres Per Second,Logical,Measure Value,"numeric(18,6)",Yes,,,,,,Speed Metres Per Second. Domain: Measure Value.
+silver,vehicle_position,Vehicle Position,Transportation,Rolled-down event,Event,None,9,current_stop_sequence_number,Current Stop Sequence Number,Logical,Count,integer,Yes,,,,,current_stop_sequence_number >= 0,Current Stop Sequence Number. Domain: Count.
+silver,vehicle_position,Vehicle Position,Transportation,Rolled-down event,Event,None,10,vehicle_stop_status_code,Vehicle Stop Status Code,Logical,Code,varchar(30),Yes,,,,,,"Vehicle Stop Status Code. Domain: Code. Incoming, Stopped, In transit"
+silver,vehicle_position,Vehicle Position,Transportation,Rolled-down event,Event,None,11,occupancy_status_code,Occupancy Status Code,Logical,Code,varchar(30),Yes,,,,,,Occupancy Status Code. Domain: Code.
+silver,vehicle_position,Vehicle Position,Transportation,Rolled-down event,Event,None,12,position_geom,,Derived,,"geometry(Point, 4326)",Yes,"generated: ST_SetSRID(ST_MakePoint(position_longitude::float8, position_latitude::float8), 4326)",,,,,(no comment in 07_comments.sql)
+silver,vehicle_position,Vehicle Position,Transportation,Rolled-down event,Event,None,13,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,(no comment in 07_comments.sql)
+silver,service_alert,Service Alert,Transportation,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_service_alert,silver.event.event_id,,Event ID. Domain: Identifier. Start/End = active period
+silver,service_alert,Service Alert,Transportation,Subtype,Event,None,2,alert_cause_code,Alert Cause Code,Logical,Code,varchar(30),Yes,,,,,,Alert Cause Code. Domain: Code.
+silver,service_alert,Service Alert,Transportation,Subtype,Event,None,3,alert_effect_code,Alert Effect Code,Logical,Code,varchar(30),Yes,,,,,,"Alert Effect Code. Domain: Code. Detour, No service, Stop moved …"
+silver,service_alert,Service Alert,Transportation,Subtype,Event,None,4,alert_header_text,Alert Header Text,Logical,Text,varchar(500),No,,,,,,Alert Header Text. Domain: Text.
+silver,service_alert,Service Alert,Transportation,Subtype,Event,None,5,alert_description_text,Alert Description Text,Logical,Long Text,text,Yes,,,,,,Alert Description Text. Domain: Long Text.
+silver,service_alert,Service Alert,Transportation,Subtype,Event,None,6,alert_url,Alert URL,Logical,URL,varchar(500),Yes,,,,,alert_url ~ '^https?://',Alert URL. Domain: URL.
+silver,service_alert,Service Alert,Transportation,Subtype,Event,None,7,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,service_alert,Service Alert,Transportation,Subtype,Event,None,8,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,collision,Collision,Transportation,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_collision,silver.event.event_id,,Event ID. Domain: Identifier.
+silver,collision,Collision,Transportation,Subtype,Event,None,2,collision_severity_code,Collision Severity Code,Logical,Code,varchar(30),No,,,,,,"Collision Severity Code. Domain: Code. Fatal, Injury, Property damage"
+silver,collision,Collision,Transportation,Subtype,Event,None,3,vehicle_count,Vehicle Count,Logical,Count,integer,Yes,,,,,vehicle_count >= 0,Vehicle Count. Domain: Count.
+silver,collision,Collision,Transportation,Subtype,Event,None,4,pedestrian_involved_flag,Pedestrian Involved Flag,Logical,Flag,boolean,Yes,,,,,,Pedestrian Involved Flag. Domain: Flag.
+silver,collision,Collision,Transportation,Subtype,Event,None,5,bicycle_involved_flag,Bicycle Involved Flag,Logical,Flag,boolean,Yes,,,,,,Bicycle Involved Flag. Domain: Flag.
+silver,collision,Collision,Transportation,Subtype,Event,None,6,road_surface_condition_code,Road Surface Condition Code,Logical,Code,varchar(30),Yes,,,,,,Road Surface Condition Code. Domain: Code.
+silver,collision,Collision,Transportation,Subtype,Event,None,7,light_condition_code,Light Condition Code,Logical,Code,varchar(30),Yes,,,,,,Light Condition Code. Domain: Code.
+silver,collision,Collision,Transportation,Subtype,Event,None,8,weather_condition_code,Weather Condition Code,Logical,Code,varchar(30),Yes,,,,,,Weather Condition Code. Domain: Code.
+silver,collision,Collision,Transportation,Subtype,Event,None,9,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,collision,Collision,Transportation,Subtype,Event,None,10,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,traffic_count,Traffic Count,Transportation,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_traffic_count,silver.event.event_id,,Event ID. Domain: Identifier.
+silver,traffic_count,Traffic Count,Transportation,Subtype,Event,None,2,count_type_code,Count Type Code,Logical,Code,varchar(30),No,,,,,,"Count Type Code. Domain: Code. Volume, Turning movement, Speed, Classification, Bicycle"
+silver,traffic_count,Traffic Count,Transportation,Subtype,Event,None,3,count_direction_code,Count Direction Code,Logical,Code,varchar(30),Yes,,,,,,Count Direction Code. Domain: Code.
+silver,traffic_count,Traffic Count,Transportation,Subtype,Event,None,4,total_volume_count,Total Volume Count,Logical,Count,integer,Yes,,,,,total_volume_count >= 0,Total Volume Count. Domain: Count.
+silver,traffic_count,Traffic Count,Transportation,Subtype,Event,None,5,aadt_count,AADT Count,Logical,Count,integer,Yes,,,,,aadt_count >= 0,AADT Count. Domain: Count. Annual average daily traffic
+silver,traffic_count,Traffic Count,Transportation,Subtype,Event,None,6,aawt_count,AAWT Count,Logical,Count,integer,Yes,,,,,aawt_count >= 0,AAWT Count. Domain: Count. Annual average weekday traffic
+silver,traffic_count,Traffic Count,Transportation,Subtype,Event,None,7,speed_85th_percentile_kph,Speed 85th Percentile Kph,Logical,Measure Value,"numeric(18,6)",Yes,,,,,,Speed 85th Percentile Kph. Domain: Measure Value.
+silver,traffic_count,Traffic Count,Transportation,Subtype,Event,None,8,heavy_vehicle_percent,Heavy Vehicle Percent,Logical,Percent,"numeric(5,2)",Yes,,,,,heavy_vehicle_percent BETWEEN 0 AND 100,Heavy Vehicle Percent. Domain: Percent.
+silver,traffic_count,Traffic Count,Transportation,Subtype,Event,None,9,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,traffic_count,Traffic Count,Transportation,Subtype,Event,None,10,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,infrastructure_asset,Infrastructure Asset,Public Works,Subtype,Asset,SCD Type 2,1,asset_id,Asset ID,Logical,Identifier,bigint,No,,PK/FK,pk_infrastructure_asset,silver.asset.asset_id,,Asset ID. Domain: Identifier.
+silver,infrastructure_asset,Infrastructure Asset,Public Works,Subtype,Asset,SCD Type 2,2,infrastructure_class_code,Infrastructure Class Code,Logical,Code,varchar(30),No,,,,,,Infrastructure Class Code. Domain: Code.
+silver,infrastructure_asset,Infrastructure Asset,Public Works,Subtype,Asset,SCD Type 2,3,material_code,Material Code,Logical,Code,varchar(30),Yes,,,,,,Material Code. Domain: Code.
+silver,infrastructure_asset,Infrastructure Asset,Public Works,Subtype,Asset,SCD Type 2,4,condition_rating_code,Condition Rating Code,Logical,Code,varchar(30),Yes,,,,,,Condition Rating Code. Domain: Code. As last reported
+silver,infrastructure_asset,Infrastructure Asset,Public Works,Subtype,Asset,SCD Type 2,5,valid_from_ts,,SCD2,,timestamptz,No,default now(),,,,,SCD2: when this version of the row became current.
+silver,infrastructure_asset,Infrastructure Asset,Public Works,Subtype,Asset,SCD Type 2,6,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,infrastructure_asset,Infrastructure Asset,Public Works,Subtype,Asset,SCD Type 2,7,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,facility,Facility,Public Works,Subtype,Asset,SCD Type 2,1,asset_id,Asset ID,Logical,Identifier,bigint,No,,PK/FK,pk_facility,silver.asset.asset_id,,Asset ID. Domain: Identifier.
+silver,facility,Facility,Public Works,Subtype,Asset,SCD Type 2,2,facility_type_code,Facility Type Code,Logical,Code,varchar(30),No,,,,,,Facility Type Code. Domain: Code.
+silver,facility,Facility,Public Works,Subtype,Asset,SCD Type 2,3,capacity_quantity,Capacity Quantity,Logical,Measure Value,"numeric(18,6)",Yes,,,,,,Capacity Quantity. Domain: Measure Value.
+silver,facility,Facility,Public Works,Subtype,Asset,SCD Type 2,4,capacity_unit_code,Capacity Unit Code,Logical,Code,varchar(30),Yes,,,,,,Capacity Unit Code. Domain: Code.
+silver,facility,Facility,Public Works,Subtype,Asset,SCD Type 2,5,public_access_flag,Public Access Flag,Logical,Flag,boolean,Yes,,,,,,Public Access Flag. Domain: Flag.
+silver,facility,Facility,Public Works,Subtype,Asset,SCD Type 2,6,valid_from_ts,,SCD2,,timestamptz,No,default now(),,,,,SCD2: when this version of the row became current.
+silver,facility,Facility,Public Works,Subtype,Asset,SCD Type 2,7,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,facility,Facility,Public Works,Subtype,Asset,SCD Type 2,8,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,service_request,Service Request,Public Works,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_service_request,silver.event.event_id,,Event ID. Domain: Identifier.
+silver,service_request,Service Request,Public Works,Subtype,Event,None,2,request_type_code,Request Type Code,Logical,Code,varchar(30),No,,,,,,Request Type Code. Domain: Code.
+silver,service_request,Service Request,Public Works,Subtype,Event,None,3,request_category_code,Request Category Code,Logical,Code,varchar(30),Yes,,,,,,Request Category Code. Domain: Code.
+silver,service_request,Service Request,Public Works,Subtype,Event,None,4,request_channel_code,Request Channel Code,Logical,Code,varchar(30),Yes,,,,,,"Request Channel Code. Domain: Code. Phone, Web, App"
+silver,service_request,Service Request,Public Works,Subtype,Event,None,5,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,service_request,Service Request,Public Works,Subtype,Event,None,6,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,work_order,Work Order,Public Works,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_work_order,silver.event.event_id,,Event ID. Domain: Identifier.
+silver,work_order,Work Order,Public Works,Subtype,Event,None,2,service_request_event_id,Service Request Event ID,Logical,Identifier,bigint,Yes,,FK,,silver.service_request.event_id,,Service Request Event ID. Domain: Identifier. Results in; role name
+silver,work_order,Work Order,Public Works,Subtype,Event,None,3,capital_project_event_id,Capital Project Event ID,Logical,Identifier,bigint,Yes,,FK,,silver.capital_project.event_id,,Capital Project Event ID. Domain: Identifier. Includes; role name
+silver,work_order,Work Order,Public Works,Subtype,Event,None,4,infrastructure_asset_id,Infrastructure Asset ID,Logical,Identifier,bigint,No,,FK,,silver.infrastructure_asset.asset_id,,Infrastructure Asset ID. Domain: Identifier. Repairs; role name
+silver,work_order,Work Order,Public Works,Subtype,Event,None,5,work_type_code,Work Type Code,Logical,Code,varchar(30),No,,,,,,Work Type Code. Domain: Code.
+silver,work_order,Work Order,Public Works,Subtype,Event,None,6,work_priority_code,Work Priority Code,Logical,Code,varchar(30),Yes,,,,,,Work Priority Code. Domain: Code.
+silver,work_order,Work Order,Public Works,Subtype,Event,None,7,planned_date,Planned Date,Logical,Date,date,Yes,,,,,,Planned Date. Domain: Date.
+silver,work_order,Work Order,Public Works,Subtype,Event,None,8,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,work_order,Work Order,Public Works,Subtype,Event,None,9,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,capital_project,Capital Project,Public Works,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_capital_project,silver.event.event_id,,Event ID. Domain: Identifier.
+silver,capital_project,Capital Project,Public Works,Subtype,Event,None,2,project_name,Project Name,Logical,Name,varchar(200),No,,,,,,Project Name. Domain: Name.
+silver,capital_project,Capital Project,Public Works,Subtype,Event,None,3,capital_project_type_code,Capital Project Type Code,Logical,Code,varchar(30),Yes,,,,,,Capital Project Type Code. Domain: Code.
+silver,capital_project,Capital Project,Public Works,Subtype,Event,None,4,budget_amount,Budget Amount,Logical,Amount,"numeric(15,2)",Yes,,,,,,Budget Amount. Domain: Amount. CAD
+silver,capital_project,Capital Project,Public Works,Subtype,Event,None,5,actual_cost_amount,Actual Cost Amount,Logical,Amount,"numeric(15,2)",Yes,,,,,,Actual Cost Amount. Domain: Amount. CAD
+silver,capital_project,Capital Project,Public Works,Subtype,Event,None,6,planned_start_date,Planned Start Date,Logical,Date,date,Yes,,,,,,Planned Start Date. Domain: Date.
+silver,capital_project,Capital Project,Public Works,Subtype,Event,None,7,planned_end_date,Planned End Date,Logical,Date,date,Yes,,,,,,Planned End Date. Domain: Date.
+silver,capital_project,Capital Project,Public Works,Subtype,Event,None,8,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,capital_project,Capital Project,Public Works,Subtype,Event,None,9,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,road_closure,Road Closure,Public Works,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_road_closure,silver.event.event_id,,Event ID. Domain: Identifier.
+silver,road_closure,Road Closure,Public Works,Subtype,Event,None,2,capital_project_event_id,Capital Project Event ID,Logical,Identifier,bigint,Yes,,FK,,silver.capital_project.event_id,,Capital Project Event ID. Domain: Identifier. Causes; role name
+silver,road_closure,Road Closure,Public Works,Subtype,Event,None,3,development_project_event_id,Development Project Event ID,Logical,Identifier,bigint,Yes,,FK,,silver.development_project.event_id,,Development Project Event ID. Domain: Identifier. Causes; role name (new)
+silver,road_closure,Road Closure,Public Works,Subtype,Event,None,4,closure_type_code,Closure Type Code,Logical,Code,varchar(30),No,,,,,,"Closure Type Code. Domain: Code. Full, Partial, Lane, Sidewalk"
+silver,road_closure,Road Closure,Public Works,Subtype,Event,None,5,closure_reason_code,Closure Reason Code,Logical,Code,varchar(30),Yes,,,,,,Closure Reason Code. Domain: Code.
+silver,road_closure,Road Closure,Public Works,Subtype,Event,None,6,detour_description,Detour Description,Logical,Description,varchar(2000),Yes,,,,,,Detour Description. Domain: Description.
+silver,road_closure,Road Closure,Public Works,Subtype,Event,None,7,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,road_closure,Road Closure,Public Works,Subtype,Event,None,8,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,snow_clearing,Snow Clearing,Public Works,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_snow_clearing,silver.event.event_id,,Event ID. Domain: Identifier.
+silver,snow_clearing,Snow Clearing,Public Works,Subtype,Event,None,2,clearing_activity_code,Clearing Activity Code,Logical,Code,varchar(30),No,,,,,,"Clearing Activity Code. Domain: Code. Plow, Salt, Sand, Sidewalk"
+silver,snow_clearing,Snow Clearing,Public Works,Subtype,Event,None,3,clearing_priority_code,Clearing Priority Code,Logical,Code,varchar(30),Yes,,,,,,Clearing Priority Code. Domain: Code.
+silver,snow_clearing,Snow Clearing,Public Works,Subtype,Event,None,4,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,snow_clearing,Snow Clearing,Public Works,Subtype,Event,None,5,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,pavement_condition_assessment,Pavement Condition Assessment,Public Works,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_pavement_condition_assessment,silver.event.event_id,,Event ID. Domain: Identifier.
+silver,pavement_condition_assessment,Pavement Condition Assessment,Public Works,Subtype,Event,None,2,pavement_condition_index,Pavement Condition Index,Logical,Measure Value,"numeric(18,6)",Yes,,,,,,Pavement Condition Index. Domain: Measure Value. 0 to 100
+silver,pavement_condition_assessment,Pavement Condition Assessment,Public Works,Subtype,Event,None,3,condition_rating_code,Condition Rating Code,Logical,Code,varchar(30),Yes,,,,,,Condition Rating Code. Domain: Code.
+silver,pavement_condition_assessment,Pavement Condition Assessment,Public Works,Subtype,Event,None,4,assessment_method_code,Assessment Method Code,Logical,Code,varchar(30),Yes,,,,,,Assessment Method Code. Domain: Code.
+silver,pavement_condition_assessment,Pavement Condition Assessment,Public Works,Subtype,Event,None,5,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,pavement_condition_assessment,Pavement Condition Assessment,Public Works,Subtype,Event,None,6,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,waste_collection,Waste Collection,Public Works,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_waste_collection,silver.event.event_id,,Event ID. Domain: Identifier.
+silver,waste_collection,Waste Collection,Public Works,Subtype,Event,None,2,waste_stream_code,Waste Stream Code,Logical,Code,varchar(30),No,,,,,,"Waste Stream Code. Domain: Code. Garbage, Recycling, Organics"
+silver,waste_collection,Waste Collection,Public Works,Subtype,Event,None,3,scheduled_collection_date,Scheduled Collection Date,Logical,Date,date,No,,FK,,silver.calendar_date.calendar_date,,Scheduled Collection Date. Domain: Date. Role name of Calendar Date
+silver,waste_collection,Waste Collection,Public Works,Subtype,Event,None,4,collection_outcome_code,Collection Outcome Code,Logical,Code,varchar(30),No,,,,,,"Collection Outcome Code. Domain: Code. Collected, Missed, Late"
+silver,waste_collection,Waste Collection,Public Works,Subtype,Event,None,5,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,waste_collection,Waste Collection,Public Works,Subtype,Event,None,6,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,waste_tonnage_record,Waste Tonnage Record,Public Works,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_waste_tonnage_record,silver.event.event_id,,Event ID. Domain: Identifier.
+silver,waste_tonnage_record,Waste Tonnage Record,Public Works,Subtype,Event,None,2,facility_asset_id,Facility Asset ID,Logical,Identifier,bigint,No,,FK,,silver.facility.asset_id,,Facility Asset ID. Domain: Identifier. Recorded at; role name
+silver,waste_tonnage_record,Waste Tonnage Record,Public Works,Subtype,Event,None,3,waste_stream_code,Waste Stream Code,Logical,Code,varchar(30),No,,,,,,Waste Stream Code. Domain: Code.
+silver,waste_tonnage_record,Waste Tonnage Record,Public Works,Subtype,Event,None,4,disposal_destination_code,Disposal Destination Code,Logical,Code,varchar(30),No,,,,,,"Disposal Destination Code. Domain: Code. Landfill, Recycling, Compost"
+silver,waste_tonnage_record,Waste Tonnage Record,Public Works,Subtype,Event,None,5,tonnage_quantity,Tonnage Quantity,Logical,Measure Value,"numeric(18,6)",No,,,,,,Tonnage Quantity. Domain: Measure Value. Tonnes
+silver,waste_tonnage_record,Waste Tonnage Record,Public Works,Subtype,Event,None,6,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,waste_tonnage_record,Waste Tonnage Record,Public Works,Subtype,Event,None,7,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,water_quality_reading,Water Quality Reading,Public Works,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_water_quality_reading,silver.event.event_id,,Event ID. Domain: Identifier.
+silver,water_quality_reading,Water Quality Reading,Public Works,Subtype,Event,None,2,infrastructure_asset_id,Infrastructure Asset ID,Logical,Identifier,bigint,No,,FK,,silver.infrastructure_asset.asset_id,,Infrastructure Asset ID. Domain: Identifier. Sampled at; role name
+silver,water_quality_reading,Water Quality Reading,Public Works,Subtype,Event,None,3,measure_code,Measure Code,Logical,Reference Code,varchar(30),No,,FK,,silver.measure.measure_code,,Measure Code. Domain: Reference Code.
+silver,water_quality_reading,Water Quality Reading,Public Works,Subtype,Event,None,4,reading_value,Reading Value,Logical,Measure Value,"numeric(18,6)",No,,,,,,Reading Value. Domain: Measure Value.
+silver,water_quality_reading,Water Quality Reading,Public Works,Subtype,Event,None,5,exceedance_flag,Exceedance Flag,Logical,Flag,boolean,Yes,,,,,,Exceedance Flag. Domain: Flag. Above guideline
+silver,water_quality_reading,Water Quality Reading,Public Works,Subtype,Event,None,6,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,water_quality_reading,Water Quality Reading,Public Works,Subtype,Event,None,7,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,utility_outage,Utility Outage,Public Works,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_utility_outage,silver.event.event_id,,Event ID. Domain: Identifier.
+silver,utility_outage,Utility Outage,Public Works,Subtype,Event,None,2,utility_type_code,Utility Type Code,Logical,Code,varchar(30),No,,,,,,"Utility Type Code. Domain: Code. Electricity, Water, Wastewater, Gas"
+silver,utility_outage,Utility Outage,Public Works,Subtype,Event,None,3,customers_affected_count,Customers Affected Count,Logical,Count,integer,Yes,,,,,customers_affected_count >= 0,Customers Affected Count. Domain: Count.
+silver,utility_outage,Utility Outage,Public Works,Subtype,Event,None,4,outage_cause_code,Outage Cause Code,Logical,Code,varchar(30),Yes,,,,,,Outage Cause Code. Domain: Code.
+silver,utility_outage,Utility Outage,Public Works,Subtype,Event,None,5,estimated_restoration_ts,Estimated Restoration Timestamp,Logical,Timestamp,timestamptz,Yes,,,,,,Estimated Restoration Timestamp. Domain: Timestamp.
+silver,utility_outage,Utility Outage,Public Works,Subtype,Event,None,6,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,utility_outage,Utility Outage,Public Works,Subtype,Event,None,7,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,public_advisory,Public Advisory,Public Works,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_public_advisory,silver.event.event_id,,Event ID. Domain: Identifier.
+silver,public_advisory,Public Advisory,Public Works,Subtype,Event,None,2,advisory_type_code,Advisory Type Code,Logical,Code,varchar(30),No,,,,,,Advisory Type Code. Domain: Code.
+silver,public_advisory,Public Advisory,Public Works,Subtype,Event,None,3,advisory_severity_code,Advisory Severity Code,Logical,Code,varchar(30),Yes,,,,,,Advisory Severity Code. Domain: Code.
+silver,public_advisory,Public Advisory,Public Works,Subtype,Event,None,4,advisory_text,Advisory Text,Logical,Long Text,text,Yes,,,,,,Advisory Text. Domain: Long Text.
+silver,public_advisory,Public Advisory,Public Works,Subtype,Event,None,5,advisory_url,Advisory URL,Logical,URL,varchar(500),Yes,,,,,advisory_url ~ '^https?://',Advisory URL. Domain: URL.
+silver,public_advisory,Public Advisory,Public Works,Subtype,Event,None,6,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,public_advisory,Public Advisory,Public Works,Subtype,Event,None,7,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,building,Building,Housing & Real Estate,Subtype,Asset,SCD Type 2,1,asset_id,Asset ID,Logical,Identifier,bigint,No,,PK/FK,pk_building,silver.asset.asset_id,,Asset ID. Domain: Identifier.
+silver,building,Building,Housing & Real Estate,Subtype,Asset,SCD Type 2,2,building_use_code,Building Use Code,Logical,Code,varchar(30),Yes,,,,,,"Building Use Code. Domain: Code. Residential, Commercial, Mixed …"
+silver,building,Building,Housing & Real Estate,Subtype,Asset,SCD Type 2,3,building_type_code,Building Type Code,Logical,Code,varchar(30),Yes,,,,,,"Building Type Code. Domain: Code. Detached, Row, Apartment …"
+silver,building,Building,Housing & Real Estate,Subtype,Asset,SCD Type 2,4,year_built,Year Built,Logical,Year,smallint,Yes,,,,,year_built BETWEEN 1700 AND 2100,Year Built. Domain: Year.
+silver,building,Building,Housing & Real Estate,Subtype,Asset,SCD Type 2,5,storey_count,Storey Count,Logical,Count,integer,Yes,,,,,storey_count >= 0,Storey Count. Domain: Count.
+silver,building,Building,Housing & Real Estate,Subtype,Asset,SCD Type 2,6,gross_floor_area_square_metres,Gross Floor Area Square Metres,Logical,Area Square Metres,"numeric(12,2)",Yes,,,,,gross_floor_area_square_metres >= 0,Gross Floor Area Square Metres. Domain: Area Square Metres.
+silver,building,Building,Housing & Real Estate,Subtype,Asset,SCD Type 2,7,reported_unit_count,Reported Unit Count,Logical,Count,integer,Yes,,,,,reported_unit_count >= 0,Reported Unit Count. Domain: Count. As the source states it
+silver,building,Building,Housing & Real Estate,Subtype,Asset,SCD Type 2,8,valid_from_ts,,SCD2,,timestamptz,No,default now(),,,,,SCD2: when this version of the row became current.
+silver,building,Building,Housing & Real Estate,Subtype,Asset,SCD Type 2,9,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,building,Building,Housing & Real Estate,Subtype,Asset,SCD Type 2,10,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,dwelling_unit,Dwelling Unit,Housing & Real Estate,Subtype,Asset,SCD Type 2,1,asset_id,Asset ID,Logical,Identifier,bigint,No,,PK/FK,pk_dwelling_unit,silver.asset.asset_id,,Asset ID. Domain: Identifier.
+silver,dwelling_unit,Dwelling Unit,Housing & Real Estate,Subtype,Asset,SCD Type 2,2,building_asset_id,Building Asset ID,Logical,Identifier,bigint,No,,FK,,silver.building.asset_id,,Building Asset ID. Domain: Identifier. Contains; role name
+silver,dwelling_unit,Dwelling Unit,Housing & Real Estate,Subtype,Asset,SCD Type 2,3,unit_number,Unit Number,Logical,Reference Code,varchar(30),Yes,,,,,,Unit Number. Domain: Reference Code.
+silver,dwelling_unit,Dwelling Unit,Housing & Real Estate,Subtype,Asset,SCD Type 2,4,dwelling_type_code,Dwelling Type Code,Logical,Code,varchar(30),Yes,,,,,,Dwelling Type Code. Domain: Code.
+silver,dwelling_unit,Dwelling Unit,Housing & Real Estate,Subtype,Asset,SCD Type 2,5,bedroom_count,Bedroom Count,Logical,Count,integer,Yes,,,,,bedroom_count >= 0,Bedroom Count. Domain: Count.
+silver,dwelling_unit,Dwelling Unit,Housing & Real Estate,Subtype,Asset,SCD Type 2,6,tenure_code,Tenure Code,Logical,Code,varchar(30),Yes,,,,,,"Tenure Code. Domain: Code. Owner, Rental, Social, Student"
+silver,dwelling_unit,Dwelling Unit,Housing & Real Estate,Subtype,Asset,SCD Type 2,7,floor_area_square_metres,Floor Area Square Metres,Logical,Area Square Metres,"numeric(12,2)",Yes,,,,,floor_area_square_metres >= 0,Floor Area Square Metres. Domain: Area Square Metres.
+silver,dwelling_unit,Dwelling Unit,Housing & Real Estate,Subtype,Asset,SCD Type 2,8,valid_from_ts,,SCD2,,timestamptz,No,default now(),,,,,SCD2: when this version of the row became current.
+silver,dwelling_unit,Dwelling Unit,Housing & Real Estate,Subtype,Asset,SCD Type 2,9,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,dwelling_unit,Dwelling Unit,Housing & Real Estate,Subtype,Asset,SCD Type 2,10,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,property_sale,Property Sale,Housing & Real Estate,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_property_sale,silver.event.event_id,,Event ID. Domain: Identifier.
+silver,property_sale,Property Sale,Housing & Real Estate,Subtype,Event,None,2,sale_price_amount,Sale Price Amount,Logical,Amount,"numeric(15,2)",No,,,,,,Sale Price Amount. Domain: Amount. CAD
+silver,property_sale,Property Sale,Housing & Real Estate,Subtype,Event,None,3,sale_type_code,Sale Type Code,Logical,Code,varchar(30),Yes,,,,,,"Sale Type Code. Domain: Code. Arm's length, Non arm's length"
+silver,property_sale,Property Sale,Housing & Real Estate,Subtype,Event,None,4,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,property_sale,Property Sale,Housing & Real Estate,Subtype,Event,None,5,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,property_assessment,Property Assessment,Housing & Real Estate,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_property_assessment,silver.event.event_id,,Event ID. Domain: Identifier.
+silver,property_assessment,Property Assessment,Housing & Real Estate,Subtype,Event,None,2,assessment_year,Assessment Year,Logical,Year,smallint,No,,,,,assessment_year BETWEEN 1700 AND 2100,Assessment Year. Domain: Year.
+silver,property_assessment,Property Assessment,Housing & Real Estate,Subtype,Event,None,3,assessment_account_number,Assessment Account Number,Logical,Reference Code,varchar(30),No,,,,,,Assessment Account Number. Domain: Reference Code. PVSC AAN
+silver,property_assessment,Property Assessment,Housing & Real Estate,Subtype,Event,None,4,assessment_class_code,Assessment Class Code,Logical,Code,varchar(30),No,,,,,,"Assessment Class Code. Domain: Code. Residential, Commercial, Resource"
+silver,property_assessment,Property Assessment,Housing & Real Estate,Subtype,Event,None,5,land_value_amount,Land Value Amount,Logical,Amount,"numeric(15,2)",Yes,,,,,,Land Value Amount. Domain: Amount. CAD
+silver,property_assessment,Property Assessment,Housing & Real Estate,Subtype,Event,None,6,building_value_amount,Building Value Amount,Logical,Amount,"numeric(15,2)",Yes,,,,,,Building Value Amount. Domain: Amount. CAD
+silver,property_assessment,Property Assessment,Housing & Real Estate,Subtype,Event,None,7,assessed_value_amount,Assessed Value Amount,Logical,Amount,"numeric(15,2)",No,,,,,,"Assessed Value Amount. Domain: Amount. CAD, as published"
+silver,property_assessment,Property Assessment,Housing & Real Estate,Subtype,Event,None,8,capped_assessed_value_amount,Capped Assessed Value Amount,Logical,Amount,"numeric(15,2)",Yes,,,,,,"Capped Assessed Value Amount. Domain: Amount. CAD, Nova Scotia CAP"
+silver,property_assessment,Property Assessment,Housing & Real Estate,Subtype,Event,None,9,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,property_assessment,Property Assessment,Housing & Real Estate,Subtype,Event,None,10,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,building_permit,Building Permit,Housing & Real Estate,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_building_permit,silver.event.event_id,,Event ID. Domain: Identifier. Event Start = issued
+silver,building_permit,Building Permit,Housing & Real Estate,Subtype,Event,None,2,development_project_event_id,Development Project Event ID,Logical,Identifier,bigint,Yes,,FK,,silver.development_project.event_id,,Development Project Event ID. Domain: Identifier. Has; role name
+silver,building_permit,Building Permit,Housing & Real Estate,Subtype,Event,None,3,building_asset_id,Building Asset ID,Logical,Identifier,bigint,Yes,,FK,,silver.building.asset_id,,Building Asset ID. Domain: Identifier. Authorizes; role name
+silver,building_permit,Building Permit,Housing & Real Estate,Subtype,Event,None,4,permit_type_code,Permit Type Code,Logical,Code,varchar(30),No,,,,,,"Permit Type Code. Domain: Code. New, Alteration, Demolition"
+silver,building_permit,Building Permit,Housing & Real Estate,Subtype,Event,None,5,work_description,Work Description,Logical,Description,varchar(2000),Yes,,,,,,Work Description. Domain: Description.
+silver,building_permit,Building Permit,Housing & Real Estate,Subtype,Event,None,6,construction_value_amount,Construction Value Amount,Logical,Amount,"numeric(15,2)",Yes,,,,,,Construction Value Amount. Domain: Amount. CAD
+silver,building_permit,Building Permit,Housing & Real Estate,Subtype,Event,None,7,units_created_count,Units Created Count,Logical,Count,integer,Yes,,,,,units_created_count >= 0,Units Created Count. Domain: Count.
+silver,building_permit,Building Permit,Housing & Real Estate,Subtype,Event,None,8,units_removed_count,Units Removed Count,Logical,Count,integer,Yes,,,,,units_removed_count >= 0,Units Removed Count. Domain: Count.
+silver,building_permit,Building Permit,Housing & Real Estate,Subtype,Event,None,9,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,building_permit,Building Permit,Housing & Real Estate,Subtype,Event,None,10,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,rental_market_observation,Rental Market Observation,Housing & Real Estate,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_rental_market_observation,silver.event.event_id,,Event ID. Domain: Identifier.
+silver,rental_market_observation,Rental Market Observation,Housing & Real Estate,Subtype,Event,None,2,bedroom_type_code,Bedroom Type Code,Logical,Code,varchar(30),No,,,,,,"Bedroom Type Code. Domain: Code. Bachelor, 1, 2, 3+, Total"
+silver,rental_market_observation,Rental Market Observation,Housing & Real Estate,Subtype,Event,None,3,structure_type_code,Structure Type Code,Logical,Code,varchar(30),No,,,,,,"Structure Type Code. Domain: Code. Row, Apartment"
+silver,rental_market_observation,Rental Market Observation,Housing & Real Estate,Subtype,Event,None,4,vacancy_rate_percent,Vacancy Rate Percent,Logical,Percent,"numeric(5,2)",Yes,,,,,vacancy_rate_percent BETWEEN 0 AND 100,Vacancy Rate Percent. Domain: Percent.
+silver,rental_market_observation,Rental Market Observation,Housing & Real Estate,Subtype,Event,None,5,average_rent_amount,Average Rent Amount,Logical,Amount,"numeric(15,2)",Yes,,,,,,Average Rent Amount. Domain: Amount. CAD per month
+silver,rental_market_observation,Rental Market Observation,Housing & Real Estate,Subtype,Event,None,6,median_rent_amount,Median Rent Amount,Logical,Amount,"numeric(15,2)",Yes,,,,,,Median Rent Amount. Domain: Amount. CAD per month
+silver,rental_market_observation,Rental Market Observation,Housing & Real Estate,Subtype,Event,None,7,universe_unit_count,Universe Unit Count,Logical,Count,integer,Yes,,,,,universe_unit_count >= 0,Universe Unit Count. Domain: Count.
+silver,rental_market_observation,Rental Market Observation,Housing & Real Estate,Subtype,Event,None,8,data_reliability_code,Data Reliability Code,Logical,Code,varchar(30),Yes,,,,,,Data Reliability Code. Domain: Code. CMHC a to d
+silver,rental_market_observation,Rental Market Observation,Housing & Real Estate,Subtype,Event,None,9,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,rental_market_observation,Rental Market Observation,Housing & Real Estate,Subtype,Event,None,10,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,short_term_rental_registration,Short-Term Rental Registration,Housing & Real Estate,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_short_term_rental_registration,silver.event.event_id,,Event ID. Domain: Identifier. Start/End = valid period
+silver,short_term_rental_registration,Short-Term Rental Registration,Housing & Real Estate,Subtype,Event,None,2,dwelling_unit_asset_id,Dwelling Unit Asset ID,Logical,Identifier,bigint,No,,FK,,silver.dwelling_unit.asset_id,,Dwelling Unit Asset ID. Domain: Identifier. Registers; role name
+silver,short_term_rental_registration,Short-Term Rental Registration,Housing & Real Estate,Subtype,Event,None,3,registration_type_code,Registration Type Code,Logical,Code,varchar(30),No,,,,,,"Registration Type Code. Domain: Code. Primary residence, Commercial"
+silver,short_term_rental_registration,Short-Term Rental Registration,Housing & Real Estate,Subtype,Event,None,4,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,short_term_rental_registration,Short-Term Rental Registration,Housing & Real Estate,Subtype,Event,None,5,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+silver,development_project,Development Project,Housing & Real Estate,Subtype,Event,None,1,event_id,Event ID,Logical,Identifier,bigint,No,,PK/FK,pk_development_project,silver.event.event_id,,Event ID. Domain: Identifier.
+silver,development_project,Development Project,Housing & Real Estate,Subtype,Event,None,2,project_name,Project Name,Logical,Name,varchar(200),Yes,,,,,,Project Name. Domain: Name.
+silver,development_project,Development Project,Housing & Real Estate,Subtype,Event,None,3,development_type_code,Development Type Code,Logical,Code,varchar(30),Yes,,,,,,Development Type Code. Domain: Code.
+silver,development_project,Development Project,Housing & Real Estate,Subtype,Event,None,4,proposed_unit_count,Proposed Unit Count,Logical,Count,integer,Yes,,,,,proposed_unit_count >= 0,Proposed Unit Count. Domain: Count.
+silver,development_project,Development Project,Housing & Real Estate,Subtype,Event,None,5,affordable_unit_count,Affordable Unit Count,Logical,Count,integer,Yes,,,,,affordable_unit_count >= 0,Affordable Unit Count. Domain: Count.
+silver,development_project,Development Project,Housing & Real Estate,Subtype,Event,None,6,approval_date,Approval Date,Logical,Date,date,Yes,,,,,,Approval Date. Domain: Date.
+silver,development_project,Development Project,Housing & Real Estate,Subtype,Event,None,7,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,Audit: when the row was last loaded or changed.
+silver,development_project,Development Project,Housing & Real Estate,Subtype,Event,None,8,dw_batch_id,,Audit,,bigint,Yes,,,,,,Audit: load batch that wrote the row.
+bronze,feed_fetch,,Bronze,Register,,None,1,fetch_id,,Register,,bigint,No,identity (always),,pk_feed_fetch,,,(no column comment in 06_bronze_register.sql)
+bronze,feed_fetch,,Bronze,Register,,None,2,source_id,,Register,,varchar(30),No,,,,silver.source.source_id,,(no column comment in 06_bronze_register.sql)
+bronze,feed_fetch,,Bronze,Register,,None,3,fetched_ts,,Register,,timestamptz,No,,,,,,(no column comment in 06_bronze_register.sql)
+bronze,feed_fetch,,Bronze,Register,,None,4,http_status,,Register,,smallint,No,,,,,,(no column comment in 06_bronze_register.sql)
+bronze,feed_fetch,,Bronze,Register,,None,5,feed_header_ts,,Register,,timestamptz,Yes,,,,,,Timestamp inside the GTFS-RT header; equal values in a row mean the feed did not refresh.
+bronze,feed_fetch,,Bronze,Register,,None,6,entity_count,,Register,,integer,Yes,,,,,entity_count >= 0,(no column comment in 06_bronze_register.sql)
+bronze,feed_fetch,,Bronze,Register,,None,7,file_path,,Register,,text,Yes,,,,,,(no column comment in 06_bronze_register.sql)
+bronze,feed_fetch,,Bronze,Register,,None,8,file_bytes,,Register,,integer,Yes,,,,,file_bytes >= 0,(no column comment in 06_bronze_register.sql)
+bronze,feed_fetch,,Bronze,Register,,None,9,file_sha256,,Register,,char(64),Yes,,,,,,Fingerprint of the raw file; repeats show identical downloads.
+bronze,feed_fetch,,Bronze,Register,,None,10,error_text,,Register,,text,Yes,,,,,,(no column comment in 06_bronze_register.sql)
+bronze,feed_fetch,,Bronze,Register,,None,11,dw_loaded_ts,,Audit,,timestamptz,No,default now(),,,,,(no column comment in 06_bronze_register.sql)

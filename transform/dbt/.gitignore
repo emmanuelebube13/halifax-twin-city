@@ -1,0 +1,9 @@
+# Local only: never commit
+.venv/
+profiles.yml
+profiles/
+target/
+logs/
+dbt_packages/
+package-lock.yml
+.user.yml

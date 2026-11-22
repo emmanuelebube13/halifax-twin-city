@@ -1,0 +1,636 @@
+# Silver: the 3NF model. Each test is named and tagged with its rule id from
+# engineering/model/standards.md. Read-only: every test is a SELECT.
+version: 2
+
+sources:
+  - name: silver
+    schema: silver
+    description: Conformed 3NF model (Logical Model V1) with SCD Type 2 history.
+    tables:
+
+      # ------------------------------------------------------------ core
+      - name: source
+        columns:
+          - name: availability_code
+            data_tests:
+              - accepted_values:
+                  name: dq_035_source_availability_code_accepted
+                  arguments:
+                    values: ["Open", "Mixed", "Partner", "Private"]
+                  config: {tags: ["DQ-035"]}
+          - name: reliability_tier_code
+            data_tests:
+              - accepted_values:
+                  name: dq_035_source_reliability_tier_code_accepted
+                  arguments:
+                    values: ["Tier 1", "Tier 2", "Tier 3"]
+                  config: {tags: ["DQ-035"]}
+
+      - name: location
+        data_tests:
+          - unique_combination:
+              name: dq_002_location_source_key_unique
+              arguments:
+                combination_of_columns: ["source_id", "source_location_key"]
+              config: {tags: ["DQ-002"]}
+          - expression_is_true:
+              name: dq_063_location_start_before_end
+              arguments:
+                expression: "start_date is null or end_date is null or start_date <= end_date"
+              config: {tags: ["DQ-063"]}
+        columns:
+          - name: location_id
+            data_tests:
+              - unique:
+                  name: dq_001_location_location_id_unique
+                  config: {tags: ["DQ-001"]}
+              - not_null:
+                  name: dq_001_location_location_id_not_null
+                  config: {tags: ["DQ-001"]}
+          - name: location_type_code
+            data_tests:
+              - accepted_values:
+                  name: dq_027_location_location_type_code_accepted
+                  arguments:
+                    values: ["Street", "Street Segment", "Intersection", "Area", "Civic Address", "Parcel",
+                             "Point", "Line", "Service area", "Citywide"]
+                  config: {tags: ["DQ-027"], severity: warn}
+          - name: geometry_type_code
+            data_tests:
+              - accepted_values:
+                  name: dq_026_location_geometry_type_code_accepted
+                  arguments:
+                    values: ["Point", "Line", "Polygon", "None"]
+                  config: {tags: ["DQ-026"]}
+          - name: location_geometry
+            data_tests:
+              - valid_geometry:
+                  name: dq_050_location_geometry_valid
+                  config: {tags: ["DQ-050"]}
+              - geometry_srid:
+                  name: dq_051_location_geometry_srid_4326
+                  config: {tags: ["DQ-051"]}
+              - geometry_not_empty:
+                  name: dq_055_location_geometry_not_empty
+                  config: {tags: ["DQ-055"]}
+              - geometry_type_matches_code:
+                  name: dq_052_location_geometry_matches_type_code
+                  arguments:
+                    code_column: geometry_type_code
+                  config: {tags: ["DQ-052"]}
+              - within_envelope:
+                  name: dq_053_location_geometry_in_halifax_region
+                  config: {tags: ["DQ-053"], severity: warn}
+          - name: centroid_latitude
+            data_tests:
+              - expression_is_true:
+                  name: dq_054_location_centroid_present
+                  arguments:
+                    expression: "location_geometry is null or (centroid_latitude is not null and centroid_longitude is not null)"
+                  config: {tags: ["DQ-054"], severity: warn}
+          - name: dw_loaded_ts
+            data_tests:
+              - not_in_future:
+                  name: dq_080_location_dw_loaded_ts_not_in_future
+                  config: {tags: ["DQ-080"]}
+          - name: dw_batch_id
+            data_tests:
+              - not_null:
+                  name: dq_081_location_dw_batch_id_not_null
+                  config: {tags: ["DQ-081"], severity: warn}
+              - relationships:
+                  name: dq_082_location_dw_batch_id_is_a_fetch
+                  arguments:
+                    to: source('bronze', 'feed_fetch')
+                    field: fetch_id
+                  config: {tags: ["DQ-082"], severity: warn}
+
+      - name: location_timeline
+        data_tests:
+          - scd2_no_overlap:
+              name: dq_070_location_history_in_order
+              arguments:
+                key_columns: ["location_id"]
+              config: {tags: ["DQ-070"]}
+
+      - name: asset
+        data_tests:
+          - unique_combination:
+              name: dq_002_asset_source_key_unique
+              arguments:
+                combination_of_columns: ["source_id", "source_asset_key"]
+              config: {tags: ["DQ-002"]}
+          - expression_is_true:
+              name: dq_063_asset_in_service_before_out_of_service
+              arguments:
+                expression: "in_service_date is null or out_of_service_date is null or in_service_date <= out_of_service_date"
+              config: {tags: ["DQ-063"]}
+          - location_rule:
+              name: dq_045_asset_vehicle_has_no_location
+              arguments:
+                column_name: location_id
+                type_column: asset_type_code
+                type_value: Vehicle
+                allowed: []
+              config: {tags: ["DQ-045"], severity: warn}
+          - location_rule:
+              name: dq_045_asset_building_sits_on_parcel
+              arguments:
+                column_name: location_id
+                type_column: asset_type_code
+                type_value: Building
+                allowed: ["parcel"]
+              config: {tags: ["DQ-045"], severity: warn}
+        columns:
+          - name: asset_id
+            data_tests:
+              - unique:
+                  name: dq_001_asset_asset_id_unique
+                  config: {tags: ["DQ-001"]}
+              - not_null:
+                  name: dq_001_asset_asset_id_not_null
+                  config: {tags: ["DQ-001"]}
+          - name: asset_type_code
+            data_tests:
+              - accepted_values:
+                  name: dq_013_asset_asset_type_code_accepted
+                  arguments:
+                    values: ["Route", "Stop", "Vehicle", "Route Segment", "Infrastructure Asset",
+                             "Facility", "Building", "Dwelling Unit"]
+                  config: {tags: ["DQ-013"], severity: warn}
+              - subtype_row_exists:
+                  name: dq_010_asset_subtype_row_exists
+                  arguments:
+                    key_column: asset_id
+                    subtypes:
+                      Route: route
+                      Stop: stop
+                      Vehicle: vehicle
+                      Route Segment: route_segment
+                      Infrastructure Asset: infrastructure_asset
+                      Facility: facility
+                      Building: building
+                      Dwelling Unit: dwelling_unit
+                  config: {tags: ["DQ-010"]}
+          - name: asset_status_code
+            data_tests:
+              - accepted_values:
+                  name: dq_025_asset_asset_status_code_accepted
+                  arguments:
+                    values: ["Active", "Planned", "Retired"]
+                  config: {tags: ["DQ-025"]}
+          - name: dw_loaded_ts
+            data_tests:
+              - not_in_future:
+                  name: dq_080_asset_dw_loaded_ts_not_in_future
+                  config: {tags: ["DQ-080"]}
+          - name: dw_batch_id
+            data_tests:
+              - not_null:
+                  name: dq_081_asset_dw_batch_id_not_null
+                  config: {tags: ["DQ-081"], severity: warn}
+              - relationships:
+                  name: dq_082_asset_dw_batch_id_is_a_fetch
+                  arguments:
+                    to: source('bronze', 'feed_fetch')
+                    field: fetch_id
+                  config: {tags: ["DQ-082"], severity: warn}
+
+      - name: asset_timeline
+        data_tests:
+          - scd2_no_overlap:
+              name: dq_070_asset_history_in_order
+              arguments:
+                key_columns: ["asset_id"]
+              config: {tags: ["DQ-070"]}
+
+      - name: event
+        data_tests:
+          - unique_combination:
+              name: dq_002_event_source_key_unique
+              arguments:
+                combination_of_columns: ["source_id", "source_event_key"]
+              config: {tags: ["DQ-002"]}
+          - expression_is_true:
+              name: dq_060_event_end_not_before_start
+              arguments:
+                expression: "event_end_ts is null or event_end_ts >= event_start_ts"
+              config: {tags: ["DQ-060"]}
+          - expression_is_true:
+              name: dq_005_event_trip_key_carries_service_date
+              arguments:
+                expression: "event_type_code <> 'Trip' or split_part(source_event_key, '|', 2) = event_date::text"
+              config: {tags: ["DQ-005"]}
+          - location_rule:
+              name: dq_044_event_road_closure_on_street_segment
+              arguments:
+                column_name: location_id
+                type_column: event_type_code
+                type_value: Road Closure
+                allowed: ["street_segment"]
+              config: {tags: ["DQ-044"], severity: warn}
+          - location_rule:
+              name: dq_044_event_building_permit_on_parcel
+              arguments:
+                column_name: location_id
+                type_column: event_type_code
+                type_value: Building Permit
+                allowed: ["parcel"]
+              config: {tags: ["DQ-044"], severity: warn}
+          - location_rule:
+              name: dq_044_event_trip_has_no_location
+              arguments:
+                column_name: location_id
+                type_column: event_type_code
+                type_value: Trip
+                allowed: []
+              config: {tags: ["DQ-044"], severity: warn}
+        columns:
+          - name: event_id
+            data_tests:
+              - unique:
+                  name: dq_001_event_event_id_unique
+                  config: {tags: ["DQ-001"]}
+              - not_null:
+                  name: dq_001_event_event_id_not_null
+                  config: {tags: ["DQ-001"]}
+          - name: event_type_code
+            data_tests:
+              - accepted_values:
+                  name: dq_012_event_event_type_code_accepted
+                  arguments:
+                    values: ["Weather Observation", "Area Statistic", "Economic Indicator",
+                             "Trip", "Stop Arrival", "Service Alert", "Collision", "Traffic Count",
+                             "Service Request", "Work Order", "Capital Project", "Road Closure",
+                             "Snow Clearing", "Pavement Condition Assessment", "Waste Collection",
+                             "Waste Tonnage Record", "Water Quality Reading", "Utility Outage",
+                             "Public Advisory", "Property Sale", "Property Assessment",
+                             "Building Permit", "Rental Market Observation",
+                             "Short-Term Rental Registration", "Development Project"]
+                  config: {tags: ["DQ-012"]}
+              - subtype_row_exists:
+                  name: dq_010_event_subtype_row_exists
+                  arguments:
+                    key_column: event_id
+                    subtypes:
+                      Trip: trip
+                      Stop Arrival: stop_arrival
+                      Service Alert: service_alert
+                      Road Closure: road_closure
+                      Building Permit: building_permit
+                      Collision: collision
+                      Service Request: service_request
+                      Weather Observation: weather_observation
+                  config: {tags: ["DQ-010"]}
+          - name: event_status_code
+            data_tests:
+              - accepted_values:
+                  name: dq_034_event_trip_status_accepted
+                  arguments:
+                    values: ["Scheduled", "Added", "Cancelled"]
+                  config: {tags: ["DQ-034"], severity: warn, where: "event_type_code = 'Trip'"}
+              - accepted_values:
+                  name: dq_034_event_stop_arrival_status_accepted
+                  arguments:
+                    values: ["Arrived"]
+                  config: {tags: ["DQ-034"], severity: warn, where: "event_type_code = 'Stop Arrival'"}
+              - accepted_values:
+                  name: dq_034_event_service_alert_status_accepted
+                  arguments:
+                    values: ["Active", "Ended"]
+                  config: {tags: ["DQ-034"], severity: warn, where: "event_type_code = 'Service Alert'"}
+          - name: dw_loaded_ts
+            data_tests:
+              - not_in_future:
+                  name: dq_080_event_dw_loaded_ts_not_in_future
+                  config: {tags: ["DQ-080"]}
+          - name: dw_batch_id
+            data_tests:
+              - not_null:
+                  name: dq_081_event_dw_batch_id_not_null
+                  config: {tags: ["DQ-081"], severity: warn}
+              - relationships:
+                  name: dq_082_event_dw_batch_id_is_a_fetch
+                  arguments:
+                    to: source('bronze', 'feed_fetch')
+                    field: fetch_id
+                  config: {tags: ["DQ-082"], severity: warn}
+
+      - name: event_asset_involvement
+        columns:
+          - name: involvement_role_code
+            data_tests:
+              - accepted_values:
+                  name: dq_031_event_asset_involvement_role_accepted
+                  arguments:
+                    values: ["Affected route", "Affected stop"]
+                  config: {tags: ["DQ-031"], severity: warn}
+          - name: asset_id
+            data_tests:
+              - relationships:
+                  name: dq_040_affected_route_is_a_route
+                  arguments:
+                    to: source('silver', 'route')
+                    field: asset_id
+                  config: {tags: ["DQ-040"], where: "involvement_role_code = 'Affected route'"}
+              - relationships:
+                  name: dq_041_affected_stop_is_a_stop
+                  arguments:
+                    to: source('silver', 'stop')
+                    field: asset_id
+                  config: {tags: ["DQ-041"], where: "involvement_role_code = 'Affected stop'"}
+
+      # ------------------------------------------------------------ transportation
+      - name: schedule_version
+        data_tests:
+          - expression_is_true:
+              name: dq_063_schedule_version_period_in_order
+              arguments:
+                expression: "service_period_start_date <= service_period_end_date"
+              config: {tags: ["DQ-063"]}
+
+      - name: service_calendar
+        data_tests:
+          - expression_is_true:
+              name: dq_063_service_calendar_start_before_end
+              arguments:
+                expression: "start_date <= end_date"
+              config: {tags: ["DQ-063"]}
+
+      - name: service_calendar_exception
+        columns:
+          - name: exception_type_code
+            data_tests:
+              - accepted_values:
+                  name: dq_022_service_calendar_exception_type_accepted
+                  arguments:
+                    values: ["Added", "Removed"]
+                  config: {tags: ["DQ-022"]}
+
+      - name: route
+        columns:
+          - name: asset_id
+            data_tests:
+              - discriminator_matches:
+                  name: dq_011_route_is_typed_route
+                  arguments:
+                    parent: asset
+                    discriminator: asset_type_code
+                    value: Route
+                  config: {tags: ["DQ-011"]}
+          - name: route_mode_code
+            data_tests:
+              - accepted_values:
+                  name: dq_023_route_route_mode_code_accepted
+                  arguments:
+                    values: ["Bus", "Ferry"]
+                  config: {tags: ["DQ-023"]}
+
+      - name: route_timeline
+        data_tests:
+          - scd2_no_overlap:
+              name: dq_070_route_history_in_order
+              arguments:
+                key_columns: ["asset_id"]
+              config: {tags: ["DQ-070"]}
+
+      - name: stop
+        columns:
+          - name: asset_id
+            data_tests:
+              - discriminator_matches:
+                  name: dq_011_stop_is_typed_stop
+                  arguments:
+                    parent: asset
+                    discriminator: asset_type_code
+                    value: Stop
+                  config: {tags: ["DQ-011"]}
+          - name: stop_kind_code
+            data_tests:
+              - accepted_values:
+                  name: dq_028_stop_stop_kind_code_accepted
+                  arguments:
+                    values: ["Stop", "Station", "Ferry terminal", "Entrance", "Node", "Boarding area"]
+                  config: {tags: ["DQ-028"], severity: warn}
+
+      - name: stop_timeline
+        data_tests:
+          - scd2_no_overlap:
+              name: dq_070_stop_history_in_order
+              arguments:
+                key_columns: ["asset_id"]
+              config: {tags: ["DQ-070"]}
+
+      - name: vehicle
+        columns:
+          - name: asset_id
+            data_tests:
+              - discriminator_matches:
+                  name: dq_011_vehicle_is_typed_vehicle
+                  arguments:
+                    parent: asset
+                    discriminator: asset_type_code
+                    value: Vehicle
+                  config: {tags: ["DQ-011"]}
+          - name: vehicle_mode_code
+            data_tests:
+              - accepted_values:
+                  name: dq_023_vehicle_vehicle_mode_code_accepted
+                  arguments:
+                    values: ["Bus", "Ferry"]
+                  config: {tags: ["DQ-023"]}
+
+      - name: scheduled_trip
+        columns:
+          - name: direction_code
+            data_tests:
+              - accepted_values:
+                  name: dq_024_scheduled_trip_direction_code_accepted
+                  arguments:
+                    values: ["0", "1"]
+                  config: {tags: ["DQ-024"]}
+
+      - name: scheduled_stop_time
+
+      - name: trip
+        columns:
+          - name: event_id
+            data_tests:
+              - discriminator_matches:
+                  name: dq_011_trip_is_typed_trip
+                  arguments:
+                    parent: event
+                    discriminator: event_type_code
+                    value: Trip
+                  config: {tags: ["DQ-011"]}
+          - name: trip_schedule_status_code
+            data_tests:
+              - accepted_values:
+                  name: dq_020_trip_schedule_status_code_accepted
+                  arguments:
+                    values: ["Scheduled", "Added", "Cancelled"]
+                  config: {tags: ["DQ-020"]}
+
+      - name: stop_arrival
+        data_tests:
+          - unique_combination:
+              name: dq_003_stop_arrival_unique_per_trip_and_sequence
+              arguments:
+                combination_of_columns: ["trip_event_id", "stop_sequence_number"]
+              config: {tags: ["DQ-003"]}
+          - expression_is_true:
+              name: dq_065_stop_arrival_delay_plausible
+              arguments:
+                expression: "reported_delay_seconds is null or reported_delay_seconds between -3600 and 10800"
+              config: {tags: ["DQ-065"], severity: warn}
+        columns:
+          - name: event_id
+            data_tests:
+              - discriminator_matches:
+                  name: dq_011_stop_arrival_is_typed_stop_arrival
+                  arguments:
+                    parent: event
+                    discriminator: event_type_code
+                    value: Stop Arrival
+                  config: {tags: ["DQ-011"]}
+          - name: arrival_observation_method_code
+            data_tests:
+              - accepted_values:
+                  name: dq_021_stop_arrival_observation_method_accepted
+                  arguments:
+                    values: ["Reported", "Inferred from positions"]
+                  config: {tags: ["DQ-021"]}
+
+      - name: vehicle_position
+        description: Freshness DQ-095 reads the latest position time.
+        config:
+          loaded_at_field: position_ts
+          freshness:
+            warn_after: {count: 5, period: minute}
+            error_after: {count: 30, period: minute}
+        data_tests:
+          - expression_is_true:
+              name: dq_065_vehicle_position_speed_and_bearing_plausible
+              arguments:
+                expression: "(speed_metres_per_second is null or speed_metres_per_second between 0 and 45) and (bearing_degrees is null or bearing_degrees between 0 and 360)"
+              config: {tags: ["DQ-065"], severity: warn}
+        columns:
+          - name: position_ts
+            data_tests:
+              - not_in_future:
+                  name: dq_062_vehicle_position_position_ts_not_in_future
+                  config: {tags: ["DQ-062"]}
+          - name: position_geom
+            data_tests:
+              - valid_geometry:
+                  name: dq_050_vehicle_position_geom_valid
+                  config: {tags: ["DQ-050"]}
+              - geometry_srid:
+                  name: dq_051_vehicle_position_geom_srid_4326
+                  config: {tags: ["DQ-051"]}
+              - within_envelope:
+                  name: dq_053_vehicle_position_in_halifax_region
+                  config: {tags: ["DQ-053"], severity: warn}
+          - name: vehicle_stop_status_code
+            data_tests:
+              - accepted_values:
+                  name: dq_029_vehicle_position_stop_status_accepted
+                  arguments:
+                    values: ["INCOMING_AT", "STOPPED_AT", "IN_TRANSIT_TO"]
+                  config: {tags: ["DQ-029"], severity: warn}
+          - name: occupancy_status_code
+            data_tests:
+              - accepted_values:
+                  name: dq_029_vehicle_position_occupancy_accepted
+                  arguments:
+                    values: ["EMPTY", "MANY_SEATS_AVAILABLE", "FEW_SEATS_AVAILABLE", "STANDING_ROOM_ONLY",
+                             "CRUSHED_STANDING_ROOM_ONLY", "FULL", "NOT_ACCEPTING_PASSENGERS",
+                             "NO_DATA_AVAILABLE", "NOT_BOARDABLE"]
+                  config: {tags: ["DQ-029"], severity: warn}
+          - name: dw_loaded_ts
+            data_tests:
+              - not_in_future:
+                  name: dq_080_vehicle_position_dw_loaded_ts_not_in_future
+                  config: {tags: ["DQ-080"]}
+
+      - name: service_alert
+        columns:
+          - name: event_id
+            data_tests:
+              - discriminator_matches:
+                  name: dq_011_service_alert_is_typed_service_alert
+                  arguments:
+                    parent: event
+                    discriminator: event_type_code
+                    value: Service Alert
+                  config: {tags: ["DQ-011"]}
+          - name: alert_cause_code
+            data_tests:
+              - accepted_values:
+                  name: dq_030_service_alert_cause_accepted
+                  arguments:
+                    values: ["UNKNOWN_CAUSE", "OTHER_CAUSE", "TECHNICAL_PROBLEM", "STRIKE", "DEMONSTRATION",
+                             "ACCIDENT", "HOLIDAY", "WEATHER", "MAINTENANCE", "CONSTRUCTION",
+                             "POLICE_ACTIVITY", "MEDICAL_EMERGENCY"]
+                  config: {tags: ["DQ-030"], severity: warn}
+          - name: alert_effect_code
+            data_tests:
+              - accepted_values:
+                  name: dq_030_service_alert_effect_accepted
+                  arguments:
+                    values: ["NO_SERVICE", "REDUCED_SERVICE", "SIGNIFICANT_DELAYS", "DETOUR",
+                             "ADDITIONAL_SERVICE", "MODIFIED_SERVICE", "OTHER_EFFECT", "UNKNOWN_EFFECT",
+                             "STOP_MOVED", "NO_EFFECT", "ACCESSIBILITY_ISSUE"]
+                  config: {tags: ["DQ-030"], severity: warn}
+
+      # ------------------------------------------------------------ public works
+      - name: road_closure
+        columns:
+          - name: event_id
+            data_tests:
+              - discriminator_matches:
+                  name: dq_011_road_closure_is_typed_road_closure
+                  arguments:
+                    parent: event
+                    discriminator: event_type_code
+                    value: Road Closure
+                  config: {tags: ["DQ-011"]}
+          - name: closure_type_code
+            data_tests:
+              - accepted_values:
+                  name: dq_032_road_closure_closure_type_code_accepted
+                  arguments:
+                    values: ["Full", "Partial", "Lane", "Sidewalk"]
+                  config: {tags: ["DQ-032"]}
+
+      # ------------------------------------------------------------ housing
+      - name: building_permit
+        columns:
+          - name: event_id
+            data_tests:
+              - discriminator_matches:
+                  name: dq_011_building_permit_is_typed_building_permit
+                  arguments:
+                    parent: event
+                    discriminator: event_type_code
+                    value: Building Permit
+                  config: {tags: ["DQ-011"]}
+          - name: permit_type_code
+            data_tests:
+              - accepted_values:
+                  name: dq_033_building_permit_permit_type_code_accepted
+                  arguments:
+                    values: ["New", "Alteration", "Demolition"]
+                  config: {tags: ["DQ-033"]}
+
+      # Subtype tables named only so the generic tests above can read them.
+      - name: collision
+      - name: service_request
+      - name: weather_observation
+      - name: route_segment
+      - name: infrastructure_asset
+      - name: facility
+      - name: building
+      - name: dwelling_unit
+      - name: street_segment
+      - name: parcel
