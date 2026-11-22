@@ -84,3 +84,15 @@ describe("the ion token stays in memory", () => {
     expect(offending).toEqual([]);
   });
 });
+
+describe("data age from the contract's own examples", () => {
+  it("reads the road closures example as checked, unchanged since its last change", async () => {
+    const env = JSON.parse(readFileSync(join(__dirname, "..", "mocks", "fixtures", "layers-road-closures.json"), "utf8"));
+    const checked = Date.parse(env.source[0].checked_ts);
+    expect(ageLine(env.source, env.as_of, checked + 5 * 60_000)).toBe("Checked 5 min ago, unchanged since 21 Nov 2026");
+  });
+  it("reads the live vehicles example with as_of", () => {
+    const env = JSON.parse(readFileSync(join(__dirname, "..", "mocks", "fixtures", "live-vehicles.json"), "utf8"));
+    expect(ageLine(env.source, env.as_of, Date.parse(env.as_of) + 12_000)).toBe("Updated 12 s ago");
+  });
+});
