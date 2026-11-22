@@ -1,0 +1,20 @@
+# Halifax Digital Twin: automated data quality checks (Phase 2 task 6).
+# Read-only. No models: every check is a test over sources in bronze and silver.
+# Each test carries its rule id from engineering/model/standards.md as a tag.
+name: halifax_twin_quality
+version: "1.0.0"
+config-version: 2
+profile: halifax_twin
+
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "logs"]
+
+flags:
+  send_anonymous_usage_stats: false
+
+data_tests:
+  halifax_twin_quality:
+    +store_failures: false   # never write failing rows to the database
