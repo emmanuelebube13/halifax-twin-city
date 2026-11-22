@@ -13,6 +13,7 @@ npm test                    # unit tests (formatter, status rules, story renderi
 npm run build               # type check and production build into dist\
 npm run fixtures            # re-copy the contract examples into src\mocks\fixtures
 npm run screenshots         # with a dev server running: laptop and phone screenshots into screenshots\
+npm run a11y                # with a dev server running: axe-core WCAG 2.2 AA scan of the main screens
 ```
 
 Settings (copy `.env.example` to `.env.local`): `VITE_API_BASE`, `VITE_USE_MOCKS`, `HALIFAX_TWIN_TILES_DIR`. No key or token belongs in any of them: the Cesium ion token reaches the page only from the API's `/v1/client-config`, and only on this computer.
