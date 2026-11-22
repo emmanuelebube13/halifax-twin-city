@@ -1,0 +1,19 @@
+{
+  "data": {
+    "id": "pwk.closures_active",
+    "label": "Closures in effect",
+    "value": null,
+    "unit": "closures",
+    "window": "Now"
+  },
+  "as_of": null,
+  "source": [
+    {
+      "source_id": "SRC-015",
+      "name": "Street Closures (all, active, upcoming) and Development Street Closures",
+      "publisher": "Halifax Regional Municipality"
+    }
+  ],
+  "reliability_tier": "Tier 1",
+  "licence": "Contains information licensed under the Open Government Licence – Halifax"
+}

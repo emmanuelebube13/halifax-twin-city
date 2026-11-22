@@ -1,0 +1,61 @@
+{
+  "data": {
+    "three_d_available": false,
+    "three_d_note": "3D needs a Cesium ion token on this computer. 2D works without it.",
+    "cesium_ion_token": null,
+    "cesium_photorealistic_asset_id": 2275207,
+    "time_zone": "America/Halifax",
+    "stale_after_seconds": 120,
+    "live_refresh_seconds": 15,
+    "business_rules": {
+      "status": "not yet decided",
+      "on_time": {
+        "early_limit_seconds": -60,
+        "late_limit_seconds": 300
+      },
+      "frequent_service": {
+        "max_headway_minutes": 15,
+        "weekdays_from": "07:00",
+        "weekdays_to": "19:00"
+      },
+      "walk": {
+        "five_minute_walk_metres": 400
+      },
+      "stops": {
+        "display_number": "hrm_stop_number"
+      },
+      "raw_retention_days": 7,
+      "live": {
+        "stale_after_seconds": 120,
+        "vehicle_window_seconds": 180,
+        "arrival_window_minutes": 30,
+        "refresh_seconds": 15
+      },
+      "display": {
+        "time_zone": "America/Halifax",
+        "clock": "24-hour",
+        "date_format": "21 Nov 2026"
+      },
+      "transit_measures": {
+        "bunched_ratio": 0.25,
+        "long_gap_ratio": 1.5,
+        "slow_ratio": 1.2,
+        "coverage_gap_seconds": 300,
+        "window_days": 7,
+        "segment_window_days": 28,
+        "consistently_slow_share": 0.5,
+        "consistently_slow_min_days": 5
+      },
+      "closures": {
+        "route_buffer_metres": 20,
+        "stop_buffer_metres": 30,
+        "upcoming_days": 30
+      }
+    },
+    "attribution": "Contains information licensed under the Open Government Licence – Halifax"
+  },
+  "as_of": "2026-11-22T05:39:36Z",
+  "source": [],
+  "reliability_tier": null,
+  "licence": "Contains information licensed under the Open Government Licence – Halifax"
+}

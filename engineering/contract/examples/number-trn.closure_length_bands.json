@@ -1,0 +1,37 @@
+{
+  "data": {
+    "id": "trn.closure_length_bands",
+    "label": "Closures by planned length",
+    "value": 92,
+    "unit": "closures",
+    "window": "Closures in effect now with a planned end",
+    "series": [
+      {
+        "t": "Under 1 day",
+        "value": 0
+      },
+      {
+        "t": "1 to 7 days",
+        "value": 0
+      },
+      {
+        "t": "8 to 28 days",
+        "value": 2
+      },
+      {
+        "t": "Over 28 days",
+        "value": 90
+      }
+    ]
+  },
+  "as_of": "2026-11-22T05:37:27Z",
+  "source": [
+    {
+      "source_id": "SRC-015",
+      "name": "Street Closures and Development Street Closures",
+      "publisher": "Halifax Regional Municipality"
+    }
+  ],
+  "reliability_tier": "Tier 1",
+  "licence": "Contains information licensed under the Open Government Licence – Halifax"
+}

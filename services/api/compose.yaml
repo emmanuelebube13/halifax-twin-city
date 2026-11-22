@@ -1,0 +1,19 @@
+# Halifax Digital Twin serving API. UNVERIFIED: Docker is not installed on the build machine.
+# Holds no password or token. Values come from the environment of the shell that runs compose.
+# Run from services/api:  docker compose up --build
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: services/api/Dockerfile
+    ports:
+      # Only this computer can reach the API.
+      - "127.0.0.1:8010:8010"
+    environment:
+      # The database runs on the host (localhost:5433). From a container the host is host.docker.internal.
+      # Put the password in the URL only through your own environment, never in this file.
+      HALIFAX_TWIN_DB_URL: ${HALIFAX_TWIN_DOCKER_DB_URL:-postgresql://postgres@host.docker.internal:5433/halifax_twin}
+      CESIUM_ION_TOKEN: ${CESIUM_ION_TOKEN:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

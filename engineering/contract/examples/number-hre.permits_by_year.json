@@ -1,0 +1,37 @@
+{
+  "data": {
+    "id": "hre.permits_by_year",
+    "label": "Building permits by year",
+    "value": 3114,
+    "unit": "permits",
+    "window": "Calendar years in Halifax time; value is the current year to date",
+    "series": [
+      {
+        "t": "2023",
+        "value": 4120
+      },
+      {
+        "t": "2024",
+        "value": 4387
+      },
+      {
+        "t": "2025",
+        "value": 4019
+      },
+      {
+        "t": "2026",
+        "value": 3114
+      }
+    ]
+  },
+  "as_of": "2026-11-21T06:00:12Z",
+  "source": [
+    {
+      "source_id": "SRC-066",
+      "name": "PPL&C Issued Building Permits; Permits Geolocated; Construction Permits",
+      "publisher": "Halifax Regional Municipality"
+    }
+  ],
+  "reliability_tier": "Tier 1",
+  "licence": "Contains information licensed under the Open Government Licence – Halifax"
+}

@@ -1,0 +1,57 @@
+{
+  "data": {
+    "type": "FeatureCollection",
+    "layer": "routes",
+    "features": [
+      {
+        "type": "Feature",
+        "id": 101,
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -63.5752,
+              44.6493
+            ],
+            [
+              -63.577,
+              44.646
+            ],
+            [
+              -63.5788,
+              44.6431
+            ],
+            [
+              -63.585,
+              44.6402
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "asset",
+          "sector_id": "S04",
+          "subsector_id": "TRN-01",
+          "id": 101,
+          "source_key": "1-160",
+          "source_id": "SRC-004",
+          "asset_type_code": "Route",
+          "asset_status_code": "Active",
+          "name": "1 Spring Garden",
+          "route_short_name": "1",
+          "route_long_name": "Spring Garden",
+          "route_mode_code": "Bus"
+        }
+      }
+    ]
+  },
+  "as_of": "2026-11-20T14:02:11Z",
+  "source": [
+    {
+      "source_id": "SRC-004",
+      "name": "GTFS Schedule (static) feed",
+      "publisher": "Halifax Transit"
+    }
+  ],
+  "reliability_tier": "Tier 1",
+  "licence": "Contains information licensed under the Open Government Licence – Halifax"
+}

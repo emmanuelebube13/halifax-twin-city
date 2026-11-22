@@ -1,0 +1,180 @@
+{
+  "data": [
+    {
+      "id": "HRE-Q08",
+      "question": "How many new rental units are being added each year, and where?",
+      "sector_id": "S09",
+      "subsector_id": "HRE-02",
+      "lenses": [
+        "analytics"
+      ],
+      "status": "source_incomplete",
+      "status_note": "The permit source has no rental or ownership field, so rental units cannot be told apart; the numbers count all new units."
+    },
+    {
+      "id": "HRE-Q29",
+      "question": "How many building permits are issued, for how many units, and where?",
+      "sector_id": "S09",
+      "subsector_id": "HRE-09",
+      "lenses": [
+        "analytics"
+      ],
+      "status": "live",
+      "status_note": null
+    },
+    {
+      "id": "HRE-Q30",
+      "question": "How long does it take from permit application to completion?",
+      "sector_id": "S09",
+      "subsector_id": "HRE-09",
+      "lenses": [
+        "analytics"
+      ],
+      "status": "source_incomplete",
+      "status_note": "The application date is not loaded into the database, so only the time from issue to completion can be shown."
+    },
+    {
+      "id": "PWK-Q13",
+      "question": "Where does utility work restrict street access or parking, and for how long?",
+      "sector_id": "S05",
+      "subsector_id": "PWK-03",
+      "lenses": [
+        "live"
+      ],
+      "status": "live",
+      "status_note": null
+    },
+    {
+      "id": "PWK-Q16",
+      "question": "Which planned closures will affect bus routes, traffic, and walking before work starts?",
+      "sector_id": "S05",
+      "subsector_id": "PWK-04",
+      "lenses": [
+        "live"
+      ],
+      "status": "live",
+      "status_note": null
+    },
+    {
+      "id": "TRN-Q01",
+      "question": "Where is every bus right now, and is it on time?",
+      "sector_id": "S04",
+      "subsector_id": "TRN-01",
+      "lenses": [
+        "live",
+        "replay",
+        "analytics"
+      ],
+      "status": "live",
+      "status_note": null
+    },
+    {
+      "id": "TRN-Q02",
+      "question": "Which routes are most often late, and at what times of day?",
+      "sector_id": "S04",
+      "subsector_id": "TRN-01",
+      "lenses": [
+        "analytics"
+      ],
+      "status": "collecting_data",
+      "status_note": "Needs at least one whole service day of recorded arrivals; the archive started at 21:05 on 21 Nov 2026."
+    },
+    {
+      "id": "TRN-Q03",
+      "question": "Where and when do buses bunch together, arriving close together followed by a long gap?",
+      "sector_id": "S04",
+      "subsector_id": "TRN-01",
+      "lenses": [
+        "analytics",
+        "replay"
+      ],
+      "status": "collecting_data",
+      "status_note": "Needs at least one whole service day of recorded arrivals; the archive started at 21:05 on 21 Nov 2026."
+    },
+    {
+      "id": "TRN-Q04",
+      "question": "What is the actual wait between buses at each stop compared with the schedule?",
+      "sector_id": "S04",
+      "subsector_id": "TRN-01",
+      "lenses": [
+        "analytics"
+      ],
+      "status": "collecting_data",
+      "status_note": "Needs at least one whole service day of recorded arrivals; the archive started at 21:05 on 21 Nov 2026."
+    },
+    {
+      "id": "TRN-Q05",
+      "question": "Which scheduled trips never run?",
+      "sector_id": "S04",
+      "subsector_id": "TRN-01",
+      "lenses": [
+        "analytics"
+      ],
+      "status": "collecting_data",
+      "status_note": "Needs at least one whole service day of recorded arrivals; the archive started at 21:05 on 21 Nov 2026."
+    },
+    {
+      "id": "TRN-Q09",
+      "question": "Which roadworks and road closures cause the biggest bus delays?",
+      "sector_id": "S04",
+      "subsector_id": "TRN-01",
+      "lenses": [
+        "analytics"
+      ],
+      "status": "collecting_data",
+      "status_note": "Needs at least two weeks of recorded arrivals to compare delays beside closures with delays elsewhere; the archive started on 21 Nov 2026."
+    },
+    {
+      "id": "TRN-Q11",
+      "question": "Which route segments are consistently slow and could be optimized?",
+      "sector_id": "S04",
+      "subsector_id": "TRN-01",
+      "lenses": [
+        "analytics"
+      ],
+      "status": "collecting_data",
+      "status_note": "Needs two to four weeks of recorded arrivals; the archive started on 21 Nov 2026."
+    },
+    {
+      "id": "TRN-Q25",
+      "question": "How long does each road closure last, and what does it affect?",
+      "sector_id": "S04",
+      "subsector_id": "TRN-09",
+      "lenses": [
+        "live"
+      ],
+      "status": "live",
+      "status_note": null
+    }
+  ],
+  "as_of": "2026-11-22T05:39:36Z",
+  "source": [
+    {
+      "source_id": "SRC-066",
+      "name": "PPL&C Issued Building Permits; Permits Geolocated; Construction Permits",
+      "publisher": "Halifax Regional Municipality"
+    },
+    {
+      "source_id": "SRC-015",
+      "name": "Street Closures and Development Street Closures",
+      "publisher": "Halifax Regional Municipality"
+    },
+    {
+      "source_id": "SRC-004",
+      "name": "GTFS Schedule (static) feed",
+      "publisher": "Halifax Transit"
+    },
+    {
+      "source_id": "SRC-001",
+      "name": "GTFS Realtime – Vehicle Positions",
+      "publisher": "Halifax Transit"
+    },
+    {
+      "source_id": "SRC-002",
+      "name": "GTFS Realtime – Trip Updates",
+      "publisher": "Halifax Transit"
+    }
+  ],
+  "reliability_tier": "Tier 1",
+  "licence": "Contains information licensed under the Open Government Licence – Halifax"
+}

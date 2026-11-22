@@ -1,0 +1,58 @@
+{
+  "id": "TRN-Q11",
+  "question": "Which route segments are consistently slow and could be optimized?",
+  "title": "Slow segments",
+  "sector_id": "S04",
+  "subsector_id": "TRN-01",
+  "lenses": [
+    "analytics"
+  ],
+  "status": "live",
+  "requires": [
+    {
+      "check": "gold_function",
+      "signature": "gold.segment_speed(date,date,numeric)",
+      "note": "Waits for the gold transit measures to be installed (workstream B)."
+    },
+    {
+      "check": "archive_days",
+      "min_days": 14,
+      "note": "Needs two to four weeks of recorded arrivals; the archive started on 21 Nov 2026."
+    }
+  ],
+  "answer": {
+    "template": "{trn.slow_segments_count} stop-to-stop segments were slow on at least half of the days observed in the last 28 days.",
+    "numbers": [
+      "trn.slow_segments_count"
+    ],
+    "empty_text": "Not enough recorded arrivals yet."
+  },
+  "evidence": {
+    "layers": [
+      {
+        "layer": "routes",
+        "path": "layers",
+        "title": "Routes",
+        "property": null,
+        "legend": [
+          {
+            "value": "route",
+            "label": "Bus route",
+            "shape": "line"
+          }
+        ]
+      }
+    ]
+  },
+  "context": {
+    "number_id": "trn.slowest_segments",
+    "title": "Most consistently slow segments (straight-line km/h)"
+  },
+  "trust": {
+    "source_ids": [
+      "SRC-002",
+      "SRC-004"
+    ],
+    "note": "Slow day: median time above 1.2 x planned (interim, not yet decided). Speeds use straight lines between stops."
+  }
+}

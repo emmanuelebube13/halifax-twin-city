@@ -1,0 +1,46 @@
+{
+  "id": "HRE-Q30",
+  "question": "How long does it take from permit application to completion?",
+  "title": "Permit times",
+  "sector_id": "S09",
+  "subsector_id": "HRE-09",
+  "lenses": [
+    "analytics"
+  ],
+  "status": "source_incomplete",
+  "status_note": "The application date is not loaded into the database, so only the time from issue to completion can be shown.",
+  "answer": {
+    "template": "Permits completed in the last year took {hre.issue_to_completion_median_days} from issue to completion at the median.",
+    "numbers": [
+      "hre.issue_to_completion_median_days"
+    ],
+    "empty_text": "No completed permits are loaded yet."
+  },
+  "evidence": {
+    "layers": [
+      {
+        "layer": "completed-permits",
+        "path": "layers",
+        "title": "Permits completed, last 12 months",
+        "property": null,
+        "legend": [
+          {
+            "value": "permit",
+            "label": "Completed permit",
+            "shape": "disc"
+          }
+        ]
+      }
+    ]
+  },
+  "context": {
+    "number_id": "hre.issue_to_completion_by_year",
+    "title": "Median days from issue to completion, by year"
+  },
+  "trust": {
+    "source_ids": [
+      "SRC-066"
+    ],
+    "note": "About 60 per cent of permits in the source carry a completion date."
+  }
+}
