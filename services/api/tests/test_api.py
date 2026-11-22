@@ -416,3 +416,23 @@ def test_days_templates_name_the_unit(client):
         for number_id in ("hre.issue_to_completion_median_days", "pwk.closure_median_days", "trn.closure_median_days_all"):
             if "{" + number_id + "}" in template:
                 assert "{" + number_id + "} days" in template, sid
+
+
+def test_checked_and_changed_times(client):
+    import datetime as dt
+    parse = lambda t: dt.datetime.fromisoformat(t.replace("Z", "+00:00"))  # noqa: E731
+    now = dt.datetime.now(dt.timezone.utc)
+    body = client.get("/v1/layers/building-permits").json()
+    assert errors(body, "FeatureCollectionResponse") == []
+    ref = {s["source_id"]: s for s in body["source"]}["SRC-066"]
+    assert now - parse(ref["checked_ts"]) < dt.timedelta(minutes=5)          # checked a minute ago
+    assert dt.timedelta(hours=10) < now - parse(ref["last_changed_ts"]) < dt.timedelta(hours=12)  # unchanged 11 h
+    sources = {s["source_id"]: s for s in client.get("/v1/sources").json()["data"]}
+    assert sources["SRC-066"]["status"] == "ok"   # staleness follows the check, not the change
+    assert sources["SRC-066"]["checked_ts"] == ref["checked_ts"]
+    assert sources["SRC-001"]["last_changed_ts"] is None   # live feed: as_of says it
+    assert sources["SRC-001"]["checked_ts"] is not None
+    assert sources["SRC-015"]["checked_ts"] is None        # never checked
+    live = client.get("/v1/live/vehicles").json()
+    assert all(s["last_changed_ts"] is None for s in live["source"] if s["source_id"] in ("SRC-001", "SRC-002"))
+    assert {s["source_id"]: s for s in live["source"]}["SRC-004"]["last_changed_ts"] is not None  # schedule: checked

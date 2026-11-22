@@ -114,6 +114,10 @@ INSERT INTO bronze.feed_fetch (source_id, fetched_ts, http_status, error_text) V
  ('SRC-002', now() - interval '10 minutes', 200, NULL),
  ('SRC-003', now() - interval '5 minutes', 200, NULL),
  ('SRC-003', now() - interval '20 seconds', 503, 'Service unavailable'),
- ('SRC-004', now() - interval '3 days', 200, NULL);
+ ('SRC-004', now() - interval '3 days', 200, NULL),
+ -- The permit source was checked a minute ago and found nothing new (rows last changed 11 hours ago, below).
+ ('SRC-066', now() - interval '1 minute', 200, NULL);
+UPDATE silver.event SET dw_loaded_ts = now() - interval '11 hours' WHERE source_id = 'SRC-066';
+UPDATE silver.location SET dw_loaded_ts = now() - interval '11 hours' WHERE source_id = 'SRC-066';
 
 COMMIT;
