@@ -417,9 +417,40 @@ components:
         label: { type: string }
         properties: { type: object }
 
+    VehicleDetailProperties:
+      description: |
+        Extra properties of a Vehicle asset in /v1/features/asset/{id}. Same names and meaning as the live
+        vehicles layer. Present on every Vehicle; null (status unknown) when the bus has not reported within
+        the live window or has no current trip.
+      type: object
+      properties:
+        route_short_name: { type: [string, "null"] }
+        route_long_name: { type: [string, "null"] }
+        route_id: { type: [integer, "null"] }
+        trip_id: { type: [integer, "null"] }
+        headsign: { type: [string, "null"] }
+        status: { type: string, enum: [on_time, late, early, unknown] }
+        delay_seconds: { type: [integer, "null"] }
+        next_stop_name: { type: [string, "null"] }
+        position_ts: { $ref: "#/components/schemas/Timestamp" }
+        bearing: { type: [number, "null"] }
+
     FeatureDetail:
       allOf:
         - { $ref: "#/components/schemas/Feature" }
+        - type: object
+          if:
+            properties:
+              properties:
+                properties:
+                  asset_type_code: { const: Vehicle }
+                required: [asset_type_code]
+          then:
+            properties:
+              properties:
+                allOf:
+                  - { $ref: "#/components/schemas/VehicleDetailProperties" }
+                  - required: [route_short_name, headsign, status, delay_seconds, next_stop_name]
         - type: object
           required: [history]
           properties:
@@ -488,9 +519,15 @@ components:
                 template:
                   type: string
                   description: Sentence with {number_id} placeholders, filled from /v1/numbers
+                template_one:
+                  type: string
+                  description: |
+                    Optional singular wording. Use it instead of template when the value of the first number in
+                    numbers is exactly 1 (for example "1 street closure is" rather than "1 street closures are").
                 numbers:
                   type: array
                   items: { type: string }
+                  description: Every number the template uses; the first one decides between template and template_one.
                 empty_text: { type: string, description: Shown when every number is null }
             evidence:
               type: object

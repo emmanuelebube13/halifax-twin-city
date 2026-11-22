@@ -10,6 +10,7 @@
   "status": "live",
   "answer": {
     "template": "{pwk.upcoming_closures_30d} closures start in the next 30 days: {pwk.upcoming_on_routes_30d} on bus routes and {pwk.upcoming_sidewalk_30d} closing a sidewalk.",
+    "template_one": "{pwk.upcoming_closures_30d} closure starts in the next 30 days: {pwk.upcoming_on_routes_30d} on bus routes and {pwk.upcoming_sidewalk_30d} closing a sidewalk.",
     "numbers": [
       "pwk.upcoming_closures_30d",
       "pwk.upcoming_on_routes_30d",

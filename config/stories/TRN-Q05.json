@@ -22,6 +22,7 @@
   ],
   "answer": {
     "template": "{trn.trips_not_run_yesterday} of {trn.trips_planned_yesterday} planned trips were not seen yesterday; {trn.trips_not_covered_yesterday} could not be checked because the collector was not running.",
+    "template_one": "{trn.trips_not_run_yesterday} of {trn.trips_planned_yesterday} planned trips was not seen yesterday; {trn.trips_not_covered_yesterday} could not be checked because the collector was not running.",
     "numbers": [
       "trn.trips_not_run_yesterday",
       "trn.trips_planned_yesterday",
