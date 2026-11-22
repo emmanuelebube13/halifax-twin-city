@@ -24,7 +24,11 @@ SOURCE_ID = "SRC-004"
 URL = "http://gtfs.halifax.ca/static/google_transit.zip"
 SUBSECTOR = "TRN-01"
 WHEELCHAIR = {"": None, "0": "No information", "1": "Accessible", "2": "Not accessible"}
-GOLD_SQL = REPO_ROOT / "database" / "gold" / "planned_stop_time.sql"
+GOLD_DIR = REPO_ROOT / "database" / "gold"
+# Installed in this order after every load: each file builds on the ones before it.
+GOLD_SQL_FILES = ["planned_stop_time.sql", "observed_stop_arrival.sql", "stop_headway.sql",
+                  "trn_q02_route_lateness.sql", "trn_q03_bunching.sql", "trn_q04_stop_wait.sql",
+                  "trn_q05_trip_status.sql", "trn_q11_segment_speed.sql"]
 
 say = Log("gtfs_schedule")
 
@@ -195,8 +199,9 @@ def load_schedule(conn, feed: gtfs.Feed, routes, stops, fetched: dt.date, batch_
 
 
 def install_gold(conn):
-    """gold.planned_stop_time(day): CREATE OR REPLACE, so it is safe to run after every load."""
-    conn.execute(GOLD_SQL.read_text(encoding="utf-8"))
+    """The gold transit functions (database/gold/README.md). CREATE OR REPLACE, so safe to run after every load."""
+    for name in GOLD_SQL_FILES:
+        conn.execute((GOLD_DIR / name).read_text(encoding="utf-8"))
 
 
 def run(file: Path | None = None) -> int | None:
@@ -240,6 +245,12 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Halifax Transit GTFS schedule loader (SRC-004)")
     ap.add_argument("--file", type=Path, help="load this GTFS zip instead of downloading")
     ap.add_argument("--no-log-file", action="store_true", help="print only; do not append to the daily log file")
+    ap.add_argument("--gold-only", action="store_true", help="only (re)install the gold functions, load nothing")
     args = ap.parse_args(argv)
     say.to_file = not args.no_log_file
+    if args.gold_only:
+        with connect(application_name="halifax-twin-gtfs-schedule") as conn:
+            install_gold(conn)
+        say(f"gold functions installed: {', '.join(GOLD_SQL_FILES)}")
+        return
     run(args.file)
