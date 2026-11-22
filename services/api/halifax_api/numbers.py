@@ -207,7 +207,7 @@ NUMBERS: dict[str, NumberDef] = {n.id: n for n in [
               _arrival_number("late"), TRANSIT_RT, _on_time_rule),
     NumberDef("trn.early_count", "Early", "arrivals", "Stop arrivals in the last 30 minutes",
               _arrival_number("early"), TRANSIT_RT, _on_time_rule),
-    NumberDef("trn.on_time_share_24h", "On time by hour", "percent", "Last 24 hours, by hour (UTC hour start)",
+    NumberDef("trn.on_time_share_24h", "On time by hour", "percent", "Last 24 hours, by hour",
               on_time_share_24h, TRANSIT_RT, _on_time_rule, cache_seconds=60),
     NumberDef("trn.trips_planned_today", "Trips planned today", "trips", "Today's service day in Halifax time",
               trips_planned_today, ["SRC-004"], cache_seconds=600),
