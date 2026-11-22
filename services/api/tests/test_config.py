@@ -48,7 +48,7 @@ def test_settings_never_show_the_token():
 
 
 def test_no_emoji_in_config_or_contract():
-    emoji = re.compile("[\U0001F300-\U0001FAFF☀-➿]")
+    emoji = re.compile("[\U0001F300-\U0001FAFF\u2600-\u27BF]")
     for folder in (REPO_DIR / "config", REPO_DIR / "engineering" / "contract"):
         for path in folder.rglob("*"):
             if path.is_file():

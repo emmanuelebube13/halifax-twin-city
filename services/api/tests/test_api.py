@@ -330,3 +330,109 @@ def test_without_gold_functions(no_gold):
     story = c.get("/v1/stories/TRN-Q02").json()["data"]
     assert story["status"] == "collecting_data" and "gold" in story["status_note"]
     assert c.get("/v1/health").json()["data"]["gold_planned_stop_time"] is False
+
+
+def test_buses_live_is_zero_when_the_feed_answers_with_no_vehicles(empty_database):
+    # Overnight the vehicle feed answers normally but lists no buses: that is zero buses, not "no data".
+    from tests.conftest import TEST_DB_URL
+    import psycopg
+    assert empty_database.get("/v1/numbers/trn.buses_live").json()["data"]["value"] is None
+    with psycopg.connect(TEST_DB_URL, autocommit=True) as conn:
+        conn.execute("""INSERT INTO bronze.feed_fetch (source_id, fetched_ts, http_status, entity_count)
+                        VALUES ('SRC-001', now() - interval '20 seconds', 200, 0)""")
+    from tests.conftest import make_client
+    with make_client() as fresh:  # no cached answer
+        body = fresh.get("/v1/numbers/trn.buses_live").json()
+    assert body["data"]["value"] == 0
+    assert body["as_of"] is not None
+
+
+# ---------------------------------------------------------------- release 1 follow-up (22 Nov 2026)
+
+def test_vehicle_detail_carries_current_trip(client):
+    bus = client.get("/v1/features/asset/900301").json()
+    assert errors(bus, "FeatureDetailResponse") == []
+    p = bus["data"]["properties"]
+    live = {f["id"]: f["properties"] for f in client.get("/v1/live/vehicles").json()["data"]["features"]}[900301]
+    for field in ("route_short_name", "route_long_name", "route_id", "trip_id", "headsign", "status",
+                  "delay_seconds", "next_stop_name"):
+        assert p[field] == live[field], field
+    assert p["headsign"] == "1 Spring Garden to Mumford" and p["status"] == "late"
+    assert p["next_stop_name"] == "Mumford Terminal" and p["delay_seconds"] == 420
+
+
+def test_vehicle_detail_without_current_trip(client):
+    # 900303 last reported 10 minutes ago: not live, so no current trip.
+    body = client.get("/v1/features/asset/900303").json()
+    assert errors(body, "FeatureDetailResponse") == []
+    p = body["data"]["properties"]
+    assert p["status"] == "unknown"
+    for field in ("route_short_name", "headsign", "delay_seconds", "next_stop_name", "trip_id"):
+        assert p[field] is None, field
+
+
+def test_trips_not_run_by_day_is_fast_when_warm(client):
+    import time
+    first = client.get("/v1/numbers/trn.trips_not_run_by_day").json()
+    assert errors(first, "NumberResponse") == []
+    client.app.state.cache.clear()  # drop the 10-minute number cache; finished days stay cached
+    t = time.perf_counter()
+    second = client.get("/v1/numbers/trn.trips_not_run_by_day").json()
+    assert time.perf_counter() - t < 1.0
+    assert second["data"]["series"] == first["data"]["series"]
+
+
+def test_singular_templates(client):
+    for s in client.get("/v1/stories").json()["data"]:
+        answer = client.get(f"/v1/stories/{s['id']}").json()["data"]["answer"]
+        if "template_one" not in answer:
+            continue
+        first = "{" + answer["numbers"][0] + "}"
+        assert answer["template_one"] != answer["template"], s["id"]
+        assert answer["template"].startswith(first) and answer["template_one"].startswith(first), s["id"]
+        placeholders = lambda t: sorted(p.split("}")[0] for p in t.split("{")[1:])  # noqa: E731
+        assert placeholders(answer["template_one"]) == placeholders(answer["template"]), s["id"]
+
+
+def test_partial_series_points(client):
+    body = client.get("/v1/numbers/hre.permits_by_year").json()
+    assert errors(body, "NumberResponse") == []
+    points = body["data"]["series"]
+    # The seed holds a permit today and one 400 days ago: the current year is partial; the first year is
+    # partial unless its first permit falls in January.
+    assert points[-1].get("partial") is True
+    import datetime as dt
+    first_day = dt.date.today() - dt.timedelta(days=400)
+    assert points[0].get("partial", False) is (first_day.month > 1)
+    for p in points[1:-1]:
+        assert "partial" not in p
+    months = client.get("/v1/numbers/pwk.closures_by_month").json()["data"]["series"]
+    assert months[-1].get("partial") is True
+
+
+def test_days_templates_name_the_unit(client):
+    for sid in ("HRE-Q30", "PWK-Q13", "TRN-Q25"):
+        template = client.get(f"/v1/stories/{sid}").json()["data"]["answer"]["template"]
+        for number_id in ("hre.issue_to_completion_median_days", "pwk.closure_median_days", "trn.closure_median_days_all"):
+            if "{" + number_id + "}" in template:
+                assert "{" + number_id + "} days" in template, sid
+
+
+def test_checked_and_changed_times(client):
+    import datetime as dt
+    parse = lambda t: dt.datetime.fromisoformat(t.replace("Z", "+00:00"))  # noqa: E731
+    now = dt.datetime.now(dt.timezone.utc)
+    body = client.get("/v1/layers/building-permits").json()
+    assert errors(body, "FeatureCollectionResponse") == []
+    ref = {s["source_id"]: s for s in body["source"]}["SRC-066"]
+    assert now - parse(ref["checked_ts"]) < dt.timedelta(minutes=5)          # checked a minute ago
+    assert dt.timedelta(hours=10) < now - parse(ref["last_changed_ts"]) < dt.timedelta(hours=12)  # unchanged 11 h
+    sources = {s["source_id"]: s for s in client.get("/v1/sources").json()["data"]}
+    assert sources["SRC-066"]["status"] == "ok"   # staleness follows the check, not the change
+    assert sources["SRC-066"]["checked_ts"] == ref["checked_ts"]
+    assert sources["SRC-001"]["last_changed_ts"] is None   # live feed: as_of says it
+    assert sources["SRC-001"]["checked_ts"] is not None
+    assert sources["SRC-015"]["checked_ts"] is None        # never checked
+    live = client.get("/v1/live/vehicles").json()
+    assert all(s["last_changed_ts"] is None for s in live["source"] if s["source_id"] in ("SRC-001", "SRC-002"))
+    assert {s["source_id"]: s for s in live["source"]}["SRC-004"]["last_changed_ts"] is not None  # schedule: checked

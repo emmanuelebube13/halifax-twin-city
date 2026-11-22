@@ -53,3 +53,23 @@ export function storyStatusLabel(status: string, known: (key: string) => string 
   const words = status.replace(/[_-]+/g, " ").trim();
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : status;
 }
+
+/** The as-of time shown for a story, in the panel and the map footer alike: its main layer's, else its numbers'. */
+export function storyAsOf(primaryLayerAsOf: string | null, numbersAsOf: string | null): string | null {
+  return primaryLayerAsOf ?? numbersAsOf ?? null;
+}
+
+/** On a phone, following a bus lowers the sheet to its smallest height so the bus stays in view. */
+export function sheetOnFollow<T extends string>(current: T, following: boolean): T | "peek" {
+  return following ? "peek" : current;
+}
+
+/** The template to fill: template_one when the first number in answer.numbers is exactly 1, else template. */
+export function chooseTemplate(
+  answer: { template: string; template_one?: string | null; numbers: string[] },
+  numbers: Record<string, NumberData | null | undefined>,
+): string {
+  const first = answer.numbers[0];
+  if (answer.template_one && first && numbers[first]?.value === 1) return answer.template_one;
+  return answer.template;
+}

@@ -44,7 +44,9 @@
     {
       "source_id": "SRC-015",
       "name": "Street Closures (all, active, upcoming) and Development Street Closures",
-      "publisher": "Halifax Regional Municipality"
+      "publisher": "Halifax Regional Municipality",
+      "checked_ts": "2026-11-21T23:14:44Z",
+      "last_changed_ts": "2026-11-21T12:07:27Z"
     }
   ],
   "reliability_tier": "Tier 1",

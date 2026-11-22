@@ -5,7 +5,13 @@ invented from nothing. Counts are zero only when the data that would be counted 
 """
 from __future__ import annotations
 
+import datetime as dt
+import threading
+import time
+import weakref
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from zoneinfo import ZoneInfo
 from typing import Callable
 
 from .config import AppConfig
@@ -37,8 +43,17 @@ def buses_live(db, cfg):
                          WHERE position_ts > now() - make_interval(secs => %s)""",
                      (int(cfg.live.get("vehicle_window_seconds", 180)),))
     count, as_of = r
-    # Zero buses with no recent positions at all means "no data", not "no buses".
-    return (count if as_of else None), None, as_of
+    if as_of:
+        return count, None, as_of
+    # No recent positions. If the vehicle feed itself answered recently with no vehicles (overnight, for
+    # example), the true answer is zero buses. Only when the feed has not answered is it "no data".
+    f = db.fetch_one("""SELECT max(fetched_ts) FROM bronze.feed_fetch
+                         WHERE source_id = 'SRC-001' AND http_status = 200 AND error_text IS NULL
+                           AND entity_count IS NOT NULL
+                           AND fetched_ts > now() - make_interval(secs => %s)""",
+                     (int(cfg.live.get("vehicle_window_seconds", 180)),))
+    fetched = f[0] if f else None
+    return (0 if fetched else None), None, fetched
 
 
 ARRIVALS_SQL = """
@@ -143,7 +158,8 @@ def closures_by_month(db, cfg):
                           AND e.event_start_ts >= date_trunc('month', now() AT TIME ZONE 'America/Halifax')
                                                   - interval '11 months'
                         GROUP BY 1 ORDER BY 1""")
-    series = [{"t": m, "value": n} for m, n in rows]
+    this_month = db.fetch_one(f"SELECT to_char({HALIFAX_TODAY}, 'YYYY-MM')")[0]
+    series = [{"t": m, "value": n, **({"partial": True} if m == this_month else {})} for m, n in rows]
     return (series[-1]["value"] if series else 0), series, loaded
 
 
@@ -169,16 +185,27 @@ def units_created_ytd(db, cfg):
     return (json_value(r[0]) if r[1] else None), None, loaded
 
 
+def _year_point(year: int, value, first_date, first_year: int, this_year: int) -> dict:
+    """A yearly series point. partial: true when the data covers only part of the year: the current year
+    to date, or the first year when the source starts after January (the permit source starts on
+    22 Dec 2020, so 2020 holds only a few days)."""
+    point = {"t": str(year), "value": value}
+    if year == this_year or (year == first_year and first_date is not None and first_date.month > 1):
+        point["partial"] = True
+    return point
+
+
 def permits_by_year(db, cfg):
     loaded = _type_loaded(db, "Building Permit")
     if loaded is None:
         return None, [], None
-    rows = db.fetch("""SELECT extract(year FROM e.event_date)::int, count(*)
+    rows = db.fetch("""SELECT extract(year FROM e.event_date)::int, count(*), min(e.event_date)
                          FROM silver.event e WHERE e.event_type_code = 'Building Permit'
                         GROUP BY 1 ORDER BY 1""")
     this_year = db.fetch_one(f"SELECT extract(year FROM {HALIFAX_TODAY})::int")[0]
-    series = [{"t": str(y), "value": n} for y, n in rows]
-    value = next((n for y, n in rows if y == this_year), 0)
+    first_year = rows[0][0] if rows else None
+    series = [_year_point(y, n, first, first_year, this_year) for y, n, first in rows]
+    value = next((n for y, n, _ in rows if y == this_year), 0)
     return value, series, loaded
 
 
@@ -198,7 +225,7 @@ NUMBERS: dict[str, NumberDef] = {n.id: n for n in [
               _arrival_number("late"), TRANSIT_RT, _on_time_rule),
     NumberDef("trn.early_count", "Early", "arrivals", "Stop arrivals in the last 30 minutes",
               _arrival_number("early"), TRANSIT_RT, _on_time_rule),
-    NumberDef("trn.on_time_share_24h", "On time by hour", "percent", "Last 24 hours, by hour (UTC hour start)",
+    NumberDef("trn.on_time_share_24h", "On time by hour", "percent", "Last 24 hours, by hour",
               on_time_share_24h, TRANSIT_RT, _on_time_rule, cache_seconds=60),
     NumberDef("trn.trips_planned_today", "Trips planned today", "trips", "Today's service day in Halifax time",
               trips_planned_today, ["SRC-004"], cache_seconds=600),
@@ -342,20 +369,54 @@ def excess_wait_by_route(db, cfg):
 
 
 TRIP_STATUS = "gold.scheduled_trip_status(date,timestamp with time zone,integer)"
-YESTERDAY = f"{HALIFAX_TODAY} - 1"
 
 
-def _trip_status_counts(db, cfg, day_expr):
-    gap = int(_measures(cfg).get("coverage_gap_seconds", 300))
-    return dict(db.fetch(f"""SELECT trip_status, count(*)
-                               FROM gold.scheduled_trip_status({day_expr}, now(), %s) GROUP BY 1""", (gap,)))
+# Trip status counts per service day. A finished day cannot change, so its counts are kept for a day;
+# today's and yesterday's (until 06:00 the next morning, when the last trips are due) are kept 10 minutes.
+# Each day is its own call with a constant date: one call is about 0.1 s, while one query over a
+# generate_series of days was several seconds (the inlined function plans badly with a lateral date).
+_DAY_COUNTS: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()  # per Database: {(day, gap): (at, counts)}
+_DAY_LOCK = threading.Lock()
+
+
+def _halifax_now():
+    return dt.datetime.now(ZoneInfo("America/Halifax"))
+
+
+def _day_complete(day: dt.date) -> bool:
+    return _halifax_now() >= dt.datetime.combine(day + dt.timedelta(days=1), dt.time(6, 0),
+                                                 tzinfo=ZoneInfo("America/Halifax"))
+
+
+def _day_counts(db, gap: int, day: dt.date) -> dict:
+    key = (day, gap)
+    with _DAY_LOCK:
+        hit = _DAY_COUNTS.setdefault(db, {}).get(key)
+    ttl = 86400 if _day_complete(day) else 600
+    if hit and time.monotonic() - hit[0] < ttl:
+        return hit[1]
+    counts = dict(db.fetch("""SELECT trip_status, count(*)
+                                FROM gold.scheduled_trip_status(%s::date, now(), %s::int) GROUP BY 1""", (day, gap)))
+    with _DAY_LOCK:
+        _DAY_COUNTS.setdefault(db, {})[key] = (time.monotonic(), counts)
+    return counts
+
+
+def _days_counts(db, gap: int, days: list[dt.date]) -> list[dict]:
+    """Several days at once, each on its own pooled connection."""
+    with ThreadPoolExecutor(max_workers=min(4, len(days))) as pool:
+        return list(pool.map(lambda d: _day_counts(db, gap, d), days))
+
+
+def _trip_status_counts(db, cfg, day: dt.date):
+    return _day_counts(db, int(_measures(cfg).get("coverage_gap_seconds", 300)), day)
 
 
 def _trip_number(kind):
     def compute(db, cfg):
         if not _gold(db, TRIP_STATUS):
             return None, None, None
-        counts = _trip_status_counts(db, cfg, YESTERDAY)
+        counts = _trip_status_counts(db, cfg, _halifax_now().date() - dt.timedelta(days=1))
         if not counts:
             return None, None, None
         value = {"not_run": counts.get("Not seen", 0) + counts.get("Cancelled", 0),
@@ -372,16 +433,16 @@ def trips_not_run_by_day(db, cfg):
     if not _gold(db, TRIP_STATUS):
         return None, [], None
     gap = int(_measures(cfg).get("coverage_gap_seconds", 300))
-    rows = db.fetch(f"""SELECT d.day::date,
-                               count(*) FILTER (WHERE s.trip_status IN ('Not seen', 'Cancelled')),
-                               count(*) FILTER (WHERE s.trip_status = 'Not covered'),
-                               count(*)
-                          FROM generate_series({HALIFAX_TODAY} - 7, {HALIFAX_TODAY} - 1, interval '1 day') d(day)
-                          CROSS JOIN LATERAL gold.scheduled_trip_status(d.day::date, now(), %s::int) s
-                         GROUP BY 1 ORDER BY 1""", (gap,))
-    # A day the collector did not cover at all has no answer, not zero.
-    series = [{"t": day.isoformat(), "value": (None if not_covered == total else not_run)}
-              for day, not_run, not_covered, total in rows]
+    today = _halifax_now().date()
+    days = [today - dt.timedelta(days=n) for n in range(7, 0, -1)]
+    series = []
+    for day, counts in zip(days, _days_counts(db, gap, days)):
+        total = sum(counts.values())
+        if not total:
+            continue  # no schedule covers the day: no point, as before
+        not_run = counts.get("Not seen", 0) + counts.get("Cancelled", 0)
+        # A day the collector did not cover at all has no answer, not zero.
+        series.append({"t": day.isoformat(), "value": None if counts.get("Not covered", 0) == total else not_run})
     return (series[-1]["value"] if series else None), series, _feed_as_of(db)
 
 
@@ -564,18 +625,21 @@ def units_created_by_year(db, cfg):
     if loaded is None:
         return None, [], None
     rows = db.fetch("""SELECT extract(year FROM e.event_date)::int, sum(bp.units_created_count),
-                              count(bp.units_created_count)
+                              count(bp.units_created_count), min(e.event_date)
                          FROM silver.event e JOIN silver.building_permit bp ON bp.event_id = e.event_id
                         WHERE e.event_type_code = 'Building Permit'
                         GROUP BY 1 ORDER BY 1""")
     this_year = db.fetch_one(f"SELECT extract(year FROM {HALIFAX_TODAY})::int")[0]
-    series = [{"t": str(y), "value": (json_value(total) if filled else None)} for y, total, filled in rows]
+    first_year = rows[0][0] if rows else None
+    series = [_year_point(y, json_value(total) if filled else None, first, first_year, this_year)
+              for y, total, filled, first in rows]
     value = next((p["value"] for p in series if p["t"] == str(this_year)), None)
     return value, series, loaded
 
 
 ISSUE_TO_COMPLETION = """
-SELECT {group}, percentile_cont(0.5) WITHIN GROUP (ORDER BY (e.event_end_ts - e.event_start_ts)), count(*)
+SELECT {group}, percentile_cont(0.5) WITHIN GROUP (ORDER BY (e.event_end_ts - e.event_start_ts)), count(*),
+       min((e.event_end_ts AT TIME ZONE 'America/Halifax')::date)
   FROM silver.event e
  WHERE e.event_type_code = 'Building Permit' AND e.event_end_ts IS NOT NULL AND e.event_end_ts >= e.event_start_ts
    {where}
@@ -602,7 +666,9 @@ def issue_to_completion_by_year(db, cfg):
         return None, [], None
     rows = db.fetch(ISSUE_TO_COMPLETION.format(
         group="extract(year FROM e.event_end_ts AT TIME ZONE 'America/Halifax')::int", where=""))
-    series = [{"t": str(y), "value": _days(d)} for y, d, _ in rows]
+    this_year = db.fetch_one(f"SELECT extract(year FROM {HALIFAX_TODAY})::int")[0]
+    first_year = rows[0][0] if rows else None
+    series = [_year_point(y, _days(d), first, first_year, this_year) for y, d, _, first in rows]
     return (series[-1]["value"] if series else None), series, loaded
 
 

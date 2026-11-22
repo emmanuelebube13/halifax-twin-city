@@ -13,6 +13,7 @@
     "status": "live",
     "answer": {
       "template": "{trn.buses_live} buses are on the road now, and {trn.on_time_share} of stop arrivals in the last 30 minutes were on time.",
+      "template_one": "{trn.buses_live} bus is on the road now, and {trn.on_time_share} of stop arrivals in the last 30 minutes were on time.",
       "numbers": [
         "trn.buses_live",
         "trn.on_time_share",

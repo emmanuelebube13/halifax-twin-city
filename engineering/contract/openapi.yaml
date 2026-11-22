@@ -180,7 +180,8 @@ paths:
       summary: Every source with licence, last successful load, tier and status
       description: |
         status: ok, stale (live feed with no successful load for 2 minutes, or a periodic source past
-        its cadence), down (last attempt failed), unknown (never loaded).
+        its cadence), down (last attempt failed), unknown (never loaded). Staleness follows the last
+        successful check, not the last change: a source checked a minute ago with nothing new is ok.
       responses:
         "200":
           description: Sources
@@ -284,6 +285,19 @@ components:
         source_id: { type: string, examples: ["SRC-001"] }
         name: { type: string }
         publisher: { type: [string, "null"] }
+        checked_ts:
+          allOf: [{ $ref: "#/components/schemas/NullableTimestamp" }]
+          description: |
+            Optional. The last successful check of this source (download with HTTP 2xx and no error in
+            bronze.feed_fetch), whether or not anything changed. Null if never checked.
+        last_changed_ts:
+          allOf: [{ $ref: "#/components/schemas/NullableTimestamp" }]
+          description: |
+            Optional. For sources that are checked rather than streamed (cadence not Real-time, for example
+            SRC-004, SRC-015, SRC-066): when the data last changed (newest load time on the source's event,
+            asset and location rows; loaders touch a row only when a value changed). Null for live feeds,
+            whose envelope as_of already gives the data time. With checked_ts the app can say
+            "Checked 1 min ago, unchanged since ...".
 
     ErrorInfo:
       type: object
@@ -417,9 +431,40 @@ components:
         label: { type: string }
         properties: { type: object }
 
+    VehicleDetailProperties:
+      description: |
+        Extra properties of a Vehicle asset in /v1/features/asset/{id}. Same names and meaning as the live
+        vehicles layer. Present on every Vehicle; null (status unknown) when the bus has not reported within
+        the live window or has no current trip.
+      type: object
+      properties:
+        route_short_name: { type: [string, "null"] }
+        route_long_name: { type: [string, "null"] }
+        route_id: { type: [integer, "null"] }
+        trip_id: { type: [integer, "null"] }
+        headsign: { type: [string, "null"] }
+        status: { type: string, enum: [on_time, late, early, unknown] }
+        delay_seconds: { type: [integer, "null"] }
+        next_stop_name: { type: [string, "null"] }
+        position_ts: { $ref: "#/components/schemas/Timestamp" }
+        bearing: { type: [number, "null"] }
+
     FeatureDetail:
       allOf:
         - { $ref: "#/components/schemas/Feature" }
+        - type: object
+          if:
+            properties:
+              properties:
+                properties:
+                  asset_type_code: { const: Vehicle }
+                required: [asset_type_code]
+          then:
+            properties:
+              properties:
+                allOf:
+                  - { $ref: "#/components/schemas/VehicleDetailProperties" }
+                  - required: [route_short_name, headsign, status, delay_seconds, next_stop_name]
         - type: object
           required: [history]
           properties:
@@ -488,9 +533,15 @@ components:
                 template:
                   type: string
                   description: Sentence with {number_id} placeholders, filled from /v1/numbers
+                template_one:
+                  type: string
+                  description: |
+                    Optional singular wording. Use it instead of template when the value of the first number in
+                    numbers is exactly 1 (for example "1 street closure is" rather than "1 street closures are").
                 numbers:
                   type: array
                   items: { type: string }
+                  description: Every number the template uses; the first one decides between template and template_one.
                 empty_text: { type: string, description: Shown when every number is null }
             evidence:
               type: object
@@ -521,6 +572,12 @@ components:
       properties:
         t: { type: string, description: "Start of the bucket: a UTC timestamp, a year (YYYY), a month (YYYY-MM) or a category label" }
         value: { type: [number, "null"] }
+        partial:
+          type: boolean
+          description: |
+            Optional. True when the point covers only part of its period: the current year, month or hour to
+            date, or a first period that the source covers only in part (building permits start on
+            22 Dec 2020, so the 2020 point holds a few days). Absent means the period is complete.
 
     Number:
       type: object
@@ -548,6 +605,12 @@ components:
         reliability_tier: { type: string }
         last_loaded_ts: { $ref: "#/components/schemas/NullableTimestamp" }
         last_attempt_ts: { $ref: "#/components/schemas/NullableTimestamp" }
+        checked_ts:
+          allOf: [{ $ref: "#/components/schemas/NullableTimestamp" }]
+          description: Optional. Same as source[].checked_ts in the envelope (equals last_loaded_ts).
+        last_changed_ts:
+          allOf: [{ $ref: "#/components/schemas/NullableTimestamp" }]
+          description: Optional. Same as source[].last_changed_ts in the envelope.
         status: { type: string, enum: [ok, stale, down, unknown] }
         cadence_code: { type: [string, "null"] }
         source_url: { type: [string, "null"] }

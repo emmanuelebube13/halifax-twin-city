@@ -110,7 +110,8 @@ export interface EvidenceLayer {
 
 export interface Story extends StorySummary {
   title?: string;
-  answer: { template: string; numbers: string[]; empty_text?: string };
+  /** template_one is used instead of template when the first number's value is exactly 1. */
+  answer: { template: string; template_one?: string | null; numbers: string[]; empty_text?: string };
   evidence: { layers: EvidenceLayer[] };
   context: { number_id: string; title: string };
   trust: { source_ids: string[]; note?: string };
@@ -119,6 +120,8 @@ export interface Story extends StorySummary {
 export interface SeriesPoint {
   t: string;
   value: number | null;
+  /** True when the bucket covers only part of its period (data started or ends inside it). Proposed to D. */
+  partial?: boolean;
 }
 
 export interface NumberData {

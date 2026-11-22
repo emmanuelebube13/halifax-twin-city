@@ -4,11 +4,17 @@
   "title": "Building permits",
   "sector_id": "S09",
   "subsector_id": "HRE-09",
-  "lenses": ["analytics"],
+  "lenses": [
+    "analytics"
+  ],
   "status": "live",
   "answer": {
     "template": "{hre.permits_ytd} building permits have been issued so far this year, for {hre.units_created_ytd} new units.",
-    "numbers": ["hre.permits_ytd", "hre.units_created_ytd"],
+    "template_one": "{hre.permits_ytd} building permit has been issued so far this year, for {hre.units_created_ytd} new units.",
+    "numbers": [
+      "hre.permits_ytd",
+      "hre.units_created_ytd"
+    ],
     "empty_text": "No building permits are loaded yet."
   },
   "evidence": {
@@ -18,13 +24,24 @@
         "path": "layers",
         "title": "Permits, last 12 months",
         "property": null,
-        "legend": [{"value": "permit", "label": "Building permit", "shape": "disc"}]
+        "legend": [
+          {
+            "value": "permit",
+            "label": "Building permit",
+            "shape": "disc"
+          }
+        ]
       }
     ]
   },
-  "context": {"number_id": "hre.permits_by_year", "title": "Permits issued by year"},
+  "context": {
+    "number_id": "hre.permits_by_year",
+    "title": "Permits issued by year"
+  },
   "trust": {
-    "source_ids": ["SRC-066"],
+    "source_ids": [
+      "SRC-066"
+    ],
     "note": "Issued means the permit's issue date; years are calendar years in Halifax time."
   }
 }

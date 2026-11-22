@@ -37,3 +37,20 @@ describe("story status words", () => {
     expect(storyStatusLabel("source_lacks_dates", known)).toBe("Source lacks dates");
   });
 });
+
+import { chooseTemplate } from "./story";
+describe("singular template", () => {
+  const answer = { template: "{pwk.closures_active} street closures are in effect now.", template_one: "{pwk.closures_active} street closure is in effect now.", numbers: ["pwk.closures_active"] };
+  const one = { "pwk.closures_active": n("pwk.closures_active", 1, "closures") };
+  const two = { "pwk.closures_active": n("pwk.closures_active", 2, "closures") };
+  it("uses template_one when the first number is exactly 1", () => {
+    expect(renderAnswer(chooseTemplate(answer, one), one)).toBe("1 street closure is in effect now.");
+    expect(renderAnswer(chooseTemplate(answer, two), two)).toBe("2 street closures are in effect now.");
+    expect(chooseTemplate({ ...answer, template_one: null }, one)).toBe(answer.template);
+  });
+  it("never doubles a unit: days come as a bare number because the template says days", () => {
+    const t = "{pwk.closures_active} street closures are in effect now, planned to last {pwk.closure_median_days} days at the median.";
+    const nums = { ...two, "pwk.closure_median_days": n("pwk.closure_median_days", 108, "days") };
+    expect(renderAnswer(t, nums)).toBe("2 street closures are in effect now, planned to last 108 days at the median.");
+  });
+});

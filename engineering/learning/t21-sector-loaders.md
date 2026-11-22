@@ -20,6 +20,7 @@ Three ideas carry the design:
 ## How to run it
 
 ```powershell
+powershell -ExecutionPolicy Bypass -File scripts\sector-refresh.ps1   # unattended refresh, as the scheduled task runs it
 cd services\collector
 ..\..\.venv\Scripts\python -m hrm_arcgis              # load all three layers
 ..\..\.venv\Scripts\python -m hrm_arcgis --profile    # how full is each field?
@@ -40,6 +41,14 @@ cd services\collector
    Which kind of closure lasts longest? Why is the `2090` filter there? (Look for the closure that ends on 31 Dec 2099.)
 
 2. Run the loader twice and compare `SELECT count(*), max(dw_loaded_ts) FROM silver.event WHERE source_id = 'SRC-066';` after each run. Then explain, from `store.py`, why neither number moved.
+
+## Keeping it fresh (added 22 Nov 2026)
+
+A one-off load goes stale: the stories say "now", so the data must be refreshed on a schedule. `scripts\sector-refresh.ps1` wraps the loader for unattended use (its own virtual environment, a dated log file, one run at a time, a non-zero exit code on failure so Task Scheduler shows it), and `scripts\sector-register-task.ps1` schedules it every 6 hours. Because the loader is idempotent, a refresh that finds no change writes nothing; only new or edited rows move.
+
+Exercise: run `powershell -ExecutionPolicy Bypass -File scripts\sector-refresh.ps1`, open the day's `sector_refresh_*.log` in `C:\halifax-twin-data\logs`, then run `SELECT source_id, max(fetched_ts) FROM bronze.feed_fetch GROUP BY 1;` and explain how a freshness check would use that column.
+
+Enterprise mapping: scheduling, idempotent reruns and freshness checks are the orchestration topics behind Azure Data Factory triggers, Airflow DAGs and dbt source freshness.
 
 ## Enterprise mapping
 

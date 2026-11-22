@@ -10,6 +10,7 @@
   "status": "live",
   "answer": {
     "template": "{trn.closures_in_effect} road closures are in effect now, planned to last {trn.closure_median_days_all} days at the median; {trn.closures_on_routes} of them are on bus routes.",
+    "template_one": "{trn.closures_in_effect} road closure is in effect now, planned to last {trn.closure_median_days_all} days at the median; {trn.closures_on_routes} of them are on bus routes.",
     "numbers": [
       "trn.closures_in_effect",
       "trn.closure_median_days_all",
