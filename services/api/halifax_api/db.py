@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import time
 
 import psycopg
 from psycopg.rows import tuple_row
@@ -18,10 +19,15 @@ class SourceUnavailable(Exception):
 
 
 class Database:
+    # After the server cannot be reached, answer "unavailable" at once for this many seconds instead of
+    # making every request wait for the pool timeout.
+    BACKOFF_SECONDS = 10
+
     def __init__(self, url: str, max_size: int = 8):
         self.url = url
+        self._down_until = 0.0
         self.pool = ConnectionPool(
-            url, min_size=0, max_size=max_size, open=False, timeout=5,
+            url, min_size=0, max_size=max_size, open=False, timeout=4,
             kwargs={"connect_timeout": 3, "options": SESSION_OPTIONS, "autocommit": True, "row_factory": tuple_row},
             name="halifax_api")
 
@@ -31,14 +37,24 @@ class Database:
     def close(self) -> None:
         self.pool.close()
 
-    def fetch(self, sql, params=None) -> list[tuple]:
+    def _run(self, fn):
+        if time.monotonic() < self._down_until:
+            raise SourceUnavailable()
         try:
             with self.pool.connection() as conn:
-                return conn.execute(sql, params).fetchall()
-        except (psycopg.Error, PoolTimeout, OSError) as e:
-            # Log the class only: messages can carry connection details. Clients get a plain sentence.
+                return fn(conn)
+        except (psycopg.OperationalError, PoolTimeout, OSError) as e:
+            # Cannot reach the server: back off. Log the class only, as messages can carry connection details.
+            self._down_until = time.monotonic() + self.BACKOFF_SECONDS
+            log.warning("database unreachable: %s", type(e).__name__)
+            raise SourceUnavailable() from e
+        except psycopg.Error as e:
+            # One query failed (for example a missing table): only this answer is affected.
             log.warning("database read failed: %s", type(e).__name__)
             raise SourceUnavailable() from e
+
+    def fetch(self, sql, params=None) -> list[tuple]:
+        return self._run(lambda conn: conn.execute(sql, params).fetchall())
 
     def fetch_one(self, sql, params=None) -> tuple | None:
         rows = self.fetch(sql, params)
@@ -46,10 +62,7 @@ class Database:
 
     def columns(self, sql, params=None) -> tuple[list[str], list[tuple]]:
         """Rows plus column names, for SELECT * on subtype tables."""
-        try:
-            with self.pool.connection() as conn:
-                cur = conn.execute(sql, params)
-                return [d.name for d in cur.description or []], cur.fetchall()
-        except (psycopg.Error, PoolTimeout, OSError) as e:
-            log.warning("database read failed: %s", type(e).__name__)
-            raise SourceUnavailable() from e
+        def run(conn):
+            cur = conn.execute(sql, params)
+            return [d.name for d in cur.description or []], cur.fetchall()
+        return self._run(run)

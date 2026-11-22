@@ -1,17 +1,8 @@
 -- A few rows for the API tests, in the scratch database only (never halifax_twin).
 -- Times are relative to now() so live windows always hold the right rows.
 -- Fixed ids from 900001 keep the tests readable and stay clear of identity sequences.
+-- Run empty.sql first.
 BEGIN;
-
-TRUNCATE silver.stop_arrival, silver.trip, silver.road_closure, silver.building_permit, silver.service_alert,
-         silver.event_asset_involvement, silver.vehicle_position, silver.scheduled_stop_time, silver.scheduled_trip,
-         silver.service_calendar_exception, silver.service_calendar, silver.schedule_version, bronze.feed_fetch
-         CASCADE;
-DELETE FROM silver.event;
-DELETE FROM silver.vehicle; DELETE FROM silver.route; DELETE FROM silver.stop;
-DELETE FROM silver.asset;
-DELETE FROM silver.location;
-TRUNCATE silver.asset_hist, silver.location_hist, silver.vehicle_hist, silver.route_hist, silver.stop_hist;
 
 -- The building permit source is added by the sector loaders; the test database needs it now.
 INSERT INTO silver.source (source_id, publisher_party_id, dataset_name, source_format_code, access_method_code,

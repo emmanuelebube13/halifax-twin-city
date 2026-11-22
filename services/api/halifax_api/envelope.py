@@ -85,9 +85,11 @@ class SourceRegister:
             except SourceUnavailable:
                 return None
         found = self.cache.get("source-register", 600, load)
-        if found is None:  # do not keep a failure for 10 minutes
-            self.cache.get("source-register", 0, load)
-            return {}
+        if found is None:
+            # Remember the failure briefly (not for 10 minutes), so an outage does not cost a query per response.
+            found = self.cache.get("source-register-failed", 30, load) or {}
+            if found:
+                self.cache.get("source-register", 0, lambda: found)
         return found
 
     def refs(self, ids) -> list[dict]:
