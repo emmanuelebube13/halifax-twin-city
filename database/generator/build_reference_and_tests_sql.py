@@ -72,7 +72,12 @@ SOURCES = [
     ("SRC-015", HRM, "Street Closures and Development Street Closures", "ArcGIS REST API", "API", None, "One street closure", ARC + "Street_Closures/FeatureServer", "Verified"),
     ("SRC-016", HRM, "Bike Infrastructure; Active Travelways; Bike Amenities", "ArcGIS REST API", "API", None, "One bikeway or travelway segment", ARC + "Bike_Infrastructure_and_Suggested_Routes/FeatureServer", "Verified"),
     ("SRC-017", HRM, "Truck Routes", "ArcGIS REST API", "API", None, "One designated truck route segment", ARC + "Truck_Routes/FeatureServer", "Verified"),
+    # Added 21 Nov 2026 for the Housing loader (workstream C, HRE-Q29). The URL is the geolocated
+    # layer the loader reads; the inventory lists PPLC_Issued_Building_Permits (no geometry) for the same data.
+    ("SRC-066", HRM, "PPL&C Issued Building Permits; Permits Geolocated; Construction Permits", "ArcGIS REST API", "API", None, "One building permit", ARC + "PPLC_Permits_Geolocated/FeatureServer", "Verified"),
 ]
+# Date each source was last checked, where it differs from the inventory's 2026-11-12.
+CHECKED = {"SRC-066": "2026-11-21"}
 
 def easter(y):
     a = y % 19; b = y // 100; c = y % 100; d = b // 4; e = b % 4
@@ -99,8 +104,8 @@ for y in range(2015, 2036):
 s = """-- =====================================================================
 -- Halifax Digital Twin - physical model V1 (PostgreSQL 16 + PostGIS 3)
 -- 08  Reference data
--- Sectors, Phase 1 subsectors, the two publishing organizations, the 17
--- verified sources from Source Inventory V1, and a calendar 2015-2035.
+-- Sectors, Phase 1 subsectors, the two publishing organizations, the verified
+-- sources from Source Inventory V1 that loaders use, and a calendar 2015-2035.
 -- Safe to re-run: every insert skips rows that already exist.
 -- =====================================================================
 
@@ -127,13 +132,13 @@ INSERT INTO silver.organization (party_id, organization_type_code, legal_name, w
 ON CONFLICT (party_id) DO NOTHING;
 SELECT setval(pg_get_serial_sequence('silver.party', 'party_id'), GREATEST(2, (SELECT max(party_id) FROM silver.party)));
 
--- Sources (Source Inventory V1, checked 2026-11-12).
+-- Sources (Source Inventory V1, checked 2026-11-12 unless the row says otherwise).
 INSERT INTO silver.source (source_id, publisher_party_id, dataset_name, source_format_code, access_method_code,
                            cadence_code, availability_code, licence_name, attribution_required_flag,
                            record_grain_description, source_url, reliability_tier_code, source_status_code,
                            last_checked_date) VALUES
 """
-s += ",\n".join(f"    ({q(i)}, {p}, {q(ds)}, {q(fm)}, {q(ac)}, {q(cd)}, 'Open', {q(LIC)}, true, {q(gr)}, {q(u)}, 'Tier 1', {q(st)}, '2026-11-12')"
+s += ",\n".join(f"    ({q(i)}, {p}, {q(ds)}, {q(fm)}, {q(ac)}, {q(cd)}, 'Open', {q(LIC)}, true, {q(gr)}, {q(u)}, 'Tier 1', {q(st)}, {q(CHECKED.get(i, '2026-11-12'))})"
                 for i, p, ds, fm, ac, cd, gr, u, st in SOURCES)
 s += "\nON CONFLICT (source_id) DO NOTHING;\n\n"
 s += """-- Calendar: one row per day, 2015-01-01 to 2035-12-31. Seasons are meteorological.

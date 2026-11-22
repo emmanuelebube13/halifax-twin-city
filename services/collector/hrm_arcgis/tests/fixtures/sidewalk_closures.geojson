@@ -1,0 +1,184 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "id": 1,
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -63.6057415672965,
+      44.6572444916415
+     ],
+     [
+      -63.6059548021921,
+      44.6570851801515
+     ]
+    ]
+   },
+   "properties": {
+    "OBJECTID": 1,
+    "GLOBALID": "46be74c3-bbd0-4596-b317-225b8e344f07",
+    "TYPE": "SW_CLOSED",
+    "PERMIT_NO": "GP-2021-05550",
+    "START_DATE": 1623034800000,
+    "END_DATE": 1682812800000,
+    "ADDDATE": 1622735829000,
+    "MODDATE": 1680712307000,
+    "STREET_NAME": "YOUNG ST",
+    "FROM_STR": "WINDSOR ST",
+    "TO_STR": "KEMPT RD",
+    "RDMID": 12161
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 2,
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -63.5961778314905,
+      44.6366367965094
+     ],
+     [
+      -63.5962797543427,
+      44.6368810977312
+     ]
+    ]
+   },
+   "properties": {
+    "OBJECTID": 2,
+    "GLOBALID": "64956e3a-9b97-41a1-8542-2cea7ea16137",
+    "TYPE": "SW_CLOSED",
+    "PERMIT_NO": "174994",
+    "START_DATE": 1559530800000,
+    "END_DATE": 1562295600000,
+    "ADDDATE": 1559225339000,
+    "MODDATE": 1559225339000,
+    "STREET_NAME": "OXFORD ST",
+    "FROM_STR": "COBURG RD",
+    "TO_STR": "CASTINE WAY",
+    "RDMID": 1601
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 14,
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -63.5893561087663,
+      44.6448614763179
+     ],
+     [
+      -63.5891603074754,
+      44.6445141593541
+     ]
+    ]
+   },
+   "properties": {
+    "OBJECTID": 14,
+    "GLOBALID": "8590046b-82e8-4e0c-a247-f0dfa6691c6a",
+    "TYPE": "S_CLOSED_SW_TEMP",
+    "PERMIT_NO": "DEV-ROW-2024-03737",
+    "START_DATE": 1721185200000,
+    "END_DATE": 1795406400000,
+    "ADDDATE": 1721402147000,
+    "MODDATE": 1791221118000,
+    "STREET_NAME": "ROBIE ST",
+    "FROM_STR": "CHERRY ST",
+    "TO_STR": "CEDAR ST",
+    "RDMID": 30034
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 56,
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -63.5868105392709,
+      44.6834274096904
+     ],
+     [
+      -63.586805174532,
+      44.683484621642
+     ],
+     [
+      -63.5867863997426,
+      44.6835284839935
+     ],
+     [
+      -63.5867166617305,
+      44.683610487098
+     ],
+     [
+      -63.5866201027189,
+      44.6837001187406
+     ],
+     [
+      -63.5864859923318,
+      44.6838011919292
+     ],
+     [
+      -63.5864269828991,
+      44.6838679386634
+     ],
+     [
+      -63.5863036019898,
+      44.6838774738137
+     ]
+    ]
+   },
+   "properties": {
+    "OBJECTID": 56,
+    "GLOBALID": "691517f9-a020-49fc-8dd6-9c927f587965",
+    "TYPE": "S_CLOSED_SW_TEMP",
+    "PERMIT_NO": "DEV-ROW-2024-16675",
+    "START_DATE": 1756090800000,
+    "END_DATE": 1757646000000,
+    "ADDDATE": 1754049480000,
+    "MODDATE": 1756388912000,
+    "STREET_NAME": "BRULE ST",
+    "FROM_STR": "PINECREST DR",
+    "TO_STR": "BURKE ST",
+    "RDMID": 30115
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 64,
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -63.586696379568,
+      44.6541966943274
+     ],
+     [
+      -63.5866346886642,
+      44.6541528097736
+     ]
+    ]
+   },
+   "properties": {
+    "OBJECTID": 64,
+    "GLOBALID": "3869ef8b-32e5-4a09-8242-1d5198d242d1",
+    "TYPE": "S_OPEN_SW_TEMP",
+    "PERMIT_NO": "DEV-ROW-2025-15111",
+    "START_DATE": 1780282800000,
+    "END_DATE": 1788231600000,
+    "ADDDATE": 1779728652000,
+    "MODDATE": 1787771801000,
+    "STREET_NAME": "GOTTINGEN ST",
+    "FROM_STR": "PRINCE WILLIAM ST",
+    "TO_STR": "BUDDY DAYE ST",
+    "RDMID": 30154
+   }
+  }
+ ]
+}
