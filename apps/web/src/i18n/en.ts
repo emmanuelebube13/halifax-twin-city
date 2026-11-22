@@ -121,6 +121,7 @@ export const en = {
 
   "bus.kind": "Bus",
   "bus.title": "Route {route} to {headsign}",
+  "route.only": "Route {route}",
   "bus.titleNoTrip": "Bus {label}",
   "bus.nextStop": "Next stop: {stop}",
   "bus.updated": "Updated {age}",
@@ -142,6 +143,8 @@ export const en = {
   "permit.kind": "Building permit",
   "permit.units": "{count} units",
   "event.range": "{from} to {to}",
+  "detail.delay": "Delay",
+  "detail.sourceKey": "Source key",
   "detail.yes": "Yes",
   "detail.no": "No",
   "stop.kind": "Stop",
@@ -197,6 +200,8 @@ export const en = {
   "error.retry": "Try again",
 
   "chart.noData": "No data for this period yet.",
+  "chart.partial": "Hatched bars cover only part of their period.",
+  "chart.partialShort": "part period",
   "chart.summary": "{label}: {first} to {last}, latest {value}.",
 
   "credits.3d": "Google, Cesium ion",

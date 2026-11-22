@@ -7,7 +7,7 @@ import { api } from "../api/client";
 import { usePoll } from "../api/hooks";
 import type { BusStatus, Kind, Sector, StorySummary, VehicleProperties } from "../api/types";
 import { t } from "../i18n";
-import { formatCount, formatDate, formatDateTime, formatDelay, formatDuration, formatMoney, NO_VALUE } from "../lib/format";
+import { displayName, formatCount, formatDate, formatDateTime, formatDelay, formatDuration, formatMoney, NO_VALUE } from "../lib/format";
 import { busStatus } from "../lib/status";
 import { featureName, lookFor } from "../map/registry";
 import { Icon, LayerMark, SectorIcon, StatusMark } from "./icons";
@@ -140,12 +140,23 @@ export function SectorPanel({ sector, stories, onOpenStory }: { sector: Sector; 
   );
 }
 
-function destination(headsign: string | null, route: string | null): string {
-  if (!headsign) return NO_VALUE;
-  const i = headsign.lastIndexOf(" to ");
-  if (i >= 0) return headsign.slice(i + 4);
-  if (route && headsign.startsWith(route + " ")) return headsign.slice(route.length + 1);
-  return headsign;
+/**
+ * Where a bus is going, from its headsign: "1 Spring Garden to Mumford" gives "Mumford", "9B HERRING COVE"
+ * gives "Herring Cove". Whenever a headsign exists the answer is never a dash: if stripping leaves nothing,
+ * the whole headsign is used.
+ */
+export function destination(headsign: string | null | undefined, route: string | null | undefined): string | null {
+  const h = (headsign ?? "").trim();
+  if (!h) return null;
+  let d = h;
+  const i = d.toLowerCase().lastIndexOf(" to ");
+  if (i >= 0) d = d.slice(i + 4);
+  else {
+    d = d.replace(/^route\s+/i, "");
+    if (route && d.toLowerCase().startsWith(route.toLowerCase() + " ")) d = d.slice(route.length + 1);
+  }
+  d = d.trim();
+  return displayName(d || h);
 }
 
 /** "Late, 7 min late" reads badly: say the status, then the delay in words that cannot contradict it. */
@@ -158,9 +169,20 @@ export function statusPhrase(status: BusStatus, delay: number | null | undefined
   return formatDelay(delay).replace(/^./, (c) => c.toUpperCase());
 }
 
-export function busTitle(p: VehicleProperties): string {
+export function busTitle(p: Pick<VehicleProperties, "route_short_name" | "headsign" | "label" | "id">): string {
   if (!p.route_short_name) return t("bus.titleNoTrip", { label: p.label ?? String(p.id) });
-  return t("bus.title", { route: p.route_short_name, headsign: destination(p.headsign, p.route_short_name) });
+  const to = destination(p.headsign, p.route_short_name);
+  return to ? t("bus.title", { route: p.route_short_name, headsign: to }) : t("route.only", { route: p.route_short_name });
+}
+
+/**
+ * The detail panel's properties: the API's detail, with any field it leaves empty filled from the live
+ * feature the map already holds, so the title and status are right either way.
+ */
+export function mergeDetail(detail: Record<string, unknown>, live: Record<string, unknown> | null | undefined): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...(live ?? {}) };
+  for (const [k, v] of Object.entries(detail)) if (v !== null && v !== undefined && v !== "") out[k] = v;
+  return out;
 }
 
 function eventFacts(p: Record<string, unknown>): string[] {
@@ -241,7 +263,7 @@ export function FeatureCard({
       )}
       {isBus ? (
         <dl className="feature-card-facts">
-          {v.next_stop_name && (<div><dt className="visually-hidden">{t("bus.nextStop", { stop: "" })}</dt><dd>{t("bus.nextStop", { stop: v.next_stop_name })}</dd></div>)}
+          {v.next_stop_name && (<div><dt className="visually-hidden">{t("bus.nextStop", { stop: "" })}</dt><dd>{t("bus.nextStop", { stop: displayName(v.next_stop_name) })}</dd></div>)}
           <div><dt className="visually-hidden">{t("list.col.updated")}</dt><dd>{t("bus.updated", { age: ago(v.position_ts, now) })}</dd></div>
         </dl>
       ) : (
@@ -266,9 +288,11 @@ export function FeatureCard({
   );
 }
 
-const HIDDEN_KEYS = new Set(["kind", "sector_id", "subsector_id", "id", "source_id", "geometry"]);
+const HIDDEN_KEYS = new Set(["kind", "sector_id", "subsector_id", "id", "source_id", "geometry", "route_id", "trip_id", "location_id", "asset_id", "event_id"]);
 
 function humanKey(k: string): string {
+  if (k === "delay_seconds") return t("detail.delay");
+  if (k === "source_key") return t("detail.sourceKey");
   const s = k.replace(/_(ts|code|count|amount|name|id)$/, "").replace(/_/g, " ");
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
@@ -281,17 +305,20 @@ function humanValue(k: string, v: unknown): string {
   if (k.endsWith("_amount")) return formatMoney(v as number);
   if (k === "speed_metres_per_second") return `${formatCount((v as number) * 3.6)} km/h`;
   if (k === "bearing") return `${formatCount(v as number)}°`;
+  if (k === "headsign" || k.endsWith("stop_name")) return displayName(String(v));
+  if (k === "status" && typeof v === "string" && ["on_time", "late", "early", "unknown"].includes(v)) return t(`status.${v as BusStatus}`);
+  if (k.endsWith("_key") || k === "label" || k.endsWith("_code")) return String(v);
   if (typeof v === "number") return formatCount(v);
   if (typeof v === "boolean") return v ? t("detail.yes") : t("detail.no");
   return String(v);
 }
 
-export function FeatureDetailPanel({ kind, id, layerTitle, layer, now, onBack }: { kind: Kind; id: number; layer: string; layerTitle: string; now: number; onBack: () => void }) {
+export function FeatureDetailPanel({ kind, id, layerTitle, layer, now, onBack, live }: { kind: Kind; id: number; layer: string; layerTitle: string; now: number; onBack: () => void; live?: Record<string, unknown> | null }) {
   const fetcher = useCallback((s: AbortSignal) => api.feature(kind, id, s), [kind, id]);
   const p = usePoll(`${kind}:${id}`, fetcher, 30_000);
   const f = p.env?.data;
-  const props = (f?.properties ?? {}) as Record<string, unknown>;
-  const title = layer === "vehicles" && f ? busTitle(props as VehicleProperties) : f ? featureName(props) : t("detail.title");
+  const props = mergeDetail((f?.properties ?? {}) as Record<string, unknown>, live);
+  const title = layer === "vehicles" && (f || live) ? busTitle(props as unknown as VehicleProperties) : f || live ? featureName(props) : t("detail.title");
   return (
     <div className="panel-body">
       <button type="button" className="btn btn-quiet btn-back" onClick={onBack}>
@@ -299,6 +326,12 @@ export function FeatureDetailPanel({ kind, id, layerTitle, layer, now, onBack }:
       </button>
       <p className="story-id">{kindLabel(layer, layerTitle)}</p>
       <h1 className="panel-title">{title}</h1>
+      {layer === "vehicles" && typeof props.status === "string" && (
+        <p className={`feature-card-status status-text--${busStatus(props.status as string, props.delay_seconds as number)}`}>
+          <StatusMark status={busStatus(props.status as string, props.delay_seconds as number)} />
+          <span>{statusPhrase(busStatus(props.status as string, props.delay_seconds as number), props.delay_seconds as number | null)}</span>
+        </p>
+      )}
       {layer === "vehicles" && <img className="detail-photo" src={`${import.meta.env.BASE_URL}img/bus-front.png`} alt="" width={480} height={254} />}
       {p.loading && !f && <p aria-busy="true">{t("detail.loading")}</p>}
       {p.error && !f && <p className="error-text" role="alert">{t("detail.failed")}</p>}

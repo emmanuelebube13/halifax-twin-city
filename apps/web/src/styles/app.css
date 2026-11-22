@@ -2256,3 +2256,53 @@ button.sector-row-main:hover .sector-row-name {
   display: inline-flex;
   font-weight: 600;
 }
+
+/* ------------------------------------------------------------ release 1 test fixes */
+
+/* Numbers: Plex Sans with tabular figures. Plex Mono gives the comma a full cell ("2 , 098"); ids stay in Mono. */
+.answer-num,
+.tile-value,
+.numcard-value,
+.readout dd,
+.sector-count-val .mono,
+.list-section-count,
+.chart-val,
+.replay-clock {
+  font-family: var(--font);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.01em;
+}
+
+.answer-num {
+  font-weight: 600;
+  font-size: 1.08em;
+}
+
+/* the sheet handle is a 44 px touch target */
+.sheet-grip {
+  padding-top: 0;
+}
+
+.sheet-handle {
+  height: 44px;
+}
+
+/* partial periods: hatched, so a part-year never reads as a whole one */
+.chart-bar.is-partial {
+  fill: url(#chart-hatch);
+  stroke: var(--harbour);
+  stroke-width: 1.5;
+}
+
+.chart-partial-note {
+  display: block;
+  margin-top: 2px;
+}
+
+/* The phone frame must never scroll: "hidden" still lets focus() and scrollIntoView move it, which pushed the
+   map off screen (final test, phone-bus-follow.png). "clip" cannot be scrolled at all. */
+.app--phone,
+.app--phone .stage {
+  overflow: clip;
+}
