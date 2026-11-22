@@ -134,13 +134,16 @@ def closure_times(start_date, end_date, start_text, end_text) -> tuple[dt.dateti
     """Start and end in UTC from the Halifax-midnight dates plus the free-text times.
 
     No readable time: the closure starts at 00:00 on its start date and ends at 24:00 on its end date.
-    An end that would fall before the start (for example '12:00AM' meaning the end of the day) also
-    becomes 24:00 on the end date.
+    An end that would fall before the start on the same or a later date (for example '12:00AM' meaning
+    the end of the day) also becomes 24:00 on the end date.
+    An end date before the start date is a contradiction in the source (seen once: start 16 May 2026,
+    end 16 Apr 2026). Which date is wrong cannot be known, so the end is left empty (None); the source
+    values stay in the raw file.
     """
     sd, ed = local_date(start_date), local_date(end_date)
     st, et = parse_clock(start_text), parse_clock(end_text)
     start = at_halifax(sd, st) if st else halifax_midnight(sd)
-    if ed is None:
+    if ed is None or ed < sd:
         return start, None
     day_end = halifax_midnight(ed + dt.timedelta(days=1))
     end = at_halifax(ed, et) if et else day_end

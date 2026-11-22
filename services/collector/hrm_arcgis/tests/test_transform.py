@@ -31,7 +31,7 @@ def test_parse_clock(text, expected):
 
 def test_street_closures_mapping(features):
     rows, skipped = t.street_closures(features("street_closures"))
-    assert skipped == 0 and len(rows) == 11
+    assert skipped == 0 and len(rows) == 12
     by = {r.key: r for r in rows}
 
     utility = by["93170700-9bc5-4132-993f-079bd0bf6bca"]   # 7AM to 8PM on one day
@@ -56,6 +56,17 @@ def test_street_closures_mapping(features):
     assert by["704a2f13-32e6-46ec-b08e-d9a63c7d7a3b"].subtype["closure_reason_code"] == "Mobility Response"
     open_ended = by["209d3c18-d928-41c2-8b8a-752865236f37"]   # publisher end date 31 Dec 2099 kept as given
     assert local(open_ended.end_ts) == "2099-12-31 23:59"
+
+
+def test_end_date_before_start_date_leaves_end_empty(features):
+    """Real record (DQ-060): START_DATE 16 May 2026, END_DATE 16 Apr 2026, 8am to 12pm. Not guessed."""
+    rows, _ = t.street_closures(features("street_closures"))
+    r = {x.key: x for x in rows}["3822762b-2e3a-4c49-a035-01f43759cf52"]
+    assert local(r.start_ts) == "2026-05-16 08:00"
+    assert r.end_ts is None
+    assert r.event_date == dt.date(2026, 5, 16) and r.subtype["closure_reason_code"] == "Special Event"
+    # Every closure in the fixture now ends after it starts, or has no end.
+    assert all(x.end_ts is None or x.end_ts > x.start_ts for x in rows)
 
 
 def test_sidewalk_closures_mapping(features):

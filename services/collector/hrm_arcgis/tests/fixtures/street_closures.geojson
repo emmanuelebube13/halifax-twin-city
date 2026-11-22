@@ -479,6 +479,47 @@
     "TO_STR": "END",
     "RDMID": 62849
    }
+  },
+  {
+   "type": "Feature",
+   "id": 2456,
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -63.5821571394367,
+      44.6390848491451
+     ],
+     [
+      -63.5785737076661,
+      44.6398787865438
+     ]
+    ]
+   },
+   "properties": {
+    "OBJECTID": 2456,
+    "GLOBALID": "3822762b-2e3a-4c49-a035-01f43759cf52",
+    "CLOSURE_TYPE": "Special Event",
+    "CLOSURE_STAGE": "Approved",
+    "START_DATE": 1778900400000,
+    "END_DATE": 1776308400000,
+    "START_TIME": "8am",
+    "END_TIME": "12pm",
+    "ALT_START_DATE": null,
+    "ALT_END_DATE": null,
+    "ALT_DATE_USED": 0,
+    "REOPEN_EVENINGS": "Yes",
+    "REOPEN_WEEKENDS": "Yes",
+    "PERMIT_NO": null,
+    "APPLICATION_DATE": 1776222000000,
+    "DETOUR_URL": null,
+    "ADDDATE": 1777489367000,
+    "MODDATE": 1777489367000,
+    "STREET_NAME": "UNIVERSITY AVE",
+    "FROM_STR": "SUMMER ST",
+    "TO_STR": "SOUTH PARK ST",
+    "RDMID": 111134
+   }
   }
  ]
 }

@@ -44,7 +44,7 @@ def counts(conn, source_id, subtype):
 
 
 @pytest.mark.parametrize("layer,fixture,expected", [
-    ("street_closures", "street_closures", 10),      # 11 features, one key repeated
+    ("street_closures", "street_closures", 11),      # 12 features, one key repeated
     ("sidewalk_closures", "sidewalk_closures", 5),
     ("building_permits", "building_permits", 8),     # 11 features, 2 never issued, one key repeated
 ])
@@ -63,7 +63,8 @@ def test_full_run_and_rerun(db, tmp_path, monkeypatch, features, layer, fixture,
     # Bronze: one feed_fetch row per page, each with its raw file on disk.
     pages = db.execute("SELECT http_status, entity_count, file_path FROM bronze.feed_fetch WHERE source_id = %s "
                        "ORDER BY fetch_id", (cfg.source_id,)).fetchall()
-    assert len(pages) == -(-len(feats) // 4)
+    # A last page that is full is followed by one more (empty) request, to be sure the layer is finished.
+    assert len(pages) == len(feats) // 4 + 1
     assert sum(p[1] for p in pages) == len(feats) and all(p[0] == 200 for p in pages)
     for _, _, path in pages:
         assert path.startswith(f"bronze/{cfg.source_id}/") and "\\" not in path

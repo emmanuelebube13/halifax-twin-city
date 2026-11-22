@@ -64,7 +64,7 @@ Notes:
 | `location.location_geometry` | feature geometry, EPSG:4326; centroid columns from `ST_PointOnSurface` |
 | `event.event_type_code` | `Road Closure` |
 | `event.event_start_ts` | `START_DATE` (a Halifax-midnight date) plus the first clock time read from `START_TIME`; 00:00 when no time can be read. If `ALT_DATE_USED` = 1, `ALT_START_DATE` and `ALT_END_DATE` replace the dates |
-| `event.event_end_ts` | `END_DATE` plus the time from `END_TIME`; 24:00 on the end date when no time can be read or the result would precede the start (for example `12:00AM`) |
+| `event.event_end_ts` | `END_DATE` plus the time from `END_TIME`; 24:00 on the end date when no time can be read or the result would precede the start (for example `12:00AM`). If `END_DATE` is before `START_DATE` the source contradicts itself and the end is left null (see the choices below) |
 | `event.event_date` | Halifax date of the start |
 | `event.subsector_id` | by `CLOSURE_TYPE`: Utility to `PWK-03`; Construction and Development to `PWK-04`; Special Event, Block Party, Other, Mobility Response to `TRN-09` |
 | `event.event_status_code` | `CLOSURE_STAGE` (all rows: `Approved`) |
@@ -137,3 +137,4 @@ With today's silver, HRE-Q30 can measure issue to completion, not application to
 | `road_closure.closure_reason_code` | publisher's `CLOSURE_TYPE`; `Development` for sidewalk layer | No domain in the model |
 | `building_permit.permit_type_code` | Addition to `Alteration` | Model lists New, Alteration, Demolition |
 | Units created and removed | from `NET_NEW_UNITS` | Created = gains, removed = losses, net per permit |
+| `event.event_end_ts` when the source end date is before its start date | null; the source dates stay in the raw file | Which date is wrong cannot be known, and a guess would invent data. One closure on 22 Nov 2026 (GLOBALID `3822762b-2e3a-4c49-a035-01f43759cf52`, University Ave special event, start 16 May 2026 08:00, end date 16 Apr 2026; found by data quality rule DQ-060). Applies to street and sidewalk closures. Readers must treat a null closure end as unknown, not as still in force |
