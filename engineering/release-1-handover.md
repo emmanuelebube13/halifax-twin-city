@@ -182,3 +182,25 @@ States are as `/v1/stories` reported them at 02:10 on 22 Nov 2026. "Collecting d
 55. Should the location-rule warnings (DQ-044) stay warnings until street segments and parcels are loaded?
 56. Is the Halifax box (longitude -64.6 to -62.0, latitude 44.3 to 45.4) right for the geometry check?
 57. Should the data quality checks run nightly, or only by hand?
+
+## 9. Fixes after the final test (22 Nov 2026)
+
+The final test passed with findings. These are the fixes for the four findings to re-test, plus the smaller ones, all merged into `release-1`.
+
+| Finding | Fix | Owner, commit | Evidence |
+| :---- | :---- | :---- | :---- |
+| 1. Closures and permits never refresh | `scripts/sector-refresh.ps1` (all layers, or `-Layers`; log `C:\halifax-twin-data\logs\sector_refresh_<date>.log`; non-zero exit if a layer fails; one copy at a time) and `scripts/sector-register-task.ps1` (task "Halifax Twin sector refresh", every 6 hours at 01:15, 07:15, 13:15, 19:15, only while logged on; `-Unregister` removes it) | C, aa28929 | Hand run at 08:01: all layers loaded, +0 ~0 (HRM changed nothing since 01:37); a bad layer name exits with code 2 |
+| 2. Bus detail "Route 9B to –" | API: vehicle detail now carries `route_short_name`, `route_long_name`, `route_id`, `trip_id`, `headsign`, `status`, `delay_seconds`, `next_stop_name` (null and `unknown` when not live). App: falls back to the live bus, never shows a dash when a headsign exists, title case for capital-letter headsigns | D, d3fce53; E, 59c2c29 | API test: detail equals live layer for a live bus; app tests in `src/components/fixes.test.tsx` |
+| 3. Phone Follow hides the bus | Follow lowers the sheet to its smallest height and centres the bus above it; the phone frame no longer scrolls the map away | E, 59c2c29 | `scripts/screenshots-fixes.mjs` checks, 30 of 30 pass |
+| 4. Chart labels run together or read "2026-03" | Labels thinned to fit, newest period always labelled, months as "Mar 2026" through the shared formatter | E, 59c2c29 | Unit tests and browser checks |
+| Smaller | Singular sentences through optional `answer.template_one`; one as-of rule for panel and map footer; tabular Plex Sans figures (no "2 , 098"); 44 px sheet handle; partial periods marked `"partial": true` by the API and drawn hatched (2020 permits, current year and month); HRE-Q30 sentence says "days"; `trn.trips_not_run_by_day` cached per day, 0.34 s on a fresh API (was 3.2 to 5.7 s) | D, d3fce53 and 46982e2; E, 59c2c29 | API 153 passed; web 59 passed, build succeeds, axe-core no violations |
+
+Screenshots of the fixed screens against the live API (79 to 80 buses): `C:\halifax-twin-data\worktrees\web\apps\web\screenshots\fix-laptop-*.png` and `fix-phone-*.png` (TRN-Q01, PWK-Q13, HRE-Q29, bus selected, bus detail, bus follow).
+
+New known gaps:
+- The sector refresh task is written but not registered. Until it is, closures and permits refresh only when `scripts\sector-refresh.ps1` is run by hand. Register it from the main checkout: `powershell -ExecutionPolicy Bypass -File scripts\sector-register-task.ps1`.
+- `answer.template_one` handles only the first number in a sentence; a second count of 1 still reads plural.
+- `trn.on_time_share_24h` does not mark the current hour as partial.
+- The first `trn.trips_not_run_by_day` call after an API restart once took 6.4 s; not reproduced.
+
+Question for the architect: is a sector refresh every 6 hours, only while you are logged on, acceptable (running while logged off would mean storing your Windows password in the task)?
