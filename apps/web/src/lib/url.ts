@@ -60,7 +60,8 @@ export function parseView(search: string): ViewState {
 export function serializeView(v: ViewState): string {
   const q = new URLSearchParams();
   if (v.story) q.set("story", v.story);
-  if (v.lens !== "live") q.set("lens", v.lens);
+  // with a story open the lens is always written, so a switch between 2D and 3D (or a shared link) keeps it
+  if (v.story || v.lens !== "live") q.set("lens", v.lens);
   if (v.sel) q.set("sel", `${v.sel.kind}:${v.sel.id}`);
   if (v.route) q.set("route", v.route);
   if (v.sector) q.set("sector", v.sector);

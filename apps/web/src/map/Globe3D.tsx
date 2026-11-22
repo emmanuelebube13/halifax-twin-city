@@ -202,6 +202,8 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
           selectionIndicator: false,
           scene3DOnly: true,
           requestRenderMode: true,
+          // a render error falls back to 2D through renderError below, not Cesium's own error panel
+          showRenderLoopErrors: false,
           maximumRenderTimeChange: Infinity,
           msaaSamples: prof.msaaSamples,
           useBrowserRecommendedResolution: false,
@@ -215,6 +217,7 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
       }
       viewerRef.current = viewer;
       const scene = viewer.scene;
+      scene.renderError.addEventListener(() => fail("load"));
       applyProfile(C, viewer, null, prof);
       scene.postRender.addEventListener(() => {
         metrics.frames++;

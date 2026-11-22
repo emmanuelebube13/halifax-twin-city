@@ -14,6 +14,7 @@ import { TrackStore, positionAt, type Sample } from "./lib/glide";
 import { layerFreshness, onTimeRuleFrom } from "./lib/status";
 import { sheetOnFollow, storyAsOf, storyNumberIds } from "./lib/story";
 import { usePins, useView } from "./lib/useView";
+import { parseView } from "./lib/url";
 import type { Globe3DHandle } from "./map/Globe3D";
 import type { Place } from "./lib/camera";
 import { hasWebGL, saveProfile, savedProfile, type ProfileName } from "./lib/profileChoice";
@@ -59,7 +60,9 @@ export function App() {
   const show3dRef = useRef(false);
   const [startPlace, setStartPlace] = useState<Place | null>(null);
   // WebGL is checked only when the user asks for 3D; the automatic profile is chosen inside the 3D chunk
-  const [webgl, setWebgl] = useState(true);
+  // a link that opens in 3D is checked for WebGL before the 3D view mounts; otherwise only when 3D is asked for
+  const [webgl, setWebgl] = useState(() => (parseView(location.search).view === "3d" ? hasWebGL() : true));
+  const [mapFailed, setMapFailed] = useState(false);
   const [autoProfile, setAutoProfile] = useState<ProfileName | null>(null);
   const [profileChoice, setProfileChoice] = useState<ProfileName | null>(() => savedProfile());
 
@@ -594,6 +597,7 @@ export function App() {
       hidden={view.panel === "list" && !phone}
       onSelect={onMapSelect}
       onBasemap={setBasemapOk}
+      onMapFailed={() => setMapFailed(true)}
       popup={!phone && !show3d ? featureCard : null}
     >
       {!phone && (
@@ -605,6 +609,12 @@ export function App() {
       {!phone && profileSwitch}
       {inReplay && <ReplayBar from={replayFrom} to={replayTo} at={replayAt} playing={playing} speed={speed} onSeek={setReplayAt} onPlay={() => setPlaying((p) => !p)} onSpeed={setSpeed} />}
       <Credits asOf={mapAsOf} now={now} basemapOk={basemapOk} threeD={show3d} sources={mapAgeSources} />
+      {mapFailed && (
+        <div className="map-banner" role="alert">
+          <Icon name="warning" size={18} /> {t("map.noWebgl")}
+          <button type="button" className="btn btn-secondary" onClick={() => setView({ panel: "list" }, { push: true })}>{t("view.list")}</button>
+        </div>
+      )}
       {apiDown && (
         <div className="map-banner" role="alert">
           <Icon name="warning" size={18} /> {t("error.api")}

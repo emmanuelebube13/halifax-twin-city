@@ -76,7 +76,7 @@ describe("switching between 2D and 3D keeps the place", () => {
 describe("view in the URL", () => {
   it("keeps 3D with the story, lens and selection", () => {
     const v = { ...DEFAULT_VIEW, story: "TRN-Q01", lens: "live" as const, sel: { kind: "asset" as const, id: 744 }, view: "3d" as const };
-    expect(serializeView(v)).toBe("?story=TRN-Q01&sel=asset%3A744&view=3d");
+    expect(serializeView(v)).toBe("?story=TRN-Q01&lens=live&sel=asset%3A744&view=3d");
     expect(parseView(serializeView(v))).toEqual(v);
   });
 });

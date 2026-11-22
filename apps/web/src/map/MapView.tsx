@@ -71,6 +71,8 @@ interface Props {
   hidden?: boolean;
   onSelect: (sel: MapSelect | null) => void;
   onBasemap?: (ok: boolean) => void;
+  /** The 2D map could not start (no WebGL): the app says so and points to the list view. */
+  onMapFailed?: () => void;
   popup?: ReactNode;
   children?: ReactNode;
 }
@@ -98,7 +100,8 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
       if (cancelled || !container.current) return;
       propsRef.current.onBasemap?.(ok);
       const dark = propsRef.current.dark;
-      map = new maplibregl.Map({
+      try {
+        map = new maplibregl.Map({
         container: container.current,
         style: ok ? harbourStyle(dark) : fallbackStyle(dark),
         center: HALIFAX_CENTRE,
@@ -108,7 +111,15 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
         dragRotate: true,
         pitchWithRotate: false,
         fadeDuration: propsRef.current.reducedMotion ? 0 : 200,
-      });
+        });
+      } catch {
+        // without WebGL MapLibre cannot draw: say so instead of failing with an uncaught error
+        map = null;
+        propsRef.current.onMapFailed?.();
+        return;
+      }
+      // errors MapLibre reports while drawing (for example a shader the GPU refuses) are handled, not thrown
+      map.on("error", () => undefined);
       mapRef.current = map;
       // on a phone the sheet covers the bottom of the map: keep the evidence in the strip above it
       if (propsRef.current.phone) map.setPadding({ top: 120, bottom: 300, left: 0, right: 0 });
@@ -172,6 +183,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
   }, [props.hidden, props.phone]);
 
   function interactiveLayers(map: MLMap): string[] {
+    if (!map.style) return [];
     const ids = ["veh-pin", "veh-cluster"];
     for (const name of installed.current) {
       ids.push(`p-${name}-pin`, `p-${name}-cluster`, `d-${name}-line`, `d-${name}-fill`, `d-${name}-circle`);
@@ -214,7 +226,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
   // ---- install and update data layers
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !styleReady) return;
+    if (!map || !styleReady || !map.style) return;
     const wanted = new Set(props.layers.map((l) => l.name));
     // remove layers no longer drawn
     for (const name of [...installed.current]) {
@@ -268,7 +280,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
   // ---- vehicles
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !styleReady) return;
+    if (!map || !styleReady || !map.style) return;
     if (!props.vehicles) {
       for (const id of ["veh-pin", "veh-cluster"]) if (map.getLayer(id)) map.removeLayer(id);
       if (map.getSource(VEH_SRC)) map.removeSource(VEH_SRC);

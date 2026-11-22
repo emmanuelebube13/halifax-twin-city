@@ -64,6 +64,7 @@ export const en = {
   "map.zoomIn": "Zoom in",
   "map.zoomOut": "Zoom out",
   "map.north": "Reset north",
+  "map.noWebgl": "This browser cannot draw the map (WebGL is off). The list view shows everything.",
   "map.basemapFallback": "Plain map: the basemap file was not found.",
   "map.cluster": "{count} buses",
   "map.attribution": "Basemap © OpenStreetMap contributors, Protomaps",
