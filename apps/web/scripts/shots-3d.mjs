@@ -25,6 +25,7 @@ const shots = dark
       ["3d-story-trn", "laptop", "?story=TRN-Q01&view=3d", null],
       ["3d-selected", "laptop", "?story=TRN-Q01&view=3d&panel=list", "select"],
       ["3d-story-pwk", "laptop", "?story=PWK-Q13&view=3d", null],
+      ["3d-story-hre", "laptop", "?story=HRE-Q29&view=3d", null],
       ["3d-story-trn", "phone", "?story=TRN-Q01&view=3d", null],
       ["3d-selected", "phone", "?story=TRN-Q01&view=3d&panel=list", "select"],
     ];

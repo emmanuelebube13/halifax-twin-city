@@ -155,8 +155,8 @@ export function ViewSwitch({ view, can3d, note, onChange, compact }: { view: "2d
     return (
       <button
         type="button"
-        className={`ctl ctl--text${view === "3d" ? " is-on" : ""}`}
-        aria-pressed={view === "3d"}
+        className="ctl ctl--text"
+        aria-label={view === "3d" ? t("view.to2d") : t("view.to3d")}
         aria-disabled={!can3d}
         title={can3d ? undefined : note ?? t("view.3dUnavailable")}
         onClick={() => can3d && onChange(view === "3d" ? "2d" : "3d")}

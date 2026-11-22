@@ -109,4 +109,4 @@ export function clampCameraPosition(c: { lon: number; lat: number; height: numbe
  * The opening 3D view: from over the harbour, looking north-west across downtown to the Citadel, tilted so the
  * buildings stand up and the street grid still reads.
  */
-export const HALIFAX_3D_START: Orbit = { lon: -63.5745, lat: 44.6465, range: 2600, heading: 300, pitch: -35 };
+export const HALIFAX_3D_START: Orbit = { lon: -63.5790, lat: 44.6480, range: 3400, heading: 300, pitch: -50 };

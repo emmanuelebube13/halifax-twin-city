@@ -374,6 +374,23 @@ export function App() {
       asOf: l.asOf,
     }));
   const primary = layers[0] ?? null;
+  const pinLayersForThreeD = useMemo(
+    () =>
+      layers
+        .filter((l) => lookFor(l.name).kind === "event")
+        .map((l) => {
+          const look = lookFor(l.name);
+          return { name: l.name, glyph: look.glyph, colour: look.colour, dashed: look.dashed, features: l.features as unknown as Feature[] };
+        }),
+    [layers],
+  );
+  // a story whose evidence is not the buses opens in 3D on that evidence
+  const fitForThreeD = useMemo(() => {
+    if (!view.story || !primary || primary.name === "vehicles" || !primary.features.length) return null;
+    const points = (primary.features as unknown as Feature[]).map((f) => anchorOf(f.geometry)).filter((p): p is [number, number] => !!p);
+    return points.length ? { key: view.story, points } : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view.story, primary?.name, primary?.features.length]);
   // One as-of rule for the panel and the map footer: the story's main evidence layer, or, if it has none yet,
   // the newest of the story's numbers. City view: the newest live layer, else the first layer.
   const numbersAsOf = numIds.map((id) => numberSlots[id]?.env?.as_of).filter(Boolean).sort().pop() ?? null;
@@ -453,10 +470,10 @@ export function App() {
     return (
       <>
         <StoryHeading story={summary} sectorName={sectorName(summary.sector_id)} />
+        {phone && view.sel && featureCard}
         <AnswerPlate foot={live ? <AnswerFoot asOf={newestAsOf} freshness={primary?.freshness} now={now} sources={primary?.sources} /> : undefined} story={story ? { ...story, status: summary.status, status_note: summary.status_note ?? story.status_note } : storySlot?.error ? ({ ...summary, answer: { template: "", numbers: [] }, evidence: { layers: [] }, context: { number_id: "", title: "" }, trust: { source_ids: [] } } as Story) : null} numbers={numbers} loading={numbersLoading} />
         {phone && <LensSwitch lens={view.lens} story={summary} replayReady={replayReady} live={vehiclesLayer?.freshness === "fresh"} onChange={(l) => setView({ lens: l })} />}
         {live && primary && view.lens !== "replay" && <LegendTiles layer={primary} />}
-        {phone && featureCard}
         {live && view.lens === "replay" && (
           <p className="lens-note">{replayReady ? t("replay.window", { from: formatClock(replayFrom), to: formatClock(replayTo) }) : t("lens.replayNotReady")}</p>
         )}
@@ -604,6 +621,8 @@ export function App() {
         vehicles={vehicleInput?.features ?? []}
         positionFor={(id, n) => vehicleInput?.positionFor(id, n) ?? null}
         routes={routesForThreeD}
+        pinLayers={pinLayersForThreeD}
+        fit={fitForThreeD}
         highlightRoute={view.route ?? (selected?.layer.name === "vehicles" ? ((selected.props.route_short_name as string | null) ?? null) : null)}
         glide={glide || inReplay}
         selectedKey={selectedKey}
@@ -651,7 +670,6 @@ export function App() {
           <p className={`phone-attrib phone-attrib--${sheet}`}>{show3d ? t("credits.3d") : basemapOk === false ? t("map.basemapFallback") : t("credits.short")}</p>
           <div className="phone-tools">
             {viewSwitch(true)}
-            {profileSwitch}
             <button type="button" className="ctl ctl--text ctl--list" onClick={() => setPanel("list")}>
               <Icon name="list" size={18} /> {t("view.listShort")}
             </button>

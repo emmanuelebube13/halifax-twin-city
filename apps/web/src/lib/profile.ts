@@ -78,7 +78,7 @@ export const PROFILES: Record<ProfileName, Profile3D> = {
   low: {
     name: "low",
     maximumScreenSpaceError: 24,
-    maxPixelRatio: 1,
+    maxPixelRatio: 1.5,
     cacheBytes: 256 * MB,
     preloadWhenHidden: false,
     preloadFlightDestinations: false,

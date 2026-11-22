@@ -2439,3 +2439,20 @@ button.sector-row-main:hover .sector-row-name {
 .stage.is-3d .credits {
   bottom: 64px;
 }
+
+/* Cesium's stylesheet positions its credit block absolutely; keep it inside our plate so it can be placed */
+.globe-credits .cesium-widget-credits {
+  position: static !important;
+  display: block;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font-size: inherit;
+  white-space: normal;
+}
+
+.app--phone .globe-credits {
+  top: calc(max(12px, env(safe-area-inset-top)) + 124px);
+  max-width: calc(100% - 92px);
+  text-align: left;
+}
