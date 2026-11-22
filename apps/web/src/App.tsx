@@ -12,7 +12,7 @@ import { t } from "./i18n";
 import { formatClock } from "./lib/format";
 import { TrackStore, positionAt, type Sample } from "./lib/glide";
 import { layerFreshness, onTimeRuleFrom } from "./lib/status";
-import { storyNumberIds } from "./lib/story";
+import { sheetOnFollow, storyAsOf, storyNumberIds } from "./lib/story";
 import { usePins, useView } from "./lib/useView";
 import { Globe3D } from "./map/Globe3D";
 import { MapView, type MapHandle, type MapSelect } from "./map/MapView";
@@ -359,8 +359,11 @@ export function App() {
       asOf: l.asOf,
     }));
   const primary = layers[0] ?? null;
-  const newestAsOf = [primary?.asOf, ...numIds.map((id) => numberSlots[id]?.env?.as_of)].filter(Boolean).sort().pop() ?? null;
-  const mapAsOf = layers.filter((l) => l.path === "live").map((l) => l.asOf).filter(Boolean).sort().pop() ?? primary?.asOf ?? null;
+  // One as-of rule for the panel and the map footer: the story's main evidence layer, or, if it has none yet,
+  // the newest of the story's numbers. City view: the newest live layer, else the first layer.
+  const numbersAsOf = numIds.map((id) => numberSlots[id]?.env?.as_of).filter(Boolean).sort().pop() ?? null;
+  const newestAsOf = storyAsOf(primary?.asOf ?? null, numbersAsOf);
+  const mapAsOf = view.story ? newestAsOf : (layers.filter((l) => l.path === "live").map((l) => l.asOf).filter(Boolean).sort().pop() ?? primary?.asOf ?? null);
   const tier = primary?.tier ?? numIds.map((id) => numberSlots[id]?.env?.reliability_tier).find(Boolean) ?? null;
 
   const can3d = !!(cfg?.three_d_available && cfg.cesium_ion_token) && !threeDFailed;
@@ -381,7 +384,15 @@ export function App() {
         phone={phone}
         following={following}
         onDetail={() => setView({ panel: "detail" }, { push: true })}
-        onFollow={selected.layer.name === "vehicles" && !inReplay ? () => setFollowing((f) => !f) : undefined}
+        onFollow={
+          selected.layer.name === "vehicles" && !inReplay
+            ? () => {
+                const next = !following;
+                setFollowing(next);
+                if (phone) setSheet(sheetOnFollow(sheet, next));
+              }
+            : undefined
+        }
         onClose={() => setView({ sel: null })}
       />
     ) : null;
@@ -425,7 +436,7 @@ export function App() {
   const panelBody = () => {
     if (view.panel === "detail" && view.sel) {
       return (
-        <FeatureDetailPanel kind={view.sel.kind} id={view.sel.id} layer={selected?.layer.name ?? ""} layerTitle={selected?.layer.title ?? ""} now={now} onBack={() => setView({ panel: "none" })} />
+        <FeatureDetailPanel kind={view.sel.kind} id={view.sel.id} layer={selected?.layer.name ?? ""} layerTitle={selected?.layer.title ?? ""} now={now} live={selected?.props ?? null} onBack={() => setView({ panel: "none" })} />
       );
     }
     if (view.story) return <div className="panel-body">{storyBody()}</div>;
@@ -528,6 +539,18 @@ export function App() {
       }}
     />
   ) : null;
+
+  // belt and braces for browsers without overflow: clip: put the phone frame back if anything scrolls it
+  useEffect(() => {
+    if (!phone) return;
+    const el = document.querySelector<HTMLElement>(".app--phone");
+    if (!el) return;
+    const reset = () => {
+      if (el.scrollTop || el.scrollLeft) el.scrollTo(0, 0);
+    };
+    el.addEventListener("scroll", reset);
+    return () => el.removeEventListener("scroll", reset);
+  }, [phone]);
 
   useEffect(() => {
     document.title = summary ? `${summary.id}: ${summary.question} | ${t("app.name")}` : t("app.name");

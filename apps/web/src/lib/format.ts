@@ -117,6 +117,36 @@ export function formatDate(v: string | number | Date | null | undefined): string
   return `${Number(p.day)} ${getLocale().months[Number(p.month) - 1]} ${p.year}`;
 }
 
+/** A calendar month, "2026-03", as Mar 2026 (no time zone shift: it is already a Halifax month). */
+export function formatMonth(v: string | null | undefined): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(v ?? "");
+  if (!m) return NO_VALUE;
+  const month = Number(m[2]);
+  if (month < 1 || month > 12) return NO_VALUE;
+  return `${getLocale().months[month - 1]} ${m[1]}`;
+}
+
+/**
+ * Feeds publish some names in capitals ("HERRING COVE VIA MUMFORD TERMINAL"). For display only, an all-capital
+ * name becomes title case with small joining words in lower case; names already in mixed case are left alone,
+ * and tokens with digits (route 9B, stop 6902) are kept as written.
+ */
+export function displayName(v: string | null | undefined): string {
+  if (!v) return "";
+  if (/[a-z]/.test(v)) return v;
+  const small = new Set(["a", "an", "and", "at", "by", "for", "in", "of", "on", "or", "the", "to", "via"]);
+  return v
+    .toLowerCase()
+    .split(/(\s+|-|\/)/)
+    .map((w, i) => {
+      if (!w.trim() || w === "-" || w === "/") return w;
+      if (/\d/.test(w)) return w.toUpperCase();
+      if (i > 0 && small.has(w)) return w;
+      return w.charAt(0).toUpperCase() + w.slice(1);
+    })
+    .join("");
+}
+
 /** 21 Nov 2026 19:42 */
 export function formatDateTime(v: string | number | Date | null | undefined): string {
   const d = toDate(v);

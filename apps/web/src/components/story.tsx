@@ -5,8 +5,8 @@ import { ago } from "../lib/ago";
 
 import type { BusStatus, Lens, NumberData, SourceStatus, Story, StorySummary } from "../api/types";
 import { hasKey, t } from "../i18n";
-import { formatByUnit, formatClock, formatCount, formatDate, NO_VALUE } from "../lib/format";
-import { answerIsEmpty, renderAnswerParts, storyStatusLabel } from "../lib/story";
+import { formatByUnit, formatClock, formatCount, formatDate, formatMonth, NO_VALUE } from "../lib/format";
+import { answerIsEmpty, chooseTemplate, renderAnswerParts, storyStatusLabel } from "../lib/story";
 import type { Freshness } from "../lib/status";
 import { Icon, StatusMark } from "./icons";
 
@@ -79,7 +79,7 @@ export function AnswerPlate({ story, numbers, loading, foot }: { story: Story | 
       </div>
     );
   }
-  const parts = renderAnswerParts(story.answer.template, numbers);
+  const parts = renderAnswerParts(chooseTemplate(story.answer, numbers), numbers);
   return (
     <div className="answer-plate" aria-live="polite" aria-busy={loading}>
       <p className="answer-text">
@@ -144,9 +144,36 @@ export function seriesLabeller(ts: string[]): (t: string) => string {
   const span = allTimes ? Math.max(...times) - Math.min(...times) : 0;
   return (x: string) => {
     if (/^\d{4}$/.test(x)) return x;
+    if (/^\d{4}-\d{2}$/.test(x)) return formatMonth(x);
     if (allTimes) return span > 86_400_000 ? formatDate(x).replace(/ \d{4}$/, "") : formatClock(x);
     return x;
   };
+}
+
+/** Approximate width of a 12 px Plex Mono label, in chart units. */
+const CHAR_W = 7.4;
+
+/**
+ * Which buckets get an axis label so labels never run together: every k-th bucket, counted back from the
+ * newest so the latest period is always labelled.
+ */
+export function labelStep(labels: string[], width: number, gap = 10): number {
+  const n = labels.length;
+  if (n === 0) return 1;
+  const longest = Math.max(...labels.map((l) => l.length)) * CHAR_W + gap;
+  const slot = width / n;
+  return Math.max(1, Math.ceil(longest / slot));
+}
+
+/** The buckets that cover only part of their period: flagged by the API, or the current "to date" bucket. */
+export function partialBuckets(number: NumberData | null): Set<number> {
+  const out = new Set<number>();
+  const series = number?.series ?? [];
+  series.forEach((p, i) => {
+    if (p.partial) out.add(i);
+  });
+  if (series.length && /to date|current (year|month|week|day|hour)/i.test(number?.window ?? "")) out.add(series.length - 1);
+  return out;
 }
 
 /** Context chart: bars of a number's series, with a text summary and a table for screen readers. */
@@ -168,7 +195,17 @@ export function ContextChart({ title, number, compact = false }: { title: string
   const summary = hasData && number
     ? t("chart.summary", { label: title, first: label(series[0].t), last: label(series[series.length - 1].t), value: formatByUnit(last?.value ?? null, number.unit) })
     : t("chart.noData");
-  const showEvery = n > 12 ? Math.ceil(n / 6) : 1;
+  const labels = series.map((p) => label(p.t));
+  const step = labelStep(labels, W);
+  const partial = partialBuckets(number);
+  const tickAt = (i: number, x: number) => {
+    // keep the first and last labels inside the chart instead of clipping them at the edges
+    const half = (labels[i].length * CHAR_W) / 2;
+    const cx = x + bw / 2;
+    if (cx - half < 0) return { x: 0, anchor: "start" as const };
+    if (cx + half > W) return { x: W, anchor: "end" as const };
+    return { x: cx, anchor: "middle" as const };
+  };
   return (
     <section className="chart" aria-label={title}>
       <h2 className="section-title">{title}</h2>
@@ -176,7 +213,13 @@ export function ContextChart({ title, number, compact = false }: { title: string
         <p className="chart-empty">{t("chart.noData")}</p>
       ) : (
         <figure className="chart-figure">
-          <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={summary} preserveAspectRatio="none" className="chart-svg">
+          <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={summary} preserveAspectRatio="xMidYMid meet" className="chart-svg">
+            <defs>
+              <pattern id="chart-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <rect width="6" height="6" fill="var(--harbour-tint)" />
+                <line x1="0" y1="0" x2="0" y2="6" stroke="var(--harbour)" strokeWidth="2.5" />
+              </pattern>
+            </defs>
             {isPct && [25, 50, 75].map((g) => {
               const y = padT + (H - padT - padB) * (1 - g / 100);
               return <line key={g} x1="0" x2={W} y1={y} y2={y} className="chart-grid" />;
@@ -191,30 +234,35 @@ export function ContextChart({ title, number, compact = false }: { title: string
                   {p.value === null ? (
                     <rect x={x} y={H - padB - 6} width={bw} height={6} className="chart-bar-none" />
                   ) : (
-                    <rect x={x} y={y} width={bw} height={Math.max(h, 1)} rx={Math.min(3, bw / 4)} className={isLast ? "chart-bar is-last" : "chart-bar"} />
+                    <rect x={x} y={y} width={bw} height={Math.max(h, 1)} rx={Math.min(3, bw / 4)} className={`chart-bar${isLast ? " is-last" : ""}${partial.has(i) ? " is-partial" : ""}`} />
                   )}
                   {(n <= 8 || isLast) && p.value !== null && (
                     <text x={x + bw / 2} y={y - 5} textAnchor="middle" className="chart-val">
                       {formatByUnit(p.value, number?.unit)}
                     </text>
                   )}
-                  {i % showEvery === 0 && (
-                    <text x={x + bw / 2} y={H - 6} textAnchor="middle" className="chart-tick">
-                      {label(p.t)}
+                  {(n - 1 - i) % step === 0 && (
+                    <text x={tickAt(i, x).x} y={H - 6} textAnchor={tickAt(i, x).anchor} className="chart-tick">
+                      {labels[i]}
                     </text>
                   )}
                 </g>
               );
             })}
           </svg>
-          {number?.window && <figcaption className="chart-caption">{number.window}</figcaption>}
+          {(number?.window || partial.size > 0) && (
+            <figcaption className="chart-caption">
+              {number?.window}
+              {partial.size > 0 && <span className="chart-partial-note"> {t("chart.partial")}</span>}
+            </figcaption>
+          )}
           <table className="visually-hidden">
             <caption>{title}</caption>
             <tbody>
               {series.map((p) => (
                 <tr key={p.t}>
                   <th scope="row">{label(p.t)}</th>
-                  <td>{formatByUnit(p.value, number?.unit)}</td>
+                  <td>{formatByUnit(p.value, number?.unit)}{partial.has(series.indexOf(p)) ? ` (${t("chart.partialShort")})` : ""}</td>
                 </tr>
               ))}
             </tbody>
