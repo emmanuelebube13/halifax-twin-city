@@ -7,7 +7,7 @@ import { COLOURS } from "./pins";
 export interface LayerLook {
   /** bus: the live vehicles; route and stop: transit context; event: any event or location pin layer. */
   kind: "bus" | "route" | "stop" | "event";
-  glyph: "triangle" | "house" | "square";
+  glyph: "triangle" | "house" | "square" | "dot";
   colour: string;
   /** Context layers are drawn for a story but not counted as "live events" in City view. */
   context: boolean;
@@ -16,7 +16,7 @@ export interface LayerLook {
   dashed: boolean;
 }
 
-const DEFAULT_LOOK: LayerLook = { kind: "event", glyph: "square", colour: COLOURS.generic, context: false, cluster: true, minzoom: 0, dashed: false };
+const DEFAULT_LOOK: LayerLook = { kind: "event", glyph: "dot", colour: COLOURS.generic, context: false, cluster: true, minzoom: 0, dashed: false };
 
 export const REGISTRY: Record<string, Partial<LayerLook>> = {
   vehicles: { kind: "bus", cluster: true },

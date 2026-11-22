@@ -73,7 +73,7 @@ export function drawBase(g: CanvasRenderingContext2D, shape: Shape, cx: number, 
   g.restore();
 }
 
-function canvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
+export function canvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
   const c = document.createElement("canvas");
   c.width = Math.round(w * PIXEL_RATIO);
   c.height = Math.round(h * PIXEL_RATIO);
@@ -82,7 +82,7 @@ function canvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContex
   return [c, g];
 }
 
-function roundRect(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
+export function roundRect(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
   g.beginPath();
   g.moveTo(x + r, y);
   g.arcTo(x + w, y, x + w, y + h, r);
@@ -104,16 +104,20 @@ function toPin(id: string, c: HTMLCanvasElement): PinImage {
 }
 
 /**
- * Bus pin: the architect's render on a white plate with an ink border and a soft shadow, the status base
- * attached beneath it, and a short stem to the ground point. Selected: harbour outline, tinted plate and an
- * amber halo (the map also draws it 25% larger). Anchor at the bottom centre.
+ * Bus pin (2D, and the far level in 3D): a white plate with an ink border; on the left the route number on an
+ * ink badge, on the right the architect's render facing the way the bus travels; the status base (disc, diamond,
+ * ring, square) is joined under the plate on a white backing. Selected: harbour border, tinted plate and an
+ * amber halo. The route number keeps the pin legible when the render is too small to read. Anchor: bottom centre.
  */
-export function drawBusPin(img: HTMLImageElement | null, status: BusStatus, facingWest: boolean, selected: boolean): HTMLCanvasElement {
-  const W = 80;
-  const plateW = 68;
-  const plateH = 23;
-  const baseW = 30;
+export function drawBusPin(img: HTMLImageElement | null, status: BusStatus, facingWest: boolean, selected: boolean, route?: string | null): HTMLCanvasElement {
+  const label = (route ?? "").slice(0, 4);
+  const badgeW = label ? Math.max(24, 9 + label.length * 9) : 0;
+  const imgW = 46;
+  const plateH = 24;
+  const plateW = 6 + badgeW + (label ? 4 : 0) + imgW + 6;
+  const W = plateW + 12;
   const top = 6;
+  const baseW = 28;
   const H = top + plateH + 16;
   const [c, g] = canvas(W, H);
   const x = (W - plateW) / 2;
@@ -134,25 +138,34 @@ export function drawBusPin(img: HTMLImageElement | null, status: BusStatus, faci
   g.lineWidth = selected ? 3 : 2;
   g.strokeStyle = selected ? COLOURS.selected : COLOURS.ink;
   g.stroke();
-  const pad = 3;
-  const iw = plateW - 2 * pad;
-  const ih = iw * (53 / 192);
+  let ix = x + 6;
+  if (label) {
+    roundRect(g, x + 4, top + 4, badgeW, plateH - 8, 4);
+    g.fillStyle = COLOURS.ink;
+    g.fill();
+    g.fillStyle = "#ffffff";
+    g.font = "600 13px 'IBM Plex Sans', system-ui, sans-serif";
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillText(label, x + 4 + badgeW / 2, top + plateH / 2 + 0.5);
+    ix = x + 4 + badgeW + 4;
+  }
+  const ih = imgW * (53 / 192);
   const iy = top + (plateH - ih) / 2;
   if (img && img.complete && img.naturalWidth) {
     g.save();
     if (facingWest) {
-      g.translate(x + pad + iw, iy);
+      g.translate(ix + imgW, iy);
       g.scale(-1, 1);
-      g.drawImage(img, 0, 0, iw, ih);
+      g.drawImage(img, 0, 0, imgW, ih);
     } else {
-      g.drawImage(img, x + pad, iy, iw, ih);
+      g.drawImage(img, ix, iy, imgW, ih);
     }
     g.restore();
   } else {
     g.fillStyle = COLOURS.ink;
-    g.fillRect(x + pad, iy, iw, ih);
+    g.fillRect(ix, iy, imgW, ih);
   }
-  // the status base is joined to the plate's bottom edge, on a white backing so every shape stands out
   const by = top + plateH + 6;
   g.save();
   g.fillStyle = "#ffffff";
@@ -165,7 +178,7 @@ export function drawBusPin(img: HTMLImageElement | null, status: BusStatus, faci
 }
 
 /** Simple glyph pins for event and location kinds (closure triangle, permit house, generic square). */
-export function drawGlyphPin(glyph: "triangle" | "house" | "square" | "stop", colour: string, selected: boolean): HTMLCanvasElement {
+export function drawGlyphPin(glyph: "triangle" | "house" | "square" | "stop" | "dot", colour: string, selected: boolean): HTMLCanvasElement {
   const W = 30;
   const H = 38;
   const [c, g] = canvas(W, H);
@@ -202,7 +215,7 @@ export function drawGlyphPin(glyph: "triangle" | "house" | "square" | "stop", co
     g.lineTo(cx - 8, cy + 8);
     g.closePath();
     g.stroke();
-  } else if (glyph === "stop") {
+  } else if (glyph === "stop" || glyph === "dot") {
     g.arc(cx, cy, 6, 0, Math.PI * 2);
     g.fill();
   } else {
@@ -233,8 +246,22 @@ export function drawCluster(count: number, label: string, colour: string = COLOU
   return c;
 }
 
-export function busImageId(status: BusStatus, facingWest: boolean, selected: boolean): string {
-  return `bus-${status}-${facingWest ? "w" : "e"}${selected ? "-sel" : ""}`;
+export function busImageId(status: BusStatus, facingWest: boolean, selected: boolean, route?: string | null): string {
+  const r = (route ?? "").slice(0, 4).replace(/[^A-Za-z0-9]/g, "");
+  return `bus-${status}-${facingWest ? "w" : "e"}${selected ? "-sel" : ""}${r ? `-r-${r}` : ""}`;
+}
+
+/** Reads a bus image id back, so the map can draw route pins on demand. */
+export function parseBusImageId(id: string): { status: BusStatus; facingWest: boolean; selected: boolean; route: string | null } | null {
+  const m = /^bus-(on_time|late|early|unknown)-(e|w)(-sel)?(?:-r-([A-Za-z0-9]{1,4}))?$/.exec(id);
+  if (!m) return null;
+  return { status: m[1] as BusStatus, facingWest: m[2] === "w", selected: !!m[3], route: m[4] ?? null };
+}
+
+let busRender: HTMLImageElement | null = null;
+/** The bus render, once loaded (for pins drawn on demand). */
+export function busRenderImage(): HTMLImageElement | null {
+  return busRender;
 }
 
 export function loadImage(src: string): Promise<HTMLImageElement | null> {
@@ -249,6 +276,12 @@ export function loadImage(src: string): Promise<HTMLImageElement | null> {
 /** Every pin image the 2D and 3D views use, built once. */
 export async function buildPinImages(): Promise<PinImage[]> {
   const bus = await loadImage(`${import.meta.env.BASE_URL}img/bus-side.png`);
+  busRender = bus;
+  try {
+    await document.fonts?.load("600 13px 'IBM Plex Sans'");
+  } catch {
+    // the pins fall back to the system font
+  }
   const out: PinImage[] = [];
   for (const status of ["on_time", "late", "early", "unknown"] as BusStatus[]) {
     for (const west of [false, true]) {
@@ -262,6 +295,7 @@ export async function buildPinImages(): Promise<PinImage[]> {
     out.push(toPin(`glyph-triangle${s}`, drawGlyphPin("triangle", COLOURS.closure, sel)));
     out.push(toPin(`glyph-house${s}`, drawGlyphPin("house", COLOURS.permit, sel)));
     out.push(toPin(`glyph-square${s}`, drawGlyphPin("square", COLOURS.generic, sel)));
+    out.push(toPin(`glyph-dot${s}`, drawGlyphPin("dot", COLOURS.generic, sel)));
   }
   return out;
 }

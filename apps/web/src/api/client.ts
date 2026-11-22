@@ -7,7 +7,8 @@ import type {
 } from "./types";
 import { mockFetch } from "../mocks/mockApi";
 
-export const API_BASE: string = (import.meta.env.VITE_API_BASE as string | undefined) || "http://127.0.0.1:8010";
+export const API_BASE: string =
+  import.meta.env.VITE_API_PROXY === "1" ? "" : (import.meta.env.VITE_API_BASE as string | undefined) || "http://127.0.0.1:8010";
 export const USE_MOCKS: boolean = import.meta.env.VITE_USE_MOCKS === "1" || import.meta.env.MODE === "mock";
 
 export class ApiError extends Error {

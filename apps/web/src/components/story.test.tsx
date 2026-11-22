@@ -43,7 +43,7 @@ describe("legend tiles", () => {
       name: "vehicles", path: "live", title: "Buses", property: "status",
       legend: [{ value: "on_time", label: "On time" }, { value: "late", label: "Late" }, { value: "early", label: "Early" }, { value: "unknown", label: "No arrival yet" }],
       features: [{ properties: { status: "late" } }, { properties: { status: "late" } }, { properties: { status: "on_time" } }, { properties: { status: "unknown" } }],
-      asOf: null, freshness: "fresh", lastOk: null, loading: false, sourceIds: [], tier: null,
+      asOf: null, freshness: "fresh", lastOk: null, loading: false, sourceIds: [], sources: [], tier: null,
     };
     const html = renderToStaticMarkup(<LegendTiles layer={layer} />);
     expect(html).toMatch(/Late<\/span><span class="tile-value mono">2</);

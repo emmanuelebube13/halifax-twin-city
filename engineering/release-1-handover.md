@@ -204,3 +204,121 @@ New known gaps:
 - The first `trn.trips_not_run_by_day` call after an API restart once took 6.4 s; not reproduced.
 
 Question for the architect: is a sector refresh every 6 hours, only while you are logged on, acceptable (running while logged off would mean storing your Windows password in the task)?
+
+
+## 10. The 3D view and bus pins (branch t27-3d-view, 22 Nov 2026)
+
+Cards T27 (3D view), T29 (3D key) and T30 (pins). Branch `t27-3d-view`, made from `release-1` and kept separate from it, checked out at `C:\halifax-twin-data\worktrees\web`. Head 0dbe2ca plus this section. Nothing pushed. Other city pins (closures, permits, stops) keep their 2D design, as the architect asked.
+
+### How to run it
+
+The release apps on 8010 and 5173 run from `release-1` for the architect. To see this branch without disturbing them, run a second dev server that reaches the API through a same-origin proxy (PowerShell):
+
+```
+cd C:\halifax-twin-data\worktrees\web\apps\web
+$env:VITE_API_PROXY = "1"; npx vite --host 127.0.0.1 --port 5175 --strictPort
+```
+
+Open http://127.0.0.1:5175/?view=3d . The API on 8010 must have been started with the token loaded in the same PowerShell command (`$env:CESIUM_ION_TOKEN = [Environment]::GetEnvironmentVariable('CESIUM_ION_TOKEN','User')`; never print it). The lead restarted the release apps this way at about 13:00 on 22 Nov, so 8010 now runs current `release-1` code with 3D available.
+
+### Lead's checks (22 Nov 2026)
+
+| Check | Result |
+| :---- | :---- |
+| Paths | Only `apps/web/`, `assets/pins/` and `engineering/learning/t27-3d-view.md` changed against `release-1` |
+| `npx vitest run` | 85 passed |
+| `npm run build` | Succeeds. 2D entry 1,474.52 kB (411.36 kB gzip), was 1,469.64 kB (410.07 kB gzip); 3D chunk `Globe3D` 24.28 kB (8.83 kB gzip); CesiumJS (5.48 MB, 1.58 MB gzip) loads only when 3D is chosen |
+| Models | `bus-near.glb` 81 kB (202 triangles), `bus-mid.glb` 10 kB; built by `assets/pins/build-bus.mjs` with gltf-transform, no Blender |
+| Emoji, secrets | None found in the changed files; `.ion-tally.json` is git-ignored |
+| API fields | After the restart, `/v1/layers/road-closures` reports SRC-015 `checked_ts` 12:14Z and `last_changed_ts` 05:37Z, so "Checked ..., unchanged since ..." can now be seen live. It was missing before because the API process had been started before that change |
+
+### Builder's report, not yet checked by the lead
+
+- **3D view:**
+  - **Loading:** the 3D view is a lazy chunk. The device profile and the WebGL check run only when 3D is chosen.
+  - **Rendering:** `requestRenderMode`, with renders requested on data updates, glides (10 Hz) and following (30 Hz, or 20 Hz on low).
+  - **Profiles:** high, medium and low, chosen from GPU and device hints. The user switch is "Detail", laptop only.
+  - **Camera:** limited to Halifax, with a minimum of 40 m, a maximum of 25 km and no going underground.
+  - **Switching:** 2D and 3D switching keeps the place, story, lens and selection; `view=3d` is in the URL.
+  - **Fallback:** to 2D with a note when WebGL is missing, the token is refused, tiles fail, or 3D takes longer than 45 s.
+- **Credits:** Google and Cesium credits sit on their own plate, which nothing covers. On a phone they are a one-line strip above the sheet.
+- **Evidence in 3D:** route lines are draped on the tiles. Closures and permits are drawn, and overlapping pins merge into one count disc, so downtown buses no longer stack.
+- **Bus pins:** a shared model at three levels of detail, with a badge in the 2D pin's grammar (route number tab plus disc, diamond, ring or square). Ground height is sampled once per GPS report. Glide, selection, popup, Open detail and Follow all work, and reduced motion is respected. The 2D pin now carries the route number.
+- **Minor re-test findings:**
+  - The popup now pans fully into view when opened from a link, in 2D and 3D.
+  - Checked sources show "Checked ..., unchanged since ...".
+- **Design:** two independent critique rounds (`c1-*`, `c2-*`). The 3D additions are in `apps/web/design/direction.md` section 7b. The axe-core scan finds no violations in 2D or 3D.
+- **Token safety:** `scripts/check-3d.mjs` reports only yes or no. After a 3D load the token was not found in localStorage, sessionStorage, cookies, the URL, Cache Storage or the console. Unit tests guard the URL state, the service worker and logging.
+
+### Performance (workstation, RTX 5070; targets in `apps/web/design/3d-performance.md`)
+
+| Profile | Condition | First frame | Pan fps | Follow fps | JS heap | Tiles |
+| :---- | :---- | :---- | :---- | :---- | :---- | :---- |
+| High | Workstation | 6.4 s | 51 | 59 | 433 MB | 1,592 |
+| Medium | Workstation | 2.4 s | 50 | 58 | 272 MB | 517 |
+| Low | Workstation | 1.9 s | 46 (target 50) | 42 | 177 MB | 311 |
+| High | CPU 4x slower | 14.3 s | 15 (target 20) | 12 (target 25) | 424 MB | 1,662 |
+| Medium | CPU 4x slower | 6.8 s | 27 | 40 | 256 MB | 508 |
+| Low | CPU 4x slower | 5.7 s | 27 (target 30) | 36 | 170 MB | 320 |
+| Low | Phone viewport 390 by 844 | 2.2 s | 45 | 42 | 162 MB | 233 |
+
+Re-checks after critique round 2:
+- **Medium panning:** 37 to 38 fps (target 50). In the same run even a view with no tiles topped out at 44 to 46 fps, so the machine was busy.
+- **Low profile, phone viewport:** heap rose to 311 MB (target 250) after its pixel cap was raised to 1.5.
+
+### Ion use
+
+- **Total:** 32 3D page loads of a budget of 60, against the free plan's 1,000 Google Photorealistic 3D Tiles root tiles a month. This includes the tester's one session.
+- **Breakdown:** first check 1; performance 7 plus 3 re-checks; review screenshots 14; final shots 6.
+- **One high-profile load:** 741 Google tile requests and 2 ion requests in about 15 s.
+- **Everything else:** developed on a plain globe without ion (`VITE_3D_NO_ION=1`).
+- **Plan terms:** free plan limits confirmed on cesium.com/pricing on 22 Nov 2026. Going over does not bill, but the free plan is for personal and non-commercial use.
+
+### Screenshots (git-ignored)
+
+All in `C:\halifax-twin-data\worktrees\web\apps\web\screenshots\`:
+- **Final:** `c3-laptop-3d-city.png`, `c3-laptop-3d-selected.png`, `c3-laptop-3d-story-hre.png`, `c3-laptop-3d-story-trn-dark.png`, `c3-phone-3d-story-trn.png`, `c3-phone-3d-selected.png`, `c3-laptop-2d-story-trn.png`, `c3-phone-2d-story-trn.png`.
+- **Review rounds:** `c1-*` and `c2-*`.
+- **Performance runs:** `perf-*.png`.
+
+### Not met or open
+
+1. **Performance targets missed:**
+   - High with the CPU slowed 4x: panning 15 fps (target 20), following 12 fps (target 25).
+   - Low with the CPU slowed 4x: panning 27 fps (target 30).
+   - Low on the workstation: panning 46 fps (target 50).
+   - Medium after round 2: panning 37 to 38 fps (target 50; machine busy during that run).
+   - Low on the phone viewport after round 2: heap 311 MB (target 250).
+2. **Not measured on real devices:** neither a real phone nor an integrated GPU.
+3. **Model textures:** the front and rear are cropped from three-quarter renders, so they are slightly skewed.
+4. **Unfinished interface work:**
+   - The count disc has no legend entry.
+   - The Detail switch is a small select, not an icon menu.
+   - The layer title "Permits, last 12 months" is four words; it comes from the API configuration.
+5. **Data age stops growing only once refreshes run:** "Checked ..." stays current only when the sector refresh runs. The task is not registered, so the last check was at 08:14 on 22 Nov.
+
+### Questions for the architect
+
+1. Low profile pixel cap: keep 1.5 (sharper) or 1 (faster, lighter on phones)?
+2. Should a flat 2D view open 3D tilted at 50 degrees, as now, or keep the 2D tilt?
+3. Is the bus model from your renders good enough, or will you model front and rear in Blender later?
+4. Keep the 3D Detail switch visible, or move it into a settings menu?
+5. Should HRE-Q29 in 3D open on the urban core or on all permits?
+6. May the layer title become "Permits, 12 months" (three words)?
+7. Should the app cap ion use (for example, 3D off after a set number of loads a month), given the free plan's 1,000 root tiles and its non-commercial terms?
+
+### After the 3D test (22 Nov 2026, about 13:40)
+
+The tester passed this branch at 1ab1bf6 with three minor findings. Two are fixed in df2813c (lead re-ran: 91 unit tests pass, build succeeds; no ion used, tally 36 of 60 including the tester's 4 loads):
+
+1. With WebGL off, no uncaught page errors remain. The builder traced them to MapLibre's constructor, not Cesium's. The 2D map now catches its own creation failure and points to the list view; the 3D view checks WebGL before mounting and falls back to 2D on a render error. Checked by `apps/web/scripts/check-no-webgl.mjs` (11 of 11).
+2. The lens stays in the URL across a 3D to 2D switch, for live, replay and analytics, with story, selection and route.
+
+The third, the growing "Checked ..." age for permits and closures, remains until the sector refresh task is registered (section 9).
+
+### After the architect's review (22 Nov 2026, evening)
+
+- Buses now glide from the first second: on page load the app seeds each bus's track from the last 4 minutes of positions (`/v1/replay/vehicles?minutes=4`). Before, each bus waited at its first report until two live reports straddled the 60 s glide clock, so buses looked frozen for a minute or more.
+- 3D clustering: buses now group only with buses (34 px), so they stay visible among permits and closures; group ids are list positions, which fixes a collision between bus ids and pin numbers that could mix buses and permits.
+- The black boxes the architect saw were the early 3D view still served by `release-1` on port 5173; this branch replaces it.
+- Lead check: unit tests 91 passed; two 3D shots 7 s apart show buses moving along their routes; ion tally 39 of 60 (including the tester's 4).

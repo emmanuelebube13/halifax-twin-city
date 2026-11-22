@@ -10,7 +10,9 @@
       "last_attempt_ts": "2026-11-21T23:14:58Z",
       "status": "ok",
       "cadence_code": "Real-time",
-      "source_url": "http://gtfs.halifax.ca/realtime/Vehicle/VehiclePositions.pb"
+      "source_url": "http://gtfs.halifax.ca/realtime/Vehicle/VehiclePositions.pb",
+      "checked_ts": "2026-11-21T23:14:58Z",
+      "last_changed_ts": null
     },
     {
       "source_id": "SRC-003",
@@ -22,7 +24,9 @@
       "last_attempt_ts": "2026-11-21T23:14:30Z",
       "status": "down",
       "cadence_code": "Real-time",
-      "source_url": "http://gtfs.halifax.ca/realtime/Alert/Alerts.pb"
+      "source_url": "http://gtfs.halifax.ca/realtime/Alert/Alerts.pb",
+      "checked_ts": "2026-11-21T23:09:30Z",
+      "last_changed_ts": null
     },
     {
       "source_id": "SRC-015",
@@ -34,7 +38,9 @@
       "last_attempt_ts": null,
       "status": "unknown",
       "cadence_code": null,
-      "source_url": "https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/ArcGIS/rest/services/Street_Closures/FeatureServer"
+      "source_url": "https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/ArcGIS/rest/services/Street_Closures/FeatureServer",
+      "checked_ts": null,
+      "last_changed_ts": null
     }
   ],
   "as_of": "2026-11-21T23:14:58Z",

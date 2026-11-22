@@ -1,9 +1,9 @@
-import { ago } from "../lib/ago";
+import { ageLine } from "../lib/ago";
 // The frame around the map: top bar with search, sector rail and chips, lens switch, legend, credits,
 // replay controls and the phone's three-height bottom sheet.
 
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import type { BusStatus, Lens, Sector, StorySummary } from "../api/types";
+import type { BusStatus, Lens, Sector, SourceRef, StorySummary } from "../api/types";
 import { t } from "../i18n";
 import { formatClock } from "../lib/format";
 import type { Freshness } from "../lib/status";
@@ -155,8 +155,8 @@ export function ViewSwitch({ view, can3d, note, onChange, compact }: { view: "2d
     return (
       <button
         type="button"
-        className={`ctl ctl--text${view === "3d" ? " is-on" : ""}`}
-        aria-pressed={view === "3d"}
+        className="ctl ctl--text"
+        aria-label={view === "3d" ? t("view.to2d") : t("view.to3d")}
         aria-disabled={!can3d}
         title={can3d ? undefined : note ?? t("view.3dUnavailable")}
         onClick={() => can3d && onChange(view === "3d" ? "2d" : "3d")}
@@ -332,10 +332,10 @@ export function Legend({ entries, compact }: { entries: LegendEntry[]; compact?:
   );
 }
 
-export function Credits({ asOf, now, basemapOk, threeD }: { asOf: string | null; now: number; basemapOk: boolean | null; threeD: boolean }) {
+export function Credits({ asOf, now, basemapOk, threeD, sources }: { asOf: string | null; now: number; basemapOk: boolean | null; threeD: boolean; sources?: SourceRef[] }) {
   return (
     <div className="credits">
-      {asOf && <span className="credits-age">{t("age.updated", { age: ago(asOf, now) })}</span>}
+      {asOf && <span className="credits-age">{ageLine(sources, asOf, now)}</span>}
       <span>{threeD ? t("credits.3d") : basemapOk === false ? t("map.basemapFallback") : t("map.attribution")}</span>
       <span className="credits-licence">{t("credits.licence")}</span>
     </div>

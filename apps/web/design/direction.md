@@ -93,6 +93,18 @@ Built with `@protomaps/basemaps` layer logic and our own colour flavour, from th
 - Phone: search and chips float over the map on fog plates; the answer sheet has three heights (peek shows question, answer plate and lens switch; half adds counts; full adds chart and trust).
 - The answer plate is the only dark block in the panel. Everything else is quiet.
 
+## 7b. The 3D view (added 22 Nov 2026, card T27)
+
+The photo tiles are busy and full of colour, so in 3D the chart table is quieter and the data louder.
+
+- **Chrome over photos.** Every control sits on a fog plate (`--plate`, 94% opaque) with a hairline and a soft shadow, as in 2D; nothing is placed bare on the imagery. The 3D detail switch (Automatic, High, Medium, Low) sits under the zoom buttons.
+- **Credits.** Google's logo and data credits and the Cesium ion logo sit on their own night plate at the bottom centre, and the footer cards step up in 3D so nothing covers them. On a phone the plate is a single strip just above the sheet: the logos on screen, the data credits behind Cesium's "Data attribution" link.
+- **Bus pins over buildings.** Up close, the textured bus model sits on the ground at its real size. Above it, at every distance, floats a badge in the 2D pin's grammar: an ink tab with the route number, then the status shape on a white plate with a 2 px ink border and a shadow. It is drawn over buildings (no depth test), so a bus behind a tower is never lost. Selected: amber ring, a quarter larger, drawn in front of its neighbours; amber outline on the model.
+- **Crowds.** Pins that overlap on screen, of any layer, merge into one ink count disc; selecting one zooms in.
+- **Routes.** One harbour-blue line at 80%, draped on the ground and roofs; the selected bus's route is solid, wider and on a fog casing, and the others dim.
+- **Day and night.** The tiles are photographs with their own daylight; the chrome follows the system's light or dark setting.
+- **Motion.** Buses glide as in 2D; following a bus moves the camera with it at 30 frames a second (20 on low). With reduced motion: no glide, and the camera jumps instead of flying.
+
 ## 8. Gap list: the 20 Nov demo against the wireframes and interface rules
 
 | Area | Demo | Release 1 |

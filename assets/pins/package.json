@@ -1,0 +1,14 @@
+{
+  "name": "halifax-twin-pins",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Builds the 3D bus pin models (GLB) from the architect's bus renders, with free npm tools only",
+  "scripts": {
+    "build": "node build-bus.mjs"
+  },
+  "dependencies": {
+    "@gltf-transform/core": "4.5.1",
+    "pngjs": "7.0.0"
+  }
+}

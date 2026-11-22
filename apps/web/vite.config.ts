@@ -59,7 +59,22 @@ export default defineConfig(({ mode }) => {
   const tilesDir = env.HALIFAX_TWIN_TILES_DIR || "C:\\halifax-twin-data\\tiles";
   return {
     plugins: [react(), localTiles(tilesDir)],
-    server: { host: "127.0.0.1", port: 5173, strictPort: true },
+    server: {
+      host: "127.0.0.1",
+      port: Number(env.VITE_PORT || 5173),
+      strictPort: true,
+      // Optional: reach the API through this server (VITE_API_PROXY=1), for a second dev server on another port
+      // that the API's CORS list does not name. Requests stay on this computer.
+      proxy:
+        env.VITE_API_PROXY === "1"
+          ? {
+              "/v1": {
+                target: env.VITE_API_TARGET || "http://127.0.0.1:8010",
+                configure: (proxy) => proxy.on("proxyReq", (req) => req.removeHeader("origin")),
+              },
+            }
+          : undefined,
+    },
     preview: { host: "127.0.0.1", port: 4173, strictPort: true },
     build: {
       target: "es2022",
