@@ -93,6 +93,18 @@ Built with `@protomaps/basemaps` layer logic and our own colour flavour, from th
 - Phone: search and chips float over the map on fog plates; the answer sheet has three heights (peek shows question, answer plate and lens switch; half adds counts; full adds chart and trust).
 - The answer plate is the only dark block in the panel. Everything else is quiet.
 
+## 7b. The 3D view (added 22 Nov 2026, card T27)
+
+The photo tiles are busy and full of colour, so in 3D the chart table is quieter and the data louder.
+
+- **Chrome over photos.** Every control sits on a fog plate (`--plate`, 94% opaque) with a hairline and a soft shadow, as in 2D; nothing is placed bare on the imagery. The 3D detail switch (Automatic, High, Medium, Low) sits under the zoom buttons.
+- **Credits.** Google's logo and data credits and the Cesium ion logo sit on their own night plate at the bottom centre (on a phone, under the chips, because the sheet covers the bottom). The footer cards step up in 3D so nothing covers them.
+- **Bus pins over buildings.** Up close, the textured bus model sits on the ground at its real size. A badge floats above it: a white plate, a 2 px ink border, a shadow, the status shape and the route number. It is drawn over buildings (no depth test), so a bus behind a tower is never lost. Far away, the 2D pin replaces the model. Selected: amber halo on the badge, amber outline on the model.
+- **Crowds.** Pins that overlap on screen merge into an ink count disc, as in 2D; selecting one zooms in.
+- **Routes.** Drawn on the ground and the buildings' footprints in harbour blue at 70%; the selected bus's route is solid and wider.
+- **Day and night.** The tiles are photographs with their own daylight; the chrome follows the system's light or dark setting.
+- **Motion.** Buses glide as in 2D; following a bus moves the camera with it at 30 frames a second (20 on low). With reduced motion: no glide, and the camera jumps instead of flying.
+
 ## 8. Gap list: the 20 Nov demo against the wireframes and interface rules
 
 | Area | Demo | Release 1 |

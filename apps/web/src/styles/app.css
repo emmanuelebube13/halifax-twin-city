@@ -2415,3 +2415,27 @@ button.sector-row-main:hover .sector-row-name {
   background: var(--night);
   color: var(--on-night);
 }
+
+/* Cesium writes its own credit markup into this container: give it room and a solid plate on one line */
+.globe .globe-credits {
+  width: max-content;
+  max-width: min(720px, calc(100% - 32px));
+  background: rgba(19, 35, 46, 0.88);
+  text-align: center;
+}
+
+.globe .globe-credits .cesium-credit-logoContainer,
+.globe .globe-credits .cesium-credit-textContainer,
+.globe .globe-credits .cesium-credit-expand-link {
+  display: inline;
+  vertical-align: middle;
+}
+
+.globe .globe-credits .cesium-credit-textContainer > * {
+  display: inline;
+}
+
+.stage.is-3d .legend,
+.stage.is-3d .credits {
+  bottom: 64px;
+}
