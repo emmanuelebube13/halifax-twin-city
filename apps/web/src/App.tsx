@@ -400,7 +400,7 @@ export function App() {
         {live && primary && view.lens !== "replay" && <LegendTiles layer={primary} />}
         {phone && featureCard}
         {live && view.lens === "replay" && (
-          <p className="lens-note">{replayReady ? t("lens.replay") + `: ${formatClock(replayFrom)} to ${formatClock(replayTo)}` : t("lens.replayNotReady")}</p>
+          <p className="lens-note">{replayReady ? t("replay.window", { from: formatClock(replayFrom), to: formatClock(replayTo) }) : t("lens.replayNotReady")}</p>
         )}
         {live && routes.length > 0 && view.lens === "live" && (
           <label className="select-field">
@@ -537,7 +537,7 @@ export function App() {
         <BottomSheet height={sheet} onHeight={setSheet} reducedMotion={reduced}>
           <p className="sheet-credits">
             {mapAsOf ? `${t("age.updated", { age: ago(mapAsOf, now) })} · ` : ""}
-            {show3d ? "Google, Cesium ion" : basemapOk === false ? t("map.basemapFallback") : "© OpenStreetMap, Protomaps"} · OGL Halifax
+            {show3d ? t("credits.3d") : basemapOk === false ? t("map.basemapFallback") : t("credits.short")} · {t("credits.licenceShort")}
           </p>
           {!view.story && view.panel !== "detail" && (
             <div className="sheet-lens">

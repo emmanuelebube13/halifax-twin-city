@@ -112,7 +112,7 @@ export function ListView({
                 })}
               </tbody>
             </table>
-            {rows.length > ROW_LIMIT && <p className="panel-footnote">{`Showing ${formatCount(ROW_LIMIT)} of ${formatCount(rows.length)}. Narrow the search to see more.`}</p>}
+            {rows.length > ROW_LIMIT && <p className="panel-footnote">{t("list.limited", { shown: formatCount(ROW_LIMIT), total: formatCount(rows.length) })}</p>}
           </details>
         );
       })}

@@ -336,8 +336,8 @@ export function Credits({ asOf, now, basemapOk, threeD }: { asOf: string | null;
   return (
     <div className="credits">
       {asOf && <span className="credits-age">{t("age.updated", { age: ago(asOf, now) })}</span>}
-      <span>{threeD ? "Google, Cesium ion" : basemapOk === false ? t("map.basemapFallback") : t("map.attribution")}</span>
-      <span className="credits-licence">Open Government Licence – Halifax</span>
+      <span>{threeD ? t("credits.3d") : basemapOk === false ? t("map.basemapFallback") : t("map.attribution")}</span>
+      <span className="credits-licence">{t("credits.licence")}</span>
     </div>
   );
 }
@@ -356,7 +356,7 @@ export function ReplayBar({ from, to, at, playing, speed, onSeek, onPlay, onSpee
 }) {
   return (
     <div className="replay" role="group" aria-label={t("lens.replay")}>
-      <button type="button" className="ctl" onClick={onPlay} aria-label={playing ? "Pause" : "Play"}>
+      <button type="button" className="ctl" onClick={onPlay} aria-label={playing ? t("replay.pause") : t("replay.play")}>
         <Icon name={playing ? "pause" : "play"} size={18} />
       </button>
       <span className="mono replay-clock">{formatClock(at, true)}</span>
@@ -367,11 +367,11 @@ export function ReplayBar({ from, to, at, playing, speed, onSeek, onPlay, onSpee
         step={1000}
         value={at}
         onChange={(e) => onSeek(Number(e.target.value))}
-        aria-label="Replay time"
+        aria-label={t("replay.time")}
         aria-valuetext={formatClock(at, true)}
       />
       <label className="replay-speed">
-        <span className="visually-hidden">Speed</span>
+        <span className="visually-hidden">{t("replay.speed")}</span>
         <select value={speed} onChange={(e) => onSpeed(Number(e.target.value))}>
           <option value={10}>10x</option>
           <option value={30}>30x</option>

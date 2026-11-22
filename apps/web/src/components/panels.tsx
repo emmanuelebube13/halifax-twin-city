@@ -143,9 +143,9 @@ function eventFacts(p: Record<string, unknown>): string[] {
     if (v) out.push(k === "stop_code" ? t("search.stop", { number: v }) : v);
   }
   if (p.event_start_ts || p.event_end_ts) {
-    out.push(`${formatDate(p.event_start_ts as string)}${p.event_end_ts ? ` to ${formatDate(p.event_end_ts as string)}` : ""}`);
+    out.push(p.event_end_ts ? t("event.range", { from: formatDate(p.event_start_ts as string), to: formatDate(p.event_end_ts as string) }) : formatDate(p.event_start_ts as string));
   }
-  if (typeof p.units_created_count === "number") out.push(`${formatCount(p.units_created_count)} units`);
+  if (typeof p.units_created_count === "number") out.push(t("permit.units", { count: formatCount(p.units_created_count) }));
   if (typeof p.construction_value_amount === "number") out.push(formatMoney(p.construction_value_amount));
   return out.slice(0, 4);
 }
@@ -248,7 +248,7 @@ function humanValue(k: string, v: unknown): string {
   if (k === "speed_metres_per_second") return `${formatCount((v as number) * 3.6)} km/h`;
   if (k === "bearing") return `${formatCount(v as number)}°`;
   if (typeof v === "number") return formatCount(v);
-  if (typeof v === "boolean") return v ? "Yes" : "No";
+  if (typeof v === "boolean") return v ? t("detail.yes") : t("detail.no");
   return String(v);
 }
 

@@ -137,6 +137,10 @@ export const en = {
 
   "closure.kind": "Road closure",
   "permit.kind": "Building permit",
+  "permit.units": "{count} units",
+  "event.range": "{from} to {to}",
+  "detail.yes": "Yes",
+  "detail.no": "No",
   "stop.kind": "Stop",
   "route.kind": "Route",
 
@@ -148,6 +152,7 @@ export const en = {
   "list.col.detail": "Detail",
   "list.col.updated": "Updated",
   "list.select": "Show on map",
+  "list.limited": "Showing {shown} of {total}. Narrow the search to see more.",
   "list.empty": "Nothing on the map right now.",
 
   "sectors.title": "All sectors",
@@ -191,8 +196,15 @@ export const en = {
   "chart.noData": "No data for this period yet.",
   "chart.summary": "{label}: {first} to {last}, latest {value}.",
 
-  "credits.google": "Google",
-  "credits.cesium": "Cesium ion",
+  "credits.3d": "Google, Cesium ion",
+  "credits.short": "© OpenStreetMap, Protomaps",
+  "credits.licence": "Open Government Licence – Halifax",
+  "credits.licenceShort": "OGL Halifax",
+  "replay.time": "Replay time",
+  "replay.speed": "Speed",
+  "replay.play": "Play",
+  "replay.pause": "Pause",
+  "replay.window": "Replay: {from} to {to}",
 } as const;
 
 export type MessageKey = keyof typeof en;
