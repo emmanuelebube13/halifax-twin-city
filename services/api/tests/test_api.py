@@ -392,3 +392,27 @@ def test_singular_templates(client):
         assert answer["template"].startswith(first) and answer["template_one"].startswith(first), s["id"]
         placeholders = lambda t: sorted(p.split("}")[0] for p in t.split("{")[1:])  # noqa: E731
         assert placeholders(answer["template_one"]) == placeholders(answer["template"]), s["id"]
+
+
+def test_partial_series_points(client):
+    body = client.get("/v1/numbers/hre.permits_by_year").json()
+    assert errors(body, "NumberResponse") == []
+    points = body["data"]["series"]
+    # The seed holds a permit today and one 400 days ago: the current year is partial; the first year is
+    # partial unless its first permit falls in January.
+    assert points[-1].get("partial") is True
+    import datetime as dt
+    first_day = dt.date.today() - dt.timedelta(days=400)
+    assert points[0].get("partial", False) is (first_day.month > 1)
+    for p in points[1:-1]:
+        assert "partial" not in p
+    months = client.get("/v1/numbers/pwk.closures_by_month").json()["data"]["series"]
+    assert months[-1].get("partial") is True
+
+
+def test_days_templates_name_the_unit(client):
+    for sid in ("HRE-Q30", "PWK-Q13", "TRN-Q25"):
+        template = client.get(f"/v1/stories/{sid}").json()["data"]["answer"]["template"]
+        for number_id in ("hre.issue_to_completion_median_days", "pwk.closure_median_days", "trn.closure_median_days_all"):
+            if "{" + number_id + "}" in template:
+                assert "{" + number_id + "} days" in template, sid

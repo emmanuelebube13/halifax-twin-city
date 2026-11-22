@@ -558,6 +558,12 @@ components:
       properties:
         t: { type: string, description: "Start of the bucket: a UTC timestamp, a year (YYYY), a month (YYYY-MM) or a category label" }
         value: { type: [number, "null"] }
+        partial:
+          type: boolean
+          description: |
+            Optional. True when the point covers only part of its period: the current year, month or hour to
+            date, or a first period that the source covers only in part (building permits start on
+            22 Dec 2020, so the 2020 point holds a few days). Absent means the period is complete.
 
     Number:
       type: object

@@ -10,7 +10,7 @@
   "status": "source_incomplete",
   "status_note": "The application date is not loaded into the database, so only the time from issue to completion can be shown.",
   "answer": {
-    "template": "Permits completed in the last year took {hre.issue_to_completion_median_days} from issue to completion at the median.",
+    "template": "Permits completed in the last year took {hre.issue_to_completion_median_days} days from issue to completion at the median.",
     "numbers": [
       "hre.issue_to_completion_median_days"
     ],
