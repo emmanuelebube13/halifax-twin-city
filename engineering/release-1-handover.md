@@ -198,7 +198,7 @@ The final test passed with findings. These are the fixes for the four findings t
 Screenshots of the fixed screens against the live API (79 to 80 buses): `C:\halifax-twin-data\worktrees\web\apps\web\screenshots\fix-laptop-*.png` and `fix-phone-*.png` (TRN-Q01, PWK-Q13, HRE-Q29, bus selected, bus detail, bus follow).
 
 New known gaps:
-- The sector refresh task is written but not registered. Until it is, closures and permits refresh only when `scripts\sector-refresh.ps1` is run by hand. Register it from the main checkout: `powershell -ExecutionPolicy Bypass -File scripts\sector-register-task.ps1`.
+- The sector refresh task is written but not registered. Until it is, closures and permits refresh only when `scripts\sector-refresh.ps1` is run by hand. Register it only from a checkout that contains the script and keeps its virtual environment outside OneDrive. Today that is `C:\halifax-twin-data\worktreeselease` (branch `release-1`): `powershell -ExecutionPolicy Bypass -File scripts\sector-register-task.ps1`. The OneDrive checkout is on `s00-initialize`, which has no `sector-refresh.ps1` until the pull requests merge, and registering there would create a venv inside OneDrive. The same applies to `scripts\collector-register-task.ps1`.
 - `answer.template_one` handles only the first number in a sentence; a second count of 1 still reads plural.
 - `trn.on_time_share_24h` does not mark the current hour as partial.
 - The first `trn.trips_not_run_by_day` call after an API restart once took 6.4 s; not reproduced.
