@@ -1,0 +1,79 @@
+{
+  "data": {
+    "id": "PWK-Q16",
+    "question": "Which planned closures will affect bus routes, traffic, and walking before work starts?",
+    "title": "Planned closures",
+    "sector_id": "S05",
+    "subsector_id": "PWK-04",
+    "lenses": [
+      "live"
+    ],
+    "status": "live",
+    "answer": {
+      "template": "{pwk.upcoming_closures_30d} closures start in the next 30 days: {pwk.upcoming_on_routes_30d} on bus routes and {pwk.upcoming_sidewalk_30d} closing a sidewalk.",
+      "numbers": [
+        "pwk.upcoming_closures_30d",
+        "pwk.upcoming_on_routes_30d",
+        "pwk.upcoming_sidewalk_30d"
+      ],
+      "empty_text": "No closures are planned to start in the next 30 days."
+    },
+    "evidence": {
+      "layers": [
+        {
+          "layer": "road-closures-upcoming",
+          "path": "layers",
+          "title": "Planned closures",
+          "property": null,
+          "legend": [
+            {
+              "value": "closure",
+              "label": "Planned closure",
+              "shape": "line"
+            }
+          ]
+        },
+        {
+          "layer": "routes",
+          "path": "layers",
+          "title": "Routes",
+          "property": null,
+          "legend": [
+            {
+              "value": "route",
+              "label": "Bus route",
+              "shape": "line"
+            }
+          ]
+        }
+      ]
+    },
+    "context": {
+      "number_id": "pwk.upcoming_by_week",
+      "title": "Planned closures by week"
+    },
+    "trust": {
+      "source_ids": [
+        "SRC-015",
+        "SRC-004"
+      ],
+      "note": "Every closure in this source is a planned closure approved by the Engineer. Traffic: full and lane closures; walking: sidewalk closures; bus routes: within 20 m."
+    },
+    "status_note": null
+  },
+  "as_of": "2026-11-22T05:39:37Z",
+  "source": [
+    {
+      "source_id": "SRC-015",
+      "name": "Street Closures and Development Street Closures",
+      "publisher": "Halifax Regional Municipality"
+    },
+    {
+      "source_id": "SRC-004",
+      "name": "GTFS Schedule (static) feed",
+      "publisher": "Halifax Transit"
+    }
+  ],
+  "reliability_tier": "Tier 1",
+  "licence": "Contains information licensed under the Open Government Licence – Halifax"
+}

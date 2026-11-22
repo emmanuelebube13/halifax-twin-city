@@ -1,0 +1,44 @@
+{
+  "data": [
+    {
+      "source_id": "SRC-001",
+      "dataset_name": "GTFS Realtime – Vehicle Positions",
+      "publisher": "Halifax Transit",
+      "licence": "Open Government Licence – Halifax",
+      "reliability_tier": "Tier 1",
+      "last_loaded_ts": "2026-11-21T23:14:58Z",
+      "last_attempt_ts": "2026-11-21T23:14:58Z",
+      "status": "ok",
+      "cadence_code": "Real-time",
+      "source_url": "http://gtfs.halifax.ca/realtime/Vehicle/VehiclePositions.pb"
+    },
+    {
+      "source_id": "SRC-003",
+      "dataset_name": "GTFS Realtime – Service Alerts",
+      "publisher": "Halifax Transit",
+      "licence": "Open Government Licence – Halifax",
+      "reliability_tier": "Tier 1",
+      "last_loaded_ts": "2026-11-21T23:09:30Z",
+      "last_attempt_ts": "2026-11-21T23:14:30Z",
+      "status": "down",
+      "cadence_code": "Real-time",
+      "source_url": "http://gtfs.halifax.ca/realtime/Alert/Alerts.pb"
+    },
+    {
+      "source_id": "SRC-015",
+      "dataset_name": "Street Closures (all, active, upcoming) and Development Street Closures",
+      "publisher": "Halifax Regional Municipality",
+      "licence": "Open Government Licence – Halifax",
+      "reliability_tier": "Tier 1",
+      "last_loaded_ts": null,
+      "last_attempt_ts": null,
+      "status": "unknown",
+      "cadence_code": null,
+      "source_url": "https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/ArcGIS/rest/services/Street_Closures/FeatureServer"
+    }
+  ],
+  "as_of": "2026-11-21T23:14:58Z",
+  "source": [],
+  "reliability_tier": null,
+  "licence": "Contains information licensed under the Open Government Licence – Halifax"
+}

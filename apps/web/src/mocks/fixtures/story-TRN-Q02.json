@@ -1,0 +1,65 @@
+{
+  "data": {
+    "id": "TRN-Q02",
+    "question": "Which routes are most often late, and at what times of day?",
+    "title": "Late routes",
+    "sector_id": "S04",
+    "subsector_id": "TRN-01",
+    "lenses": [
+      "analytics"
+    ],
+    "status": "collecting_data",
+    "answer": {
+      "template": "{trn.late_share_7d} of recorded arrivals in the last 7 service days were late; the chart ranks routes by their late share.",
+      "numbers": [
+        "trn.late_share_7d",
+        "trn.late_share_by_hour"
+      ],
+      "empty_text": "Not enough recorded arrivals yet."
+    },
+    "evidence": {
+      "layers": [
+        {
+          "layer": "routes",
+          "path": "layers",
+          "title": "Routes",
+          "property": null,
+          "legend": [
+            {
+              "value": "route",
+              "label": "Bus route",
+              "shape": "line"
+            }
+          ]
+        }
+      ]
+    },
+    "context": {
+      "number_id": "trn.late_share_by_route",
+      "title": "Late share by route, last 7 days"
+    },
+    "trust": {
+      "source_ids": [
+        "SRC-002",
+        "SRC-004"
+      ],
+      "note": "Late means more than 300 s behind schedule (interim rule, not yet decided)."
+    },
+    "status_note": "Needs at least one whole service day of recorded arrivals; the archive started at 21:05 on 21 Nov 2026."
+  },
+  "as_of": "2026-11-22T05:39:37Z",
+  "source": [
+    {
+      "source_id": "SRC-002",
+      "name": "GTFS Realtime – Trip Updates",
+      "publisher": "Halifax Transit"
+    },
+    {
+      "source_id": "SRC-004",
+      "name": "GTFS Schedule (static) feed",
+      "publisher": "Halifax Transit"
+    }
+  ],
+  "reliability_tier": "Tier 1",
+  "licence": "Contains information licensed under the Open Government Licence – Halifax"
+}

@@ -1,0 +1,15 @@
+{
+  "data": {
+    "status": "ok",
+    "version": "0.1.0",
+    "database": {
+      "reachable": true,
+      "postgis_version": "3.7.0"
+    },
+    "gold_planned_stop_time": true
+  },
+  "as_of": "2026-11-21T23:15:04Z",
+  "source": [],
+  "reliability_tier": null,
+  "licence": "Contains information licensed under the Open Government Licence – Halifax"
+}

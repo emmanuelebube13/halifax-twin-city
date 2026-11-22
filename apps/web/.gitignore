@@ -1,0 +1,9 @@
+node_modules/
+dist/
+public/cesium/
+screenshots/
+test-results/
+playwright-report/
+.env.local
+.env.*.local
+*.log

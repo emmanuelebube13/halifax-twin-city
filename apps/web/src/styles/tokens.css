@@ -1,0 +1,105 @@
+/* Design tokens: "Harbour chart" (design/direction.md). Every text pair meets WCAG 2.2 AA; ratios are in the
+   direction note. Change a colour here, never in a component. */
+
+:root {
+  color-scheme: light;
+
+  /* chart table */
+  --paper: #f4f3ee;
+  --paper-2: #eceae2;
+  --surface: #ffffff;
+  --ink: #13232e;
+  --ink-soft: #4f5d66;
+  --line: #d6dad3;
+  --line-strong: #8a979e;
+  --fog-text: #e8edf0;
+  --fog-soft: #b8c6cc;
+
+  /* night harbour: the rail and the answer plate stay dark in both themes */
+  --night: #13232e;
+  --night-2: #1c3241;
+  --night-line: rgba(232, 237, 240, 0.16);
+  --on-night: #e8edf0;
+  --on-night-soft: #b8c6cc;
+
+  /* harbour */
+  --harbour: #0d5466;
+  --harbour-tint: #d9e7ec;
+  --harbour-on-ink: #8fd3e0;
+  --buoy: #f5b544;
+
+  /* status (always with a shape and a word) */
+  --status-on-time: #13232e;
+  --status-late: #b3410e;
+  --status-early: #13232e;
+  --status-unknown: #6b7580;
+  --late-tint: #f7e3d6;
+
+  /* plates over the map */
+  --plate: rgba(255, 255, 255, 0.94);
+  --plate-line: rgba(19, 35, 46, 0.14);
+  --shadow-1: 0 1px 2px rgba(19, 35, 46, 0.08), 0 2px 8px rgba(19, 35, 46, 0.08);
+  --shadow-2: 0 2px 4px rgba(19, 35, 46, 0.08), 0 12px 32px rgba(19, 35, 46, 0.16);
+
+  /* type */
+  --font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", monospace;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-body: 14px;
+  --fs-md: 16px;
+  --fs-q: 20px;
+  --fs-answer: 25px;
+  --fs-title: 22px;
+  --lh-tight: 1.25;
+  --lh-body: 1.45;
+
+  /* shape and space */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-pill: 999px;
+  --touch: 44px;
+  --rail-w: 100px;
+  --side-w: 408px;
+  --bar-h: 64px;
+
+  /* motion */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --t-fast: 120ms;
+  --t-panel: 180ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --night: #061118;
+    --night-2: #0f2430;
+    --paper: #0b1b23;
+    --paper-2: #10222b;
+    --surface: #12252f;
+    --ink: #e8edf0;
+    --ink-soft: #9fb0b8;
+    --line: #23394a;
+    --line-strong: #6f8792;
+    --harbour: #8fd3e0;
+    --harbour-tint: #173a47;
+    --status-on-time: #e8edf0;
+    --status-late: #ff8a50;
+    --status-early: #e8edf0;
+    --status-unknown: #9fb0b8;
+    --late-tint: #3a2216;
+    --plate: rgba(18, 37, 47, 0.94);
+    --plate-line: rgba(232, 237, 240, 0.14);
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
+    --shadow-2: 0 2px 4px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.5);
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --fs-body: 16px;
+    --fs-answer: 23px;
+    --fs-q: 19px;
+  }
+}

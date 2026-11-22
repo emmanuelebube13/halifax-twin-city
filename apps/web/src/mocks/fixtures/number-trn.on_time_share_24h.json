@@ -1,0 +1,38 @@
+{
+  "data": {
+    "id": "trn.on_time_share_24h",
+    "label": "On time by hour",
+    "value": 66.2,
+    "unit": "percent",
+    "window": "Last 24 hours, by hour",
+    "rule": "60 s early to 300 s late (interim, not yet decided)",
+    "series": [
+      {
+        "t": "2026-11-21T20:00:00Z",
+        "value": 68.1
+      },
+      {
+        "t": "2026-11-21T21:00:00Z",
+        "value": 61.4
+      },
+      {
+        "t": "2026-11-21T22:00:00Z",
+        "value": 63.0
+      },
+      {
+        "t": "2026-11-21T23:00:00Z",
+        "value": null
+      }
+    ]
+  },
+  "as_of": "2026-11-21T23:14:40Z",
+  "source": [
+    {
+      "source_id": "SRC-002",
+      "name": "GTFS Realtime – Trip Updates",
+      "publisher": "Halifax Transit"
+    }
+  ],
+  "reliability_tier": "Tier 1",
+  "licence": "Contains information licensed under the Open Government Licence – Halifax"
+}
