@@ -29,6 +29,20 @@ Tests (scratch database `halifax_twin_test_sector`, built with `CREATE DATABASE`
 .venv\Scripts\python -m pytest services\collector\hrm_arcgis --basetemp=C:\halifax-twin-data\tmp\pytest-sector
 ```
 
+## Scheduled refresh
+
+The layers change: HRM adds and edits closures every working day, and permits move through their statuses. Without a refresh, the "now" stories (PWK-Q13, PWK-Q16, TRN-Q25) would describe ageing data, and the dbt freshness check on SRC-015 fails after 72 hours.
+
+- `scripts\sector-refresh.ps1` runs the loader once for every layer (or `-Layers street_closures,sidewalk_closures`). It creates or reuses `services\collector\hrm_arcgis\.venv` with Python 3.12, reinstalls `requirements.txt` only when that file changes, appends to `<data root>\logs\sector_refresh_<yyyy-MM-dd>.log` (Halifax date), and exits non-zero if any layer failed. One failing layer does not stop the others, and a second copy exits while one is running. Paths are relative to the script, so it works from any checkout.
+- `scripts\sector-register-task.ps1` registers the Windows scheduled task "Halifax Twin sector refresh": the whole refresh every 6 hours at 01:15, 07:15, 13:15 and 19:15, while the user is logged on, 30-minute limit, no overlapping runs. That is about 21 requests a run and 84 a day, one second apart. It is written for the architect to run once by hand from the main checkout (`-Unregister` removes the task).
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\sector-refresh.ps1
+powershell -ExecutionPolicy Bypass -File scripts\sector-register-task.ps1
+```
+
+Run by hand on 22 Nov 2026 at 08:01: street closures 2,772 rows, sidewalk closures 241, permits 14,822 (2,160 not yet issued), every table `+0 ~0`, exit code 0.
+
 ## How it works
 
 1. **Fetch** (`arcgis.py`): `<layer>/query?where=1=1&outFields=<listed fields>&outSR=4326&f=geojson`, ordered by `OBJECTID`, 1,000 features a page, one second between pages, two retries on failure. Each page is saved gzipped as `bronze/<source>/<YYYY-MM-DD>/<layer>_<HHMMSS>_p<NNN>.geojson.gz` under the data root and logged as one `bronze.feed_fetch` row (committed at once, so failures are on record). Any failed page, or a total that differs from the layer's own count, stops that layer before silver is touched.
