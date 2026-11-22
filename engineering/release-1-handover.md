@@ -306,3 +306,12 @@ All in `C:\halifax-twin-data\worktrees\web\apps\web\screenshots\`:
 5. Should HRE-Q29 in 3D open on the urban core or on all permits?
 6. May the layer title become "Permits, 12 months" (three words)?
 7. Should the app cap ion use (for example, 3D off after a set number of loads a month), given the free plan's 1,000 root tiles and its non-commercial terms?
+
+### After the 3D test (22 Nov 2026, about 13:40)
+
+The tester passed this branch at 1ab1bf6 with three minor findings. Two are fixed in df2813c (lead re-ran: 91 unit tests pass, build succeeds; no ion used, tally 36 of 60 including the tester's 4 loads):
+
+1. With WebGL off, no uncaught page errors remain. The builder traced them to MapLibre's constructor, not Cesium's. The 2D map now catches its own creation failure and points to the list view; the 3D view checks WebGL before mounting and falls back to 2D on a render error. Checked by `apps/web/scripts/check-no-webgl.mjs` (11 of 11).
+2. The lens stays in the URL across a 3D to 2D switch, for live, replay and analytics, with story, selection and route.
+
+The third, the growing "Checked ..." age for permits and closures, remains until the sector refresh task is registered (section 9).
