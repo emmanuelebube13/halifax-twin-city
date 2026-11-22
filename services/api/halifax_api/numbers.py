@@ -158,7 +158,8 @@ def closures_by_month(db, cfg):
                           AND e.event_start_ts >= date_trunc('month', now() AT TIME ZONE 'America/Halifax')
                                                   - interval '11 months'
                         GROUP BY 1 ORDER BY 1""")
-    series = [{"t": m, "value": n} for m, n in rows]
+    this_month = db.fetch_one(f"SELECT to_char({HALIFAX_TODAY}, 'YYYY-MM')")[0]
+    series = [{"t": m, "value": n, **({"partial": True} if m == this_month else {})} for m, n in rows]
     return (series[-1]["value"] if series else 0), series, loaded
 
 
@@ -184,16 +185,27 @@ def units_created_ytd(db, cfg):
     return (json_value(r[0]) if r[1] else None), None, loaded
 
 
+def _year_point(year: int, value, first_date, first_year: int, this_year: int) -> dict:
+    """A yearly series point. partial: true when the data covers only part of the year: the current year
+    to date, or the first year when the source starts after January (the permit source starts on
+    22 Dec 2020, so 2020 holds only a few days)."""
+    point = {"t": str(year), "value": value}
+    if year == this_year or (year == first_year and first_date is not None and first_date.month > 1):
+        point["partial"] = True
+    return point
+
+
 def permits_by_year(db, cfg):
     loaded = _type_loaded(db, "Building Permit")
     if loaded is None:
         return None, [], None
-    rows = db.fetch("""SELECT extract(year FROM e.event_date)::int, count(*)
+    rows = db.fetch("""SELECT extract(year FROM e.event_date)::int, count(*), min(e.event_date)
                          FROM silver.event e WHERE e.event_type_code = 'Building Permit'
                         GROUP BY 1 ORDER BY 1""")
     this_year = db.fetch_one(f"SELECT extract(year FROM {HALIFAX_TODAY})::int")[0]
-    series = [{"t": str(y), "value": n} for y, n in rows]
-    value = next((n for y, n in rows if y == this_year), 0)
+    first_year = rows[0][0] if rows else None
+    series = [_year_point(y, n, first, first_year, this_year) for y, n, first in rows]
+    value = next((n for y, n, _ in rows if y == this_year), 0)
     return value, series, loaded
 
 
@@ -613,18 +625,21 @@ def units_created_by_year(db, cfg):
     if loaded is None:
         return None, [], None
     rows = db.fetch("""SELECT extract(year FROM e.event_date)::int, sum(bp.units_created_count),
-                              count(bp.units_created_count)
+                              count(bp.units_created_count), min(e.event_date)
                          FROM silver.event e JOIN silver.building_permit bp ON bp.event_id = e.event_id
                         WHERE e.event_type_code = 'Building Permit'
                         GROUP BY 1 ORDER BY 1""")
     this_year = db.fetch_one(f"SELECT extract(year FROM {HALIFAX_TODAY})::int")[0]
-    series = [{"t": str(y), "value": (json_value(total) if filled else None)} for y, total, filled in rows]
+    first_year = rows[0][0] if rows else None
+    series = [_year_point(y, json_value(total) if filled else None, first, first_year, this_year)
+              for y, total, filled, first in rows]
     value = next((p["value"] for p in series if p["t"] == str(this_year)), None)
     return value, series, loaded
 
 
 ISSUE_TO_COMPLETION = """
-SELECT {group}, percentile_cont(0.5) WITHIN GROUP (ORDER BY (e.event_end_ts - e.event_start_ts)), count(*)
+SELECT {group}, percentile_cont(0.5) WITHIN GROUP (ORDER BY (e.event_end_ts - e.event_start_ts)), count(*),
+       min((e.event_end_ts AT TIME ZONE 'America/Halifax')::date)
   FROM silver.event e
  WHERE e.event_type_code = 'Building Permit' AND e.event_end_ts IS NOT NULL AND e.event_end_ts >= e.event_start_ts
    {where}
@@ -651,7 +666,9 @@ def issue_to_completion_by_year(db, cfg):
         return None, [], None
     rows = db.fetch(ISSUE_TO_COMPLETION.format(
         group="extract(year FROM e.event_end_ts AT TIME ZONE 'America/Halifax')::int", where=""))
-    series = [{"t": str(y), "value": _days(d)} for y, d, _ in rows]
+    this_year = db.fetch_one(f"SELECT extract(year FROM {HALIFAX_TODAY})::int")[0]
+    first_year = rows[0][0] if rows else None
+    series = [_year_point(y, _days(d), first, first_year, this_year) for y, d, _, first in rows]
     return (series[-1]["value"] if series else None), series, loaded
 
 
