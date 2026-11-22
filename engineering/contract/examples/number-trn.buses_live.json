@@ -1,0 +1,19 @@
+{
+  "data": {
+    "id": "trn.buses_live",
+    "label": "Buses on the road",
+    "value": 118,
+    "unit": "buses",
+    "window": "Reported in the last 3 minutes"
+  },
+  "as_of": "2026-11-21T23:14:58Z",
+  "source": [
+    {
+      "source_id": "SRC-001",
+      "name": "GTFS Realtime – Vehicle Positions",
+      "publisher": "Halifax Transit"
+    }
+  ],
+  "reliability_tier": "Tier 1",
+  "licence": "Contains information licensed under the Open Government Licence – Halifax"
+}

@@ -1,0 +1,48 @@
+{
+  "data": {
+    "type": "FeatureCollection",
+    "layer": "building-permits",
+    "features": [
+      {
+        "type": "Feature",
+        "id": 61207,
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            -63.6125,
+            44.6702
+          ]
+        },
+        "properties": {
+          "kind": "event",
+          "sector_id": "S09",
+          "subsector_id": "HRE-09",
+          "id": 61207,
+          "source_key": "BP-2026-04411",
+          "source_id": "SRC-066",
+          "event_type_code": "Building Permit",
+          "event_status_code": "Issued",
+          "event_start_ts": "2026-10-03T14:20:00Z",
+          "event_end_ts": null,
+          "event_date": "2026-10-03",
+          "location_name": "3700 Kempt Rd",
+          "permit_type_code": "New construction",
+          "work_description": "Six-storey residential building",
+          "construction_value_amount": 18250000.0,
+          "units_created_count": 84,
+          "units_removed_count": 0
+        }
+      }
+    ]
+  },
+  "as_of": "2026-11-21T06:00:12Z",
+  "source": [
+    {
+      "source_id": "SRC-066",
+      "name": "PPL&C Issued Building Permits; Permits Geolocated; Construction Permits",
+      "publisher": "Halifax Regional Municipality"
+    }
+  ],
+  "reliability_tier": "Tier 1",
+  "licence": "Contains information licensed under the Open Government Licence – Halifax"
+}

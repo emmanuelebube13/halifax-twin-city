@@ -1,0 +1,703 @@
+openapi: 3.1.0
+info:
+  title: Halifax Digital Twin serving API
+  version: 0.1.0
+  summary: Contract v0. Read-only. Every response uses the same envelope.
+  description: |
+    Contract v0 from the Map Application Plan V1 and the release 1 build plan (section 6).
+
+    Rules that hold for every endpoint:
+
+    - Read-only. Only GET is offered.
+    - Every response body, including errors, is an `Envelope`: `data`, `as_of`, `source`,
+      `reliability_tier`, `licence`. Errors add `error` and set `data` to null.
+    - Times are ISO 8601 in UTC with a `Z` suffix. The web app shows them in Halifax time, 24-hour clock.
+    - `as_of` is the time the data was last true (newest record or last load). It is null when there is no data yet.
+    - Empty layers, empty lists and null numbers are valid answers while loaders are still filling the database.
+    - Every map feature carries the conformed-core keys in `properties`: `kind` (location, asset or event),
+      `sector_id`, `subsector_id`, `id` and `source_key`.
+    - One failing source answers with its own error (HTTP 503, `error.code` = `source_unavailable`)
+      and never breaks other layers. Raw exception text is never returned.
+
+    Endpoints marked "proposed addition" are not in the seven-endpoint contract and await the architect's
+    approval: `/v1/sectors` and `/v1/replay/{layer}`. `/v1/health` and `/v1/client-config` are operational
+    endpoints outside the contract.
+  license:
+    name: Data under the Open Government Licence – Halifax
+servers:
+  - url: http://127.0.0.1:8010
+    description: Local build machine
+tags:
+  - name: contract
+    description: The seven contract v0 endpoints
+  - name: proposed
+    description: Proposed additions, awaiting the architect's approval
+  - name: operational
+    description: Outside the contract
+
+paths:
+  /v1/stories:
+    get:
+      tags: [contract]
+      operationId: listStories
+      summary: The story register
+      responses:
+        "200":
+          description: Every configured story
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StoryListResponse" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /v1/stories/{id}:
+    get:
+      tags: [contract]
+      operationId: getStory
+      summary: One story's configuration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Question id, for example TRN-Q01
+          schema: { type: string, pattern: "^[A-Z]{3}-Q[0-9]{2}$" }
+      responses:
+        "200":
+          description: The story
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StoryResponse" }
+        "404": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /v1/live/{layer}:
+    get:
+      tags: [contract]
+      operationId: getLiveLayer
+      summary: Current features of a live layer (release 1, vehicles)
+      parameters:
+        - name: layer
+          in: path
+          required: true
+          schema: { type: string, enum: [vehicles] }
+      responses:
+        "200":
+          description: GeoJSON FeatureCollection. Vehicles reported in the live window (3 minutes).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VehicleCollectionResponse" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /v1/layers/{layer}:
+    get:
+      tags: [contract]
+      operationId: getLayer
+      summary: A static or analytic layer as GeoJSON
+      description: |
+        Release 1 layers: routes, stops, road-closures, building-permits. A layer is configuration
+        (`config/layers.json`): a kind, a type code and a subsector, so a new sector adds a layer, not code.
+        road-closures holds closures in effect now; building-permits holds permits from the last 365 days.
+      parameters:
+        - name: layer
+          in: path
+          required: true
+          schema: { type: string, enum: [routes, stops, road-closures, building-permits] }
+        - name: bbox
+          in: query
+          required: false
+          description: west,south,east,north in degrees (EPSG:4326)
+          schema: { type: string, pattern: "^-?[0-9.]+,-?[0-9.]+,-?[0-9.]+,-?[0-9.]+$" }
+          example: "-63.70,44.60,-63.50,44.72"
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 10000, default: 5000 }
+      responses:
+        "200":
+          description: GeoJSON FeatureCollection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FeatureCollectionResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /v1/numbers/{id}:
+    get:
+      tags: [contract]
+      operationId: getNumber
+      summary: A number or short series for an answer sentence or chart
+      description: |
+        Release 1: trn.buses_live, trn.on_time_share, trn.on_time_count, trn.late_count, trn.early_count,
+        trn.on_time_share_24h (series by hour), trn.trips_planned_today, pwk.closures_active, hre.permits_ytd,
+        hre.units_created_ytd, hre.permits_by_year (series). `value` is null when there is no data yet.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[a-z]{3}\\.[a-z0-9_]+$" }
+      responses:
+        "200":
+          description: The number
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NumberResponse" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /v1/features/{kind}/{id}:
+    get:
+      tags: [contract]
+      operationId: getFeature
+      summary: Detail and recent history for one location, asset or event
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          schema: { type: string, enum: [location, asset, event] }
+        - name: id
+          in: path
+          required: true
+          description: The surrogate key (location_id, asset_id or event_id)
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: One GeoJSON Feature with a `history` member
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FeatureDetailResponse" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /v1/sources:
+    get:
+      tags: [contract]
+      operationId: listSources
+      summary: Every source with licence, last successful load, tier and status
+      description: |
+        status: ok, stale (live feed with no successful load for 2 minutes, or a periodic source past
+        its cadence), down (last attempt failed), unknown (never loaded).
+      responses:
+        "200":
+          description: Sources
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SourceListResponse" }
+        "503": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /v1/sectors:
+    get:
+      tags: [proposed]
+      operationId: listSectors
+      summary: The sector register (proposed addition)
+      description: 17 sectors in 5 groups, default pins, question counts, status live or planned.
+      responses:
+        "200":
+          description: The register
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SectorRegisterResponse" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /v1/replay/{layer}:
+    get:
+      tags: [proposed]
+      operationId: getReplay
+      summary: Recent positions for the Replay lens (proposed addition)
+      parameters:
+        - name: layer
+          in: path
+          required: true
+          schema: { type: string, enum: [vehicles] }
+        - name: minutes
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 60, default: 30 }
+      responses:
+        "200":
+          description: Tracks, each position as [epoch milliseconds, longitude, latitude]
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReplayResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /v1/health:
+    get:
+      tags: [operational]
+      operationId: getHealth
+      summary: Is the API up, and can it reach the database
+      responses:
+        "200":
+          description: Always 200 while the process runs; read data.status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HealthResponse" }
+
+  /v1/client-config:
+    get:
+      tags: [operational]
+      operationId: getClientConfig
+      summary: Settings the web app needs
+      description: |
+        Business rules for display, refresh and stale thresholds, and whether 3D is available.
+        The Cesium ion token is included only when the request comes from this computer
+        (127.0.0.1 or ::1, and no foreign Origin); otherwise `cesium_ion_token` is null.
+      responses:
+        "200":
+          description: The settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ClientConfigResponse" }
+
+components:
+  responses:
+    Error:
+      description: An error, in the envelope, with data null
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  schemas:
+    Timestamp:
+      type: string
+      format: date-time
+      pattern: "Z$"
+      description: ISO 8601, UTC
+
+    NullableTimestamp:
+      oneOf:
+        - { $ref: "#/components/schemas/Timestamp" }
+        - { type: "null" }
+
+    SourceRef:
+      type: object
+      required: [source_id, name, publisher]
+      properties:
+        source_id: { type: string, examples: ["SRC-001"] }
+        name: { type: string }
+        publisher: { type: [string, "null"] }
+
+    ErrorInfo:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [not_found, bad_request, source_unavailable, internal_error]
+        message:
+          type: string
+          description: Plain sentence for people. Never raw exception text.
+
+    Envelope:
+      type: object
+      required: [data, as_of, source, reliability_tier, licence]
+      properties:
+        data: {}
+        as_of: { $ref: "#/components/schemas/NullableTimestamp" }
+        source:
+          type: array
+          items: { $ref: "#/components/schemas/SourceRef" }
+        reliability_tier:
+          type: [string, "null"]
+          description: The weakest tier among the sources, for example "Tier 1"
+        licence:
+          type: string
+          examples: ["Contains information licensed under the Open Government Licence – Halifax"]
+        error: { $ref: "#/components/schemas/ErrorInfo" }
+
+    ErrorResponse:
+      allOf:
+        - { $ref: "#/components/schemas/Envelope" }
+        - type: object
+          required: [error]
+          properties:
+            data: { type: "null" }
+
+    # ---------- GeoJSON ----------
+    Geometry:
+      type: [object, "null"]
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [Point, MultiPoint, LineString, MultiLineString, Polygon, MultiPolygon, GeometryCollection]
+        coordinates: { type: array }
+        geometries: { type: array }
+
+    CoreProperties:
+      type: object
+      required: [kind, sector_id, subsector_id, id, source_key]
+      properties:
+        kind: { type: string, enum: [location, asset, event] }
+        sector_id: { type: [string, "null"], examples: ["S04"] }
+        subsector_id: { type: [string, "null"], examples: ["TRN-01"] }
+        id: { type: integer }
+        source_key: { type: [string, "null"] }
+        source_id: { type: [string, "null"] }
+      additionalProperties: true
+
+    Feature:
+      type: object
+      required: [type, id, geometry, properties]
+      properties:
+        type: { const: Feature }
+        id: { type: integer }
+        geometry: { $ref: "#/components/schemas/Geometry" }
+        properties: { $ref: "#/components/schemas/CoreProperties" }
+
+    FeatureCollection:
+      type: object
+      required: [type, features]
+      properties:
+        type: { const: FeatureCollection }
+        features:
+          type: array
+          items: { $ref: "#/components/schemas/Feature" }
+        layer: { type: string }
+        limit_reached:
+          type: boolean
+          description: True when `limit` cut the layer short
+
+    VehicleProperties:
+      allOf:
+        - { $ref: "#/components/schemas/CoreProperties" }
+        - type: object
+          required: [label, route_short_name, headsign, status, delay_seconds, next_stop_name, bearing, position_ts]
+          properties:
+            kind: { const: asset }
+            label: { type: [string, "null"] }
+            route_short_name: { type: [string, "null"] }
+            route_long_name: { type: [string, "null"] }
+            route_id: { type: [integer, "null"], description: asset_id of the route }
+            trip_id: { type: [integer, "null"], description: event_id of the trip }
+            headsign: { type: [string, "null"] }
+            status: { type: string, enum: [on_time, late, early, unknown] }
+            delay_seconds: { type: [integer, "null"], description: Positive is late }
+            next_stop_name: { type: [string, "null"] }
+            bearing: { type: [number, "null"], description: Degrees clockwise from north }
+            speed_metres_per_second: { type: [number, "null"] }
+            position_ts: { $ref: "#/components/schemas/Timestamp" }
+
+    VehicleFeature:
+      allOf:
+        - { $ref: "#/components/schemas/Feature" }
+        - type: object
+          properties:
+            geometry:
+              type: object
+              required: [type, coordinates]
+              properties:
+                type: { const: Point }
+                coordinates: { type: array, minItems: 2, maxItems: 2, items: { type: number } }
+            properties: { $ref: "#/components/schemas/VehicleProperties" }
+
+    VehicleCollection:
+      allOf:
+        - { $ref: "#/components/schemas/FeatureCollection" }
+        - type: object
+          properties:
+            features:
+              type: array
+              items: { $ref: "#/components/schemas/VehicleFeature" }
+
+    HistoryItem:
+      type: object
+      required: [t, type, label]
+      properties:
+        t: { $ref: "#/components/schemas/Timestamp" }
+        type: { type: string, description: "For example Stop Arrival, Position, Version" }
+        label: { type: string }
+        properties: { type: object }
+
+    FeatureDetail:
+      allOf:
+        - { $ref: "#/components/schemas/Feature" }
+        - type: object
+          required: [history]
+          properties:
+            history:
+              type: array
+              items: { $ref: "#/components/schemas/HistoryItem" }
+
+    # ---------- Stories ----------
+    Lens:
+      type: string
+      enum: [live, replay, analytics]
+
+    StorySummary:
+      type: object
+      required: [id, question, sector_id, subsector_id, lenses, status]
+      properties:
+        id: { type: string, examples: ["TRN-Q01"] }
+        question: { type: string }
+        sector_id: { type: string }
+        subsector_id: { type: string }
+        lenses:
+          type: array
+          items: { $ref: "#/components/schemas/Lens" }
+        status: { type: string, enum: [live, planned] }
+
+    LegendItem:
+      type: object
+      required: [value, label]
+      properties:
+        value: { type: string, description: The property value this entry describes }
+        label: { type: string }
+        shape: { type: string, enum: [disc, diamond, ring, square, line, area] }
+
+    EvidenceLayer:
+      type: object
+      required: [layer, path, legend]
+      properties:
+        layer: { type: string }
+        path: { type: string, enum: [live, layers] }
+        title: { type: string }
+        property: { type: [string, "null"], description: The feature property the legend is keyed on }
+        legend:
+          type: array
+          items: { $ref: "#/components/schemas/LegendItem" }
+
+    Story:
+      allOf:
+        - { $ref: "#/components/schemas/StorySummary" }
+        - type: object
+          required: [answer, evidence, context, trust]
+          properties:
+            title: { type: string }
+            answer:
+              type: object
+              required: [template, numbers]
+              properties:
+                template:
+                  type: string
+                  description: Sentence with {number_id} placeholders, filled from /v1/numbers
+                numbers:
+                  type: array
+                  items: { type: string }
+                empty_text: { type: string, description: Shown when every number is null }
+            evidence:
+              type: object
+              required: [layers]
+              properties:
+                layers:
+                  type: array
+                  items: { $ref: "#/components/schemas/EvidenceLayer" }
+            context:
+              type: object
+              required: [number_id, title]
+              properties:
+                number_id: { type: string }
+                title: { type: string }
+            trust:
+              type: object
+              required: [source_ids]
+              properties:
+                source_ids:
+                  type: array
+                  items: { type: string }
+                note: { type: string }
+
+    # ---------- Numbers ----------
+    SeriesPoint:
+      type: object
+      required: [t, value]
+      properties:
+        t: { type: string, description: "Start of the bucket: a UTC timestamp, or a year as YYYY" }
+        value: { type: [number, "null"] }
+
+    Number:
+      type: object
+      required: [id, label, value, unit]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        value: { type: [number, "null"] }
+        unit: { type: string, examples: ["buses", "percent", "arrivals"] }
+        window: { type: string, description: The period the number covers, in words }
+        rule: { type: string, description: The business rule applied, if any }
+        series:
+          type: array
+          items: { $ref: "#/components/schemas/SeriesPoint" }
+
+    # ---------- Sources ----------
+    SourceStatus:
+      type: object
+      required: [source_id, dataset_name, publisher, licence, reliability_tier, last_loaded_ts, status]
+      properties:
+        source_id: { type: string }
+        dataset_name: { type: string }
+        publisher: { type: [string, "null"] }
+        licence: { type: string }
+        reliability_tier: { type: string }
+        last_loaded_ts: { $ref: "#/components/schemas/NullableTimestamp" }
+        last_attempt_ts: { $ref: "#/components/schemas/NullableTimestamp" }
+        status: { type: string, enum: [ok, stale, down, unknown] }
+        cadence_code: { type: [string, "null"] }
+        source_url: { type: [string, "null"] }
+
+    # ---------- Sectors ----------
+    Sector:
+      type: object
+      required: [sector_id, name, group_id, pinned, question_count, status]
+      properties:
+        sector_id: { type: string }
+        name: { type: string }
+        group_id: { type: string }
+        pinned: { type: boolean, description: Pinned by default }
+        question_count: { type: [integer, "null"] }
+        status: { type: string, enum: [live, planned] }
+        phase_number: { type: [integer, "null"] }
+        story_ids:
+          type: array
+          items: { type: string }
+
+    SectorGroup:
+      type: object
+      required: [group_id, name, sector_ids]
+      properties:
+        group_id: { type: string }
+        name: { type: string }
+        sector_ids:
+          type: array
+          items: { type: string }
+
+    SectorRegister:
+      type: object
+      required: [max_pins, groups, sectors]
+      properties:
+        max_pins: { type: integer }
+        groups:
+          type: array
+          items: { $ref: "#/components/schemas/SectorGroup" }
+        sectors:
+          type: array
+          items: { $ref: "#/components/schemas/Sector" }
+
+    # ---------- Replay ----------
+    ReplayTrack:
+      type: object
+      required: [id, label, route_short_name, positions]
+      properties:
+        id: { type: integer, description: asset_id of the vehicle }
+        label: { type: [string, "null"] }
+        route_short_name: { type: [string, "null"] }
+        positions:
+          type: array
+          items:
+            type: array
+            description: "[epoch milliseconds, longitude, latitude]"
+            minItems: 3
+            maxItems: 3
+            items: { type: number }
+
+    Replay:
+      type: object
+      required: [layer, minutes, from, to, tracks]
+      properties:
+        layer: { type: string }
+        minutes: { type: integer }
+        from: { $ref: "#/components/schemas/Timestamp" }
+        to: { $ref: "#/components/schemas/Timestamp" }
+        tracks:
+          type: array
+          items: { $ref: "#/components/schemas/ReplayTrack" }
+
+    # ---------- Operational ----------
+    Health:
+      type: object
+      required: [status, version, database]
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        version: { type: string }
+        database:
+          type: object
+          required: [reachable]
+          properties:
+            reachable: { type: boolean }
+            postgis_version: { type: [string, "null"] }
+        gold_planned_stop_time:
+          type: boolean
+          description: Whether gold.planned_stop_time(day) is installed
+
+    ClientConfig:
+      type: object
+      required: [three_d_available, cesium_ion_token, time_zone, stale_after_seconds, live_refresh_seconds, business_rules]
+      properties:
+        three_d_available: { type: boolean }
+        three_d_note: { type: [string, "null"] }
+        cesium_ion_token: { type: [string, "null"] }
+        cesium_photorealistic_asset_id: { type: [integer, "null"] }
+        time_zone: { type: string, examples: ["America/Halifax"] }
+        stale_after_seconds: { type: integer }
+        live_refresh_seconds: { type: integer }
+        business_rules: { type: object }
+        attribution: { type: string }
+
+    # ---------- Responses ----------
+    StoryListResponse:
+      allOf:
+        - { $ref: "#/components/schemas/Envelope" }
+        - properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/StorySummary" }
+    StoryResponse:
+      allOf:
+        - { $ref: "#/components/schemas/Envelope" }
+        - properties:
+            data: { $ref: "#/components/schemas/Story" }
+    VehicleCollectionResponse:
+      allOf:
+        - { $ref: "#/components/schemas/Envelope" }
+        - properties:
+            data: { $ref: "#/components/schemas/VehicleCollection" }
+    FeatureCollectionResponse:
+      allOf:
+        - { $ref: "#/components/schemas/Envelope" }
+        - properties:
+            data: { $ref: "#/components/schemas/FeatureCollection" }
+    NumberResponse:
+      allOf:
+        - { $ref: "#/components/schemas/Envelope" }
+        - properties:
+            data: { $ref: "#/components/schemas/Number" }
+    FeatureDetailResponse:
+      allOf:
+        - { $ref: "#/components/schemas/Envelope" }
+        - properties:
+            data: { $ref: "#/components/schemas/FeatureDetail" }
+    SourceListResponse:
+      allOf:
+        - { $ref: "#/components/schemas/Envelope" }
+        - properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/SourceStatus" }
+    SectorRegisterResponse:
+      allOf:
+        - { $ref: "#/components/schemas/Envelope" }
+        - properties:
+            data: { $ref: "#/components/schemas/SectorRegister" }
+    ReplayResponse:
+      allOf:
+        - { $ref: "#/components/schemas/Envelope" }
+        - properties:
+            data: { $ref: "#/components/schemas/Replay" }
+    HealthResponse:
+      allOf:
+        - { $ref: "#/components/schemas/Envelope" }
+        - properties:
+            data: { $ref: "#/components/schemas/Health" }
+    ClientConfigResponse:
+      allOf:
+        - { $ref: "#/components/schemas/Envelope" }
+        - properties:
+            data: { $ref: "#/components/schemas/ClientConfig" }

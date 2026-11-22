@@ -1,0 +1,11 @@
+{
+  "data": null,
+  "as_of": null,
+  "source": [],
+  "reliability_tier": null,
+  "licence": "Contains information licensed under the Open Government Licence – Halifax",
+  "error": {
+    "code": "not_found",
+    "message": "There is no layer called parking."
+  }
+}
