@@ -21,6 +21,12 @@
 - Before a decision is taken: write it as a proposal in `engineering/decisions/` using the template in its README; the architect turns it into "decided".
 - Picking the next piece of work after release 1: `engineering/task-cards-v2.md`, "Order of work".
 
+## The project site (`site/`, added by scope addendum)
+
+A static GitHub Pages site: plain HTML, CSS and a few lines of script, with no build step. Open `site/index.html` in a browser to see it. Its design is a harbour chart in fog: chart paper and ink, depth contours and soundings in IBM Plex Mono, port red and starboard green as the only accents, and an amber for Atlantic light. Every colour is a token on `:root`, with a dark set. All text colours were checked at 4.5:1 or better, and borders at 3:1 or better, in both themes. The 13 questions are copied word for word from the register, and a script checks them against the workbook.
+
+`.github/workflows/pages.yml` can deploy `site/` with the official Pages actions. It runs only when started by hand, and only after Pages is turned on in the repository settings. That choice stays with the architect.
+
 ## Exercise for the architect
 
 Practise the "decision record" habit on one real decision.
