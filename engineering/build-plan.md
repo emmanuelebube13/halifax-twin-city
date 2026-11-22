@@ -181,3 +181,10 @@ After release 1: M01 model tooling; Replay lens; the twin's own 3D model; remain
 1. A rotated Cesium ion token, set as the user environment variable `CESIUM_ION_TOKEN` on this machine (not pasted into a chat). Without it the release is 2D only.
 2. Approval of the two proposed contract additions (section 6).
 3. Review and merge of the pull requests.
+
+## 11. Scope changes during the build (21 and 22 Nov 2026)
+
+Two scope changes reached the lead session on 21 Nov 2026 as messages from the session that wrote the lead prompt, which said the architect had approved them. The lead acted on them and records them here so the architect can confirm or reverse them at review.
+
+1. **Thirteen stories instead of three.** The original three (TRN-Q01, PWK-Q13, HRE-Q29) come first. Added on data already being loaded: TRN-Q02, TRN-Q03, TRN-Q04, TRN-Q05, TRN-Q11 (bus feed and schedule, gold measures by B); PWK-Q16, TRN-Q25, TRN-Q09 (road closures); HRE-Q08, HRE-Q30 (building permits). The numbers and layers these stories need are added to section 6 with the envelope and endpoint shapes unchanged; spatial joins between closures and bus routes live in the API, not silver. A story without enough history or without a source field ships with a status ("collecting data", "source incomplete") and never a made-up answer.
+2. **Project Tracker deliverables and design.** New workstream F, branch `m01-model-deliverables`, owns `engineering/model/` (source-to-target mapping, data dictionary, standards and data quality rules), `transform/dbt/` (read-only dbt checks) and new generator scripts. D adds unverified Docker files for the API (Docker is not installed). A adds a GitHub Pages project site in `site/` and a manual workflow, not enabled. E writes `apps/web/design/direction.md` and runs at least two rounds of independent design critique.
