@@ -7,7 +7,7 @@ import { api } from "../api/client";
 import { usePoll } from "../api/hooks";
 import type { BusStatus, Kind, Sector, StorySummary, VehicleProperties } from "../api/types";
 import { t } from "../i18n";
-import { formatCount, formatDate, formatDateTime, formatDelay, formatMoney, NO_VALUE } from "../lib/format";
+import { formatCount, formatDate, formatDateTime, formatDelay, formatDuration, formatMoney, NO_VALUE } from "../lib/format";
 import { busStatus } from "../lib/status";
 import { featureName, lookFor } from "../map/registry";
 import { Icon, LayerMark, SectorIcon, StatusMark } from "./icons";
@@ -35,9 +35,15 @@ export function StoryCard({ story, sectorName, onOpen, active }: { story: StoryS
   );
 }
 
+const SECTOR_ORDER = ["S04", "S05", "S09"];
+
 function orderStories(list: StorySummary[]): StorySummary[] {
   const rank = (s: StorySummary) => (s.status === "live" ? 0 : s.status === "collecting_data" ? 1 : s.status === "source_incomplete" ? 2 : 3);
-  return [...list].sort((a, b) => rank(a) - rank(b) || a.id.localeCompare(b.id));
+  const sec = (s: StorySummary) => {
+    const i = SECTOR_ORDER.indexOf(s.sector_id);
+    return i < 0 ? 99 : i;
+  };
+  return [...list].sort((a, b) => rank(a) - rank(b) || sec(a) - sec(b) || a.id.localeCompare(b.id));
 }
 
 export function CityPanel({
@@ -53,23 +59,30 @@ export function CityPanel({
 }) {
   const total = counts.reduce((n, c) => n + c.layers.reduce((m, l) => m + l.count, 0), 0);
   const anyLoading = counts.some((c) => c.layers.some((l) => l.loading));
-  const withData = counts.filter((c) => c.layers.some((l) => l.count > 0)).length;
   return (
     <div className="panel-body">
       <header className="city-head">
         <h1 className="panel-title">{t("city.title")}</h1>
         <div className="answer-plate answer-plate--city" aria-live="polite">
-          <p className="answer-text">
-            {anyLoading && total === 0 ? (
-              t("story.loading")
-            ) : total === 0 ? (
-              t("city.summaryNone")
-            ) : (
-              <>
-                <strong className="answer-num">{formatCount(total)}</strong> {withData === 1 ? t("city.summaryOne") : t("city.summaryRest", { sectors: withData })}
-              </>
-            )}
-          </p>
+          {anyLoading && total === 0 ? (
+            <p className="answer-text">{t("story.loading")}</p>
+          ) : total === 0 ? (
+            <p className="answer-text">{t("city.summaryNone")}</p>
+          ) : (
+            <>
+              <p className="answer-kicker">{t("city.readout")}</p>
+              <dl className="readout">
+                {counts.flatMap((c) =>
+                  c.layers.map((l) => (
+                    <div key={l.name} className="readout-row">
+                      <dt>{l.title}</dt>
+                      <dd className="answer-num">{formatCount(l.count)}</dd>
+                    </div>
+                  )),
+                )}
+              </dl>
+            </>
+          )}
           {foot}
         </div>
       </header>
@@ -135,6 +148,16 @@ function destination(headsign: string | null, route: string | null): string {
   return headsign;
 }
 
+/** "Late, 7 min late" reads badly: say the status, then the delay in words that cannot contradict it. */
+export function statusPhrase(status: BusStatus, delay: number | null | undefined): string {
+  if (typeof delay !== "number" || status === "unknown") return t(`status.${status}`);
+  if (status === "on_time") {
+    if (Math.abs(delay) < 1) return t("status.on_time");
+    return t(delay > 0 ? "status.onTimeBehind" : "status.onTimeAhead", { duration: formatDuration(delay) });
+  }
+  return formatDelay(delay).replace(/^./, (c) => c.toUpperCase());
+}
+
 export function busTitle(p: VehicleProperties): string {
   if (!p.route_short_name) return t("bus.titleNoTrip", { label: p.label ?? String(p.id) });
   return t("bus.title", { route: p.route_short_name, headsign: destination(p.headsign, p.route_short_name) });
@@ -194,8 +217,9 @@ export function FeatureCard({
     if (!phone || !ref.current) return;
     const body = ref.current.closest(".sheet-body") as HTMLElement | null;
     if (!body) return;
-    const top = ref.current.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop - 8;
-    body.scrollTo({ top, behavior: "auto" });
+    const card = ref.current.getBoundingClientRect();
+    const view = body.getBoundingClientRect();
+    if (card.bottom > view.bottom) body.scrollTop += card.bottom - view.bottom + 12;
   }, [phone, selKey]);
   return (
     <section ref={ref} className={`feature-card${phone ? " feature-card--phone" : ""}`} aria-label={title}>
@@ -206,13 +230,13 @@ export function FeatureCard({
       )}
       <p className="feature-card-kind">
         {!isBus && <LayerMark look={lookFor(layer)} />} {kindLabel(layer, layerTitle)}
-        {isBus && v.label && <span className="mono"> {v.label}</span>}
+        {isBus && v.label && v.route_short_name && <span className="mono"> {v.label}</span>}
       </p>
       <h2 className="feature-card-title">{title}</h2>
       {isBus && status && (
         <p className={`feature-card-status status-text--${status}`}>
           <StatusMark status={status} />
-          <span>{v.delay_seconds !== null && v.delay_seconds !== undefined && status !== "unknown" ? `${t(`status.${status}`)} (${formatDelay(v.delay_seconds)})` : t(`status.${status}`)}</span>
+          <span>{statusPhrase(status, v.delay_seconds)}</span>
         </p>
       )}
       {isBus ? (

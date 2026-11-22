@@ -11,10 +11,10 @@ export const PMTILES_URL = `${TILES_BASE}/halifax.pmtiles`;
 const LIGHT: Partial<Flavor> = {
   background: "#e9ebe5",
   earth: "#eceee8",
-  park_a: "#dfe6d8",
-  park_b: "#d6e0cf",
-  wood_a: "#dce4d4",
-  wood_b: "#d3ddcb",
+  park_a: "#e1e6da",
+  park_b: "#dce2d4",
+  wood_a: "#dfe4d8",
+  wood_b: "#d9dfd2",
   scrub_a: "#e1e6da",
   scrub_b: "#dbe2d3",
   hospital: "#ece6e4",
@@ -28,7 +28,7 @@ const LIGHT: Partial<Flavor> = {
   runway: "#d9dcd5",
   zoo: "#dfe6d8",
   military: "#e4e5e0",
-  water: "#9ec3cc",
+  water: "#8fb9c4",
   pier: "#d9dbd4",
   buildings: "#dcdfd8",
   other: "#f7f7f3",
@@ -37,7 +37,7 @@ const LIGHT: Partial<Flavor> = {
   minor_b: "#fbfbf8",
   link: "#f4ecd9",
   major: "#fdfcf8",
-  highway: "#efe2c4",
+  highway: "#f1e8d4",
   minor_service_casing: "#d5d8d1",
   minor_casing: "#d5d8d1",
   link_casing: "#d2c9b4",
@@ -59,7 +59,7 @@ const LIGHT: Partial<Flavor> = {
   bridges_minor: "#fbfbf8",
   bridges_link: "#f4ecd9",
   bridges_major: "#fdfcf8",
-  bridges_highway: "#efe2c4",
+  bridges_highway: "#f1e8d4",
   bridges_other_casing: "#b9beb6",
   bridges_minor_casing: "#b9beb6",
   bridges_link_casing: "#b9beb6",
@@ -188,7 +188,9 @@ export function harbourStyle(dark: boolean): StyleSpecification {
 
 /** The interface rules forbid all-capital labels: drop the basemap's uppercase transforms. */
 function sentenceCase(list: StyleSpecification["layers"]): StyleSpecification["layers"] {
-  return list.map((l) => {
+  return list.map((l0) => {
+    let l = l0;
+    if (/roads_labels_minor/.test(l.id)) l = { ...l, minzoom: Math.max((l as { minzoom?: number }).minzoom ?? 0, 15.5) } as typeof l;
     const layout = (l as { layout?: Record<string, unknown> }).layout;
     if (layout && "text-transform" in layout) {
       const { ["text-transform"]: _drop, ...rest } = layout;

@@ -207,7 +207,7 @@ export function ContextChart({ title, number, compact = false }: { title: string
               );
             })}
           </svg>
-          {number?.window && <figcaption className="chart-caption">{number.window}{number.rule ? `. ${number.rule}` : ""}</figcaption>}
+          {number?.window && <figcaption className="chart-caption">{number.window}</figcaption>}
           <table className="visually-hidden">
             <caption>{title}</caption>
             <tbody>

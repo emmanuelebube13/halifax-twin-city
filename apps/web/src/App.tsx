@@ -4,7 +4,7 @@ import { ago } from "./lib/ago";
 // layers), and lays out the rail, map and panel (laptop) or chips, map and sheet (phone).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { API_BASE, api } from "./api/client";
+import { api } from "./api/client";
 import { useMediaQuery, useNow, usePoll } from "./api/hooks";
 import { usePollMany } from "./api/pollMany";
 import type { Feature, FeatureCollection, Lens, NumberData, Sector, Story, StorySummary, VehicleProperties } from "./api/types";
@@ -412,7 +412,7 @@ export function App() {
           </label>
         )}
         {phone && sheet === "peek" && live && <p className="panel-footnote">{t("story.swipe")}</p>}
-        {live && story && view.lens === "analytics" && <NumberCards numbers={numbers} ids={story.answer.numbers} />}
+        {live && story && view.lens === "analytics" && <NumberCards numbers={numbers} ids={story.answer.numbers.filter((id) => !story.answer.template.includes(`{${id}}`))} />}
         {live && story?.context?.number_id && <ContextChart title={story.context.title} number={numbers[story.context.number_id] ?? null} />}
         {live && story && (
           <Trust sourceIds={story.trust.source_ids} sources={sources} asOf={newestAsOf} tier={tier} freshness={primary?.freshness ?? "empty"} now={now} onAbout={() => setPanel("sources")} />
@@ -467,7 +467,7 @@ export function App() {
       {view.panel === "sectors" && (
         <SectorsBrowser register={register} error={!!sectorsP.error} pins={pins} onTogglePin={togglePin} phone={phone} onOpen={(id) => openSector(id)} onClose={() => setView({ panel: "none" }, { push: true })} />
       )}
-      {view.panel === "sources" && <SourcesPanel rows={sources} error={!!sourcesP.error} now={now} apiBase={API_BASE} onClose={() => setView({ panel: "none" }, { push: true })} />}
+      {view.panel === "sources" && <SourcesPanel rows={sources} error={!!sourcesP.error} now={now} onClose={() => setView({ panel: "none" }, { push: true })} />}
     </>
   );
 
@@ -546,8 +546,8 @@ export function App() {
           <p className={`phone-attrib phone-attrib--${sheet}`}>{show3d ? t("credits.3d") : basemapOk === false ? t("map.basemapFallback") : t("credits.short")}</p>
           <div className="phone-tools">
             {viewSwitch(true)}
-            <button type="button" className="ctl" aria-label={t("view.list")} title={t("view.list")} onClick={() => setPanel("list")}>
-              <Icon name="list" size={22} />
+            <button type="button" className="ctl ctl--text ctl--list" onClick={() => setPanel("list")}>
+              <Icon name="list" size={18} /> {t("view.listShort")}
             </button>
           </div>
         </main>

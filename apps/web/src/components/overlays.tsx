@@ -4,11 +4,11 @@ import { ago } from "../lib/ago";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { BusStatus, SectorRegister, SourceStatus, VehicleProperties } from "../api/types";
 import { t } from "../i18n";
-import { formatAge, formatCount, formatDate, formatDateTime, formatDelay } from "../lib/format";
+import { formatAge, formatCount, formatDate, formatDateTime } from "../lib/format";
 import { busStatus } from "../lib/status";
 import { featureName, lookFor } from "../map/registry";
 import { Icon, LayerMark, SectorIcon, StatusMark } from "./icons";
-import { busTitle } from "./panels";
+import { busTitle, statusPhrase } from "./panels";
 import type { LayerView } from "./story";
 
 const ROW_LIMIT = 400;
@@ -18,7 +18,7 @@ function useDialog(onClose: () => void) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
-    const first = ref.current?.querySelector<HTMLElement>("[data-autofocus], input, button");
+    const first = ref.current?.querySelector<HTMLElement>("[data-autofocus], h1");
     first?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -50,7 +50,7 @@ export function ListView({
     <div className="overlay overlay--list" ref={ref} role="region" aria-label={t("list.title")}>
       <header className="overlay-head">
         <div>
-          <h1 className="panel-title">{t("list.title")}</h1>
+          <h1 className="panel-title" tabIndex={-1}>{t("list.title")}</h1>
           <p className="panel-sub">{t("list.count", { count: formatCount(total) })}</p>
         </div>
         <button type="button" className="btn btn-secondary" onClick={onClose}>
@@ -94,13 +94,12 @@ export function ListView({
                         <button type="button" className="linklike" onClick={() => onSelect(l.name, String(p.kind), Number(p.id))}>
                           {isBus ? busTitle(p as unknown as VehicleProperties) : featureName(p)}
                         </button>
-                        {isBus && p.label ? <span className="list-sub mono">{String(p.label)}</span> : null}
+                        {isBus && p.label && p.route_short_name ? <span className="list-sub mono">{String(p.label)}</span> : null}
                       </th>
                       <td>
                         {status ? (
                           <span className={`status-text--${status} list-status`}>
-                            <StatusMark status={status} /> {t(`status.${status}`)}
-                            {typeof p.delay_seconds === "number" && status !== "unknown" ? ` (${formatDelay(p.delay_seconds)})` : ""}
+                            <StatusMark status={status} /> {statusPhrase(status, p.delay_seconds as number | null)}
                           </span>
                         ) : (
                           <span>{String(p.closure_type_code ?? p.permit_type_code ?? p.stop_code ?? p.route_long_name ?? p.event_status_code ?? "")}{p.event_start_ts ? `, ${formatDate(p.event_start_ts as string)}` : ""}</span>
@@ -181,7 +180,7 @@ export function SectorsBrowser({
                         </button>
                       ) : (
                         <span className="sector-row-main is-static">
-                          <span className="sector-row-icon is-planned" aria-hidden="true" />
+                          <span className="sector-row-icon is-planned" aria-hidden="true"><SectorIcon id={s.sector_id} size={20} /></span>
                           <span className="sector-row-name">{s.name}</span>
                         </span>
                       )}
@@ -196,6 +195,7 @@ export function SectorsBrowser({
                             setMsg(ok ? null : t("sectors.pinsFull", { max }));
                           }}
                         >
+                          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill={pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"><path d="M9 3h6l-1 6 4 4H6l4-4zM12 13v8" /></svg>
                           {pinned ? t("sectors.pinned") : t("sectors.pin")}
                         </button>
                       ) : (
@@ -217,13 +217,13 @@ export function SectorsBrowser({
 
 const SOURCE_STATUS_KEY = { ok: "sources.status.ok", stale: "sources.status.stale", down: "sources.status.down", unknown: "sources.status.unknown" } as const;
 
-export function SourcesPanel({ rows, error, now, apiBase, onClose }: { rows: SourceStatus[]; error: boolean; now: number; apiBase: string; onClose: () => void }) {
+export function SourcesPanel({ rows, error, now, onClose }: { rows: SourceStatus[]; error: boolean; now: number; onClose: () => void }) {
   const ref = useDialog(onClose);
   return (
     <div className="overlay overlay--sources" ref={ref} role="dialog" aria-labelledby="sources-title">
       <header className="overlay-head">
         <div>
-          <h1 className="panel-title" id="sources-title">{t("sources.title")}</h1>
+          <h1 className="panel-title" id="sources-title" tabIndex={-1}>{t("sources.title")}</h1>
           <p className="panel-sub">{t("sources.intro")}</p>
         </div>
         <button type="button" className="btn btn-secondary" onClick={onClose}>{t("sources.close")}</button>
@@ -249,9 +249,7 @@ export function SourcesPanel({ rows, error, now, apiBase, onClose }: { rows: Sou
           </li>
         ))}
       </ul>
-      <p className="panel-footnote">
-        {t("trust.licence")}. {t("sources.api")}: <span className="mono">{apiBase}/v1</span>
-      </p>
+      <p className="panel-footnote">{t("trust.licence")}.</p>
     </div>
   );
 }

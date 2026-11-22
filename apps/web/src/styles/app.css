@@ -2114,3 +2114,145 @@ button.sector-row-main:hover .sector-row-name {
 .sheet-credits {
   padding: 4px 18px 18px;
 }
+
+/* ------------------------------------------------------------ review round 2 refinements */
+
+/* the lens switch sits on a fog plate; amber is kept for answer numbers and the selected-pin halo */
+.lens {
+  background: var(--plate);
+  border: 1px solid var(--plate-line);
+  box-shadow: var(--shadow-1);
+  backdrop-filter: blur(6px);
+}
+
+.lens-btn {
+  color: var(--ink);
+}
+
+.lens-btn:hover:not(.is-on):not(.is-off) {
+  background: var(--harbour-tint);
+}
+
+.lens-btn.is-on {
+  background: var(--harbour);
+  color: var(--surface);
+}
+
+.lens-btn.is-off {
+  color: var(--ink-soft);
+}
+
+.lens :focus-visible {
+  outline-color: var(--harbour);
+}
+
+/* chart-table plates: squarer cards and buttons; pills stay for chips, search and switches */
+.story-card,
+.numcard,
+.chart-figure,
+.list-section,
+.source-item,
+.pins-note,
+.tiles,
+.feature-card {
+  border-radius: var(--r-sm);
+}
+
+.btn {
+  border-radius: 10px;
+}
+
+.feature-card-actions .btn {
+  min-height: 46px;
+}
+
+/* the city readout: rows of numbers on the night plate */
+.readout {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.readout-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--night-line);
+}
+
+.readout-row:last-child {
+  border-bottom: 0;
+}
+
+.readout-row dt {
+  font-size: var(--fs-md);
+  color: var(--on-night);
+}
+
+.readout-row dd {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1;
+}
+
+/* pin toggle: a quiet switch, not a primary action */
+.pin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  border-radius: var(--r-sm);
+  border-color: var(--line-strong);
+  font-weight: 500;
+}
+
+.pin-btn.is-pinned {
+  background: var(--harbour-tint);
+  color: var(--harbour);
+  border-color: var(--harbour);
+}
+
+.sector-row-icon.is-planned {
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  color: var(--ink-soft);
+}
+
+/* overlays get a quiet focus target: the heading */
+.overlay h1[tabindex="-1"]:focus {
+  outline: none;
+}
+
+/* Sources replaces the whole map area on a laptop */
+.overlay--sources {
+  width: auto;
+  inset: 0;
+}
+
+.overlay--sources .source-list {
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+}
+
+/* popup sits clear of the (larger) selected pin */
+.map-popup-anchor > .feature-card {
+  bottom: 74px;
+}
+
+/* phone: a lower peek so the map keeps its evidence */
+.sheet {
+  --sheet-offset: calc(100% - 300px);
+}
+
+.phone-attrib--peek {
+  bottom: 308px;
+}
+
+.ctl--list {
+  width: auto;
+  gap: 6px;
+  padding: 0 12px;
+  display: inline-flex;
+  font-weight: 600;
+}

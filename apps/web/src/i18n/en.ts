@@ -27,6 +27,7 @@ export const en = {
   "view.3dLoading": "Loading 3D",
   "view.3dFailed": "3D could not load. Showing 2D.",
   "view.list": "List view",
+  "view.listShort": "List",
   "view.map": "Map view",
 
   "nav.city": "City",
@@ -52,8 +53,7 @@ export const en = {
   "map.attribution": "Basemap © OpenStreetMap contributors, Protomaps",
 
   "city.title": "Now in Halifax",
-  "city.summaryRest": "things on the map now, across {sectors} sectors.",
-  "city.summaryOne": "things on the map now, in 1 sector.",
+  "city.readout": "On the map now",
   "city.summaryNone": "Waiting for live data.",
   "city.live": "{count} live",
   "city.questions": "Questions you can ask",
@@ -95,8 +95,10 @@ export const en = {
   "status.on_time": "On time",
   "status.late": "Late",
   "status.early": "Early",
-  "status.unknown": "No schedule",
+  "status.unknown": "No arrival yet",
   "status.legend": "Bus status",
+  "status.onTimeBehind": "On time, {duration} behind",
+  "status.onTimeAhead": "On time, {duration} ahead",
 
   "layer.vehicles": "Buses",
   "layer.routes": "Routes",

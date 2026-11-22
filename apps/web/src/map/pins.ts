@@ -109,12 +109,12 @@ function toPin(id: string, c: HTMLCanvasElement): PinImage {
  * amber halo (the map also draws it 25% larger). Anchor at the bottom centre.
  */
 export function drawBusPin(img: HTMLImageElement | null, status: BusStatus, facingWest: boolean, selected: boolean): HTMLCanvasElement {
-  const W = 84;
-  const plateW = 72;
-  const plateH = 28;
+  const W = 80;
+  const plateW = 68;
+  const plateH = 23;
   const baseW = 30;
   const top = 6;
-  const H = top + plateH + 22;
+  const H = top + plateH + 16;
   const [c, g] = canvas(W, H);
   const x = (W - plateW) / 2;
   if (selected) {
@@ -134,7 +134,7 @@ export function drawBusPin(img: HTMLImageElement | null, status: BusStatus, faci
   g.lineWidth = selected ? 3 : 2;
   g.strokeStyle = selected ? COLOURS.selected : COLOURS.ink;
   g.stroke();
-  const pad = 5;
+  const pad = 3;
   const iw = plateW - 2 * pad;
   const ih = iw * (53 / 192);
   const iy = top + (plateH - ih) / 2;
@@ -152,17 +152,15 @@ export function drawBusPin(img: HTMLImageElement | null, status: BusStatus, faci
     g.fillStyle = COLOURS.ink;
     g.fillRect(x + pad, iy, iw, ih);
   }
-  // stem from the plate to the base, so the base reads as part of the pin
-  g.fillStyle = COLOURS.ink;
-  g.fillRect(W / 2 - 1, top + plateH, 2, 6);
-  // white backing so every base shape stands out from the map
+  // the status base is joined to the plate's bottom edge, on a white backing so every shape stands out
+  const by = top + plateH + 6;
   g.save();
   g.fillStyle = "#ffffff";
   g.beginPath();
-  g.ellipse(W / 2, top + plateH + 13, baseW / 2 + 3, 9, 0, 0, Math.PI * 2);
+  g.ellipse(W / 2, by, baseW / 2 + 3, 9, 0, 0, Math.PI * 2);
   g.fill();
   g.restore();
-  drawBase(g, STATUS_SHAPE[status], W / 2, top + plateH + 13, baseW, STATUS_FILL[status]);
+  drawBase(g, STATUS_SHAPE[status], W / 2, by, baseW, STATUS_FILL[status]);
   return c;
 }
 

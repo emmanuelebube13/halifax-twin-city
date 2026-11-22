@@ -103,6 +103,8 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
         fadeDuration: propsRef.current.reducedMotion ? 0 : 200,
       });
       mapRef.current = map;
+      // on a phone the sheet covers the bottom of the map: keep the evidence in the strip above it
+      if (propsRef.current.phone) map.setPadding({ top: 120, bottom: 300, left: 0, right: 0 });
       if (import.meta.env.DEV) (window as unknown as { __map: MLMap }).__map = map;
       (map as unknown as { __basemapOk: boolean }).__basemapOk = ok;
       map.getCanvas().setAttribute("aria-label", t("map.label"));
@@ -362,7 +364,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
       if (!map) return;
       const z = Math.max(zoom ?? 15, map.getZoom());
       // on a phone the sheet covers the lower half: centre the pin in the strip of map above it
-      const padding = propsRef.current.phone ? { top: 130, bottom: Math.round(window.innerHeight * 0.56), left: 0, right: 0 } : { top: 0, bottom: 0, left: 0, right: 0 };
+      const padding = propsRef.current.phone ? { top: 130, bottom: Math.round(window.innerHeight * 0.5), left: 0, right: 0 } : { top: 0, bottom: 0, left: 0, right: 0 };
       if (propsRef.current.reducedMotion) map.jumpTo({ center: [lon, lat], zoom: z, padding });
       else map.flyTo({ center: [lon, lat], zoom: z, duration: 900, padding });
     },
