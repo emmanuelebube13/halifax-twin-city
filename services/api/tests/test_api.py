@@ -330,3 +330,18 @@ def test_without_gold_functions(no_gold):
     story = c.get("/v1/stories/TRN-Q02").json()["data"]
     assert story["status"] == "collecting_data" and "gold" in story["status_note"]
     assert c.get("/v1/health").json()["data"]["gold_planned_stop_time"] is False
+
+
+def test_buses_live_is_zero_when_the_feed_answers_with_no_vehicles(empty_database):
+    # Overnight the vehicle feed answers normally but lists no buses: that is zero buses, not "no data".
+    from tests.conftest import TEST_DB_URL
+    import psycopg
+    assert empty_database.get("/v1/numbers/trn.buses_live").json()["data"]["value"] is None
+    with psycopg.connect(TEST_DB_URL, autocommit=True) as conn:
+        conn.execute("""INSERT INTO bronze.feed_fetch (source_id, fetched_ts, http_status, entity_count)
+                        VALUES ('SRC-001', now() - interval '20 seconds', 200, 0)""")
+    from tests.conftest import make_client
+    with make_client() as fresh:  # no cached answer
+        body = fresh.get("/v1/numbers/trn.buses_live").json()
+    assert body["data"]["value"] == 0
+    assert body["as_of"] is not None

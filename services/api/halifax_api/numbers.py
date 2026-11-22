@@ -37,8 +37,17 @@ def buses_live(db, cfg):
                          WHERE position_ts > now() - make_interval(secs => %s)""",
                      (int(cfg.live.get("vehicle_window_seconds", 180)),))
     count, as_of = r
-    # Zero buses with no recent positions at all means "no data", not "no buses".
-    return (count if as_of else None), None, as_of
+    if as_of:
+        return count, None, as_of
+    # No recent positions. If the vehicle feed itself answered recently with no vehicles (overnight, for
+    # example), the true answer is zero buses. Only when the feed has not answered is it "no data".
+    f = db.fetch_one("""SELECT max(fetched_ts) FROM bronze.feed_fetch
+                         WHERE source_id = 'SRC-001' AND http_status = 200 AND error_text IS NULL
+                           AND entity_count IS NOT NULL
+                           AND fetched_ts > now() - make_interval(secs => %s)""",
+                     (int(cfg.live.get("vehicle_window_seconds", 180)),))
+    fetched = f[0] if f else None
+    return (0 if fetched else None), None, fetched
 
 
 ARRIVALS_SQL = """
