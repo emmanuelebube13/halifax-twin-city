@@ -702,15 +702,18 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
           bb.show = true;
           return;
         }
-        // one count disc across layers, in ink, so the city view does not turn into confetti
-        void layer;
+        // Buses group only with buses, so they stay visible as buses among permits and closures; every other
+        // layer shares one ink count disc, so the city view does not turn into confetti. Ids are positions in
+        // the group's list, never feature ids, so a bus id and a pin number can never collide.
         void colour;
-        let l = layers.get("all");
+        void n;
+        const group = layer === "vehicles" ? "vehicles" : "other";
+        let l = layers.get(group);
         if (!l) {
           l = { colour: COLOURS.ink, items: [] };
-          layers.set("all", l);
+          layers.set(group, l);
         }
-        l.items.push({ id: n, x: win.x, y: win.y, world, bb });
+        l.items.push({ id: l.items.length, x: win.x, y: win.y, world, bb });
       };
       for (const [id, b] of busesRef.current) if (b.last) consider("vehicles", COLOURS.ink, id, `asset:${id}`, b.badge, b.badge.position);
       let n = 0;
@@ -718,7 +721,9 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
       let used = 0;
       for (const l of layers.values()) {
         const byId = new Map(l.items.map((it) => [it.id, it]));
-        for (const g of clusterScreenPoints(l.items, 60)) {
+        // buses merge only when their badges would truly overlap
+        const radius = l === layers.get("vehicles") ? 34 : 60;
+        for (const g of clusterScreenPoints(l.items, radius)) {
           const members = g.ids.map((id) => byId.get(id)!);
           if (members.length === 1) {
             members[0].bb.show = true;

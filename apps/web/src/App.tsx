@@ -176,6 +176,19 @@ export function App() {
     tracks.current.retain(ids);
   }, [vehEnv]);
 
+  // Seed the tracks with the last few minutes of reports, so buses glide from the first second instead of
+  // waiting at their first report until the 60 s glide clock has two reports to draw between.
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (seeded.current || !vehEnv) return;
+    seeded.current = true;
+    api.replay("vehicles", 4).then((env) => {
+      for (const tr of env.data?.tracks ?? []) {
+        for (const [t, lon, lat] of tr.positions) tracks.current.add(tr.id, { t, lon, lat });
+      }
+    }).catch(() => { seeded.current = false; /* try again on the next poll */ });
+  }, [vehEnv]);
+
   // ---- replay
   const replayPossible = !!vehiclesLayer;
   const replayP = usePoll(replayPossible ? "replay" : null, (s) => api.replay("vehicles", 30, s), view.lens === "replay" ? 60_000 : null);

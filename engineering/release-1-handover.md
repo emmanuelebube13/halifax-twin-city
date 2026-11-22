@@ -315,3 +315,10 @@ The tester passed this branch at 1ab1bf6 with three minor findings. Two are fixe
 2. The lens stays in the URL across a 3D to 2D switch, for live, replay and analytics, with story, selection and route.
 
 The third, the growing "Checked ..." age for permits and closures, remains until the sector refresh task is registered (section 9).
+
+### After the architect's review (22 Nov 2026, evening)
+
+- Buses now glide from the first second: on page load the app seeds each bus's track from the last 4 minutes of positions (`/v1/replay/vehicles?minutes=4`). Before, each bus waited at its first report until two live reports straddled the 60 s glide clock, so buses looked frozen for a minute or more.
+- 3D clustering: buses now group only with buses (34 px), so they stay visible among permits and closures; group ids are list positions, which fixes a collision between bus ids and pin numbers that could mix buses and permits.
+- The black boxes the architect saw were the early 3D view still served by `release-1` on port 5173; this branch replaces it.
+- Lead check: unit tests 91 passed; two 3D shots 7 s apart show buses moving along their routes; ion tally 39 of 60 (including the tester's 4).
