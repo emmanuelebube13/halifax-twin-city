@@ -1,0 +1,66 @@
+{
+  "id": "TRN-Q09",
+  "question": "Which roadworks and road closures cause the biggest bus delays?",
+  "title": "Closures and delays",
+  "sector_id": "S04",
+  "subsector_id": "TRN-01",
+  "lenses": [
+    "analytics"
+  ],
+  "status": "live",
+  "requires": [
+    {
+      "check": "archive_days",
+      "min_days": 14,
+      "note": "Needs at least two weeks of recorded arrivals to compare delays beside closures with delays elsewhere; the archive started on 21 Nov 2026."
+    }
+  ],
+  "answer": {
+    "template": "Over the last 7 days, buses at stops beside a closure ran {trn.closure_delay_gap} later on average than elsewhere.",
+    "numbers": [
+      "trn.closure_delay_gap"
+    ],
+    "empty_text": "Not enough recorded arrivals beside closures yet."
+  },
+  "evidence": {
+    "layers": [
+      {
+        "layer": "road-closures-all",
+        "path": "layers",
+        "title": "Closures in effect",
+        "property": null,
+        "legend": [
+          {
+            "value": "closure",
+            "label": "Closure in effect",
+            "shape": "line"
+          }
+        ]
+      },
+      {
+        "layer": "routes",
+        "path": "layers",
+        "title": "Routes",
+        "property": null,
+        "legend": [
+          {
+            "value": "route",
+            "label": "Bus route",
+            "shape": "line"
+          }
+        ]
+      }
+    ]
+  },
+  "context": {
+    "number_id": "trn.delay_near_closures_by_reason",
+    "title": "Extra delay by closure type"
+  },
+  "trust": {
+    "source_ids": [
+      "SRC-002",
+      "SRC-015"
+    ],
+    "note": "Beside a closure: a stop within 30 m of the closure line while it is in effect (interim). An association, not proof of cause."
+  }
+}

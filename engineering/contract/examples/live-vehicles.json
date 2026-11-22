@@ -1,0 +1,152 @@
+{
+  "data": {
+    "type": "FeatureCollection",
+    "layer": "vehicles",
+    "features": [
+      {
+        "type": "Feature",
+        "id": 412,
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            -63.5788,
+            44.6431
+          ]
+        },
+        "properties": {
+          "kind": "asset",
+          "sector_id": "S04",
+          "subsector_id": "TRN-01",
+          "id": 412,
+          "source_key": "1105",
+          "source_id": "SRC-001",
+          "label": "1105",
+          "route_short_name": "1",
+          "route_long_name": "Spring Garden",
+          "route_id": 101,
+          "trip_id": 90210,
+          "headsign": "1 Spring Garden to Mumford",
+          "status": "on_time",
+          "delay_seconds": 45,
+          "next_stop_name": "Spring Garden Rd [Dresden Row]",
+          "bearing": 245.0,
+          "speed_metres_per_second": 6.4,
+          "position_ts": "2026-11-21T23:14:58Z"
+        }
+      },
+      {
+        "type": "Feature",
+        "id": 418,
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            -63.5891,
+            44.6468
+          ]
+        },
+        "properties": {
+          "kind": "asset",
+          "sector_id": "S04",
+          "subsector_id": "TRN-01",
+          "id": 418,
+          "source_key": "1242",
+          "source_id": "SRC-001",
+          "label": "1242",
+          "route_short_name": "7A",
+          "route_long_name": "Robie",
+          "route_id": 102,
+          "trip_id": 90211,
+          "headsign": "7A Robie to Halifax Shopping Centre",
+          "status": "late",
+          "delay_seconds": 412,
+          "next_stop_name": "Robie St [Quinpool Rd]",
+          "bearing": 180.0,
+          "speed_metres_per_second": 6.4,
+          "position_ts": "2026-11-21T23:14:58Z"
+        }
+      },
+      {
+        "type": "Feature",
+        "id": 433,
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            -63.5752,
+            44.6493
+          ]
+        },
+        "properties": {
+          "kind": "asset",
+          "sector_id": "S04",
+          "subsector_id": "TRN-01",
+          "id": 433,
+          "source_key": "1310",
+          "source_id": "SRC-001",
+          "label": "1310",
+          "route_short_name": "10",
+          "route_long_name": "Dalhousie",
+          "route_id": 103,
+          "trip_id": 90212,
+          "headsign": "10 Dalhousie to Westphal",
+          "status": "early",
+          "delay_seconds": -95,
+          "next_stop_name": "Barrington St [Scotia Square]",
+          "bearing": 15.0,
+          "speed_metres_per_second": 6.4,
+          "position_ts": "2026-11-21T23:14:58Z"
+        }
+      },
+      {
+        "type": "Feature",
+        "id": 447,
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            -63.6012,
+            44.6551
+          ]
+        },
+        "properties": {
+          "kind": "asset",
+          "sector_id": "S04",
+          "subsector_id": "TRN-01",
+          "id": 447,
+          "source_key": "1407",
+          "source_id": "SRC-001",
+          "label": "1407",
+          "route_short_name": null,
+          "route_long_name": null,
+          "route_id": null,
+          "trip_id": null,
+          "headsign": null,
+          "status": "unknown",
+          "delay_seconds": null,
+          "next_stop_name": null,
+          "bearing": null,
+          "speed_metres_per_second": null,
+          "position_ts": "2026-11-21T23:14:58Z"
+        }
+      }
+    ]
+  },
+  "as_of": "2026-11-21T23:14:58Z",
+  "source": [
+    {
+      "source_id": "SRC-001",
+      "name": "GTFS Realtime – Vehicle Positions",
+      "publisher": "Halifax Transit"
+    },
+    {
+      "source_id": "SRC-002",
+      "name": "GTFS Realtime – Trip Updates",
+      "publisher": "Halifax Transit"
+    },
+    {
+      "source_id": "SRC-004",
+      "name": "GTFS Schedule (static) feed",
+      "publisher": "Halifax Transit"
+    }
+  ],
+  "reliability_tier": "Tier 1",
+  "licence": "Contains information licensed under the Open Government Licence – Halifax"
+}

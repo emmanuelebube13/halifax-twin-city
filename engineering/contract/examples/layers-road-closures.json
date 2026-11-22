@@ -1,0 +1,52 @@
+{
+  "data": {
+    "type": "FeatureCollection",
+    "layer": "road-closures",
+    "features": [
+      {
+        "type": "Feature",
+        "id": 50311,
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -63.5801,
+              44.6512
+            ],
+            [
+              -63.5779,
+              44.6519
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "event",
+          "sector_id": "S05",
+          "subsector_id": "PWK-03",
+          "id": 50311,
+          "source_key": "SC-2026-1184",
+          "source_id": "SRC-015",
+          "event_type_code": "Road Closure",
+          "event_status_code": "Active",
+          "event_start_ts": "2026-11-17T11:00:00Z",
+          "event_end_ts": "2026-11-28T21:00:00Z",
+          "event_date": "2026-11-17",
+          "location_name": "Cogswell St from Barrington St to Brunswick St",
+          "closure_type_code": "Full closure",
+          "closure_reason_code": "Utility work",
+          "detour_description": "Use Barrington St and Cornwallis St."
+        }
+      }
+    ]
+  },
+  "as_of": "2026-11-21T22:00:05Z",
+  "source": [
+    {
+      "source_id": "SRC-015",
+      "name": "Street Closures (all, active, upcoming) and Development Street Closures",
+      "publisher": "Halifax Regional Municipality"
+    }
+  ],
+  "reliability_tier": "Tier 1",
+  "licence": "Contains information licensed under the Open Government Licence – Halifax"
+}

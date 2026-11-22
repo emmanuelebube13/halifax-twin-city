@@ -1,0 +1,191 @@
+{
+  "_comment": "Sector register for the map. Names and ids match silver.sector (database/sql/08_reference_data.sql). The five groups are the wireframes' proposal, awaiting the architect's confirmation. A sector is live when it has at least one live story.",
+  "max_pins": 5,
+  "groups": [
+    {
+      "group_id": "moving-around",
+      "name": "Moving around",
+      "sector_ids": [
+        "S04",
+        "S13"
+      ]
+    },
+    {
+      "group_id": "built-city",
+      "name": "Built city",
+      "sector_ids": [
+        "S05",
+        "S09",
+        "S08",
+        "S11"
+      ]
+    },
+    {
+      "group_id": "people-and-services",
+      "name": "People and services",
+      "sector_ids": [
+        "S14",
+        "S06",
+        "S03",
+        "S10"
+      ]
+    },
+    {
+      "group_id": "economy",
+      "name": "Economy",
+      "sector_ids": [
+        "S01",
+        "S16",
+        "S02",
+        "S07"
+      ]
+    },
+    {
+      "group_id": "civic-life-and-nature",
+      "name": "Civic life and nature",
+      "sector_ids": [
+        "S17",
+        "S12",
+        "S15"
+      ]
+    }
+  ],
+  "sectors": [
+    {
+      "sector_id": "S04",
+      "name": "Transportation",
+      "group_id": "moving-around",
+      "pinned": true,
+      "question_count": 28,
+      "phase_number": 1
+    },
+    {
+      "sector_id": "S13",
+      "name": "Port & Maritime",
+      "group_id": "moving-around",
+      "pinned": false,
+      "question_count": null,
+      "phase_number": 3
+    },
+    {
+      "sector_id": "S05",
+      "name": "Public Works",
+      "group_id": "built-city",
+      "pinned": true,
+      "question_count": 39,
+      "phase_number": 1
+    },
+    {
+      "sector_id": "S09",
+      "name": "Housing & Real Estate",
+      "group_id": "built-city",
+      "pinned": true,
+      "question_count": 33,
+      "phase_number": 1
+    },
+    {
+      "sector_id": "S08",
+      "name": "Construction",
+      "group_id": "built-city",
+      "pinned": false,
+      "question_count": null,
+      "phase_number": 2
+    },
+    {
+      "sector_id": "S11",
+      "name": "Energy and Utility",
+      "group_id": "built-city",
+      "pinned": false,
+      "question_count": null,
+      "phase_number": 3
+    },
+    {
+      "sector_id": "S14",
+      "name": "Population & Community",
+      "group_id": "people-and-services",
+      "pinned": false,
+      "question_count": null,
+      "phase_number": 2
+    },
+    {
+      "sector_id": "S06",
+      "name": "Education",
+      "group_id": "people-and-services",
+      "pinned": false,
+      "question_count": null,
+      "phase_number": 2
+    },
+    {
+      "sector_id": "S03",
+      "name": "Healthcare",
+      "group_id": "people-and-services",
+      "pinned": false,
+      "question_count": null,
+      "phase_number": 3
+    },
+    {
+      "sector_id": "S10",
+      "name": "Public Safety and Emergency",
+      "group_id": "people-and-services",
+      "pinned": false,
+      "question_count": null,
+      "phase_number": 2
+    },
+    {
+      "sector_id": "S01",
+      "name": "Finance",
+      "group_id": "economy",
+      "pinned": false,
+      "question_count": null,
+      "phase_number": 3
+    },
+    {
+      "sector_id": "S16",
+      "name": "Retail",
+      "group_id": "economy",
+      "pinned": false,
+      "question_count": null,
+      "phase_number": 3
+    },
+    {
+      "sector_id": "S02",
+      "name": "Hospitality",
+      "group_id": "economy",
+      "pinned": false,
+      "question_count": null,
+      "phase_number": 3
+    },
+    {
+      "sector_id": "S07",
+      "name": "Digital",
+      "group_id": "economy",
+      "pinned": false,
+      "question_count": null,
+      "phase_number": 3
+    },
+    {
+      "sector_id": "S17",
+      "name": "Public Governance & Civic Services",
+      "group_id": "civic-life-and-nature",
+      "pinned": false,
+      "question_count": null,
+      "phase_number": 2
+    },
+    {
+      "sector_id": "S12",
+      "name": "Environment",
+      "group_id": "civic-life-and-nature",
+      "pinned": false,
+      "question_count": null,
+      "phase_number": 2
+    },
+    {
+      "sector_id": "S15",
+      "name": "Arts, Culture & Recreation",
+      "group_id": "civic-life-and-nature",
+      "pinned": false,
+      "question_count": null,
+      "phase_number": 3
+    }
+  ]
+}

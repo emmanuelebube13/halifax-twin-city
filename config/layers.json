@@ -1,0 +1,201 @@
+{
+  "_comment": "Map layers. A layer is a kind (location, asset or event), a type code and a subsector, so a new sector is configuration. subtype_table and subtype_columns use the logical model's physical names exactly. source_ids name the expected sources for the trust footer; features carry their own source_id. Layers with gold_measure read workstream B's gold functions and are empty until those are installed; they ignore bbox.",
+  "live": {
+    "vehicles": {
+      "kind": "asset",
+      "asset_type_code": "Vehicle",
+      "sector_id": "S04",
+      "subsector_id": "TRN-01",
+      "source_ids": [
+        "SRC-001",
+        "SRC-002",
+        "SRC-004"
+      ],
+      "cache_seconds": 5
+    }
+  },
+  "layers": {
+    "routes": {
+      "kind": "asset",
+      "asset_type_code": "Route",
+      "sector_id": "S04",
+      "subsector_id": "TRN-01",
+      "subtype_table": "route",
+      "subtype_columns": [
+        "route_short_name",
+        "route_long_name",
+        "route_mode_code"
+      ],
+      "active_only": true,
+      "simplify_degrees": 0.00015,
+      "source_ids": [
+        "SRC-004"
+      ],
+      "cache_seconds": 600
+    },
+    "stops": {
+      "kind": "asset",
+      "asset_type_code": "Stop",
+      "sector_id": "S04",
+      "subsector_id": "TRN-01",
+      "subtype_table": "stop",
+      "subtype_columns": [
+        "stop_code",
+        "stop_name",
+        "stop_kind_code",
+        "wheelchair_boarding_code",
+        "shelter_flag"
+      ],
+      "active_only": true,
+      "source_ids": [
+        "SRC-004"
+      ],
+      "cache_seconds": 600
+    },
+    "road-closures": {
+      "kind": "event",
+      "event_type_code": "Road Closure",
+      "sector_id": "S05",
+      "subsector_id": "PWK-03",
+      "subtype_table": "road_closure",
+      "subtype_columns": [
+        "closure_type_code",
+        "closure_reason_code",
+        "detour_description"
+      ],
+      "time_filter": "in_effect",
+      "source_ids": [
+        "SRC-015"
+      ],
+      "cache_seconds": 60,
+      "subsector_ids": [
+        "PWK-03"
+      ],
+      "near_routes_metres": 20,
+      "end_required": true
+    },
+    "building-permits": {
+      "kind": "event",
+      "event_type_code": "Building Permit",
+      "sector_id": "S09",
+      "subsector_id": "HRE-09",
+      "subtype_table": "building_permit",
+      "subtype_columns": [
+        "permit_type_code",
+        "work_description",
+        "construction_value_amount",
+        "units_created_count",
+        "units_removed_count"
+      ],
+      "time_filter": "recent_days",
+      "recent_days": 365,
+      "source_ids": [
+        "SRC-066"
+      ],
+      "cache_seconds": 300
+    },
+    "road-closures-all": {
+      "kind": "event",
+      "event_type_code": "Road Closure",
+      "sector_id": "S04",
+      "subsector_id": "TRN-09",
+      "subtype_table": "road_closure",
+      "subtype_columns": [
+        "closure_type_code",
+        "closure_reason_code",
+        "detour_description"
+      ],
+      "time_filter": "in_effect",
+      "near_routes_metres": 20,
+      "source_ids": [
+        "SRC-015"
+      ],
+      "cache_seconds": 60,
+      "end_required": true
+    },
+    "road-closures-upcoming": {
+      "kind": "event",
+      "event_type_code": "Road Closure",
+      "sector_id": "S05",
+      "subsector_id": "PWK-04",
+      "subtype_table": "road_closure",
+      "subtype_columns": [
+        "closure_type_code",
+        "closure_reason_code",
+        "detour_description"
+      ],
+      "time_filter": "upcoming_days",
+      "upcoming_days": 30,
+      "near_routes_metres": 20,
+      "source_ids": [
+        "SRC-015"
+      ],
+      "cache_seconds": 300
+    },
+    "new-units": {
+      "kind": "event",
+      "event_type_code": "Building Permit",
+      "sector_id": "S09",
+      "subsector_id": "HRE-09",
+      "subtype_table": "building_permit",
+      "subtype_columns": [
+        "permit_type_code",
+        "work_description",
+        "construction_value_amount",
+        "units_created_count",
+        "units_removed_count"
+      ],
+      "time_filter": "recent_days",
+      "recent_days": 365,
+      "positive_column": "units_created_count",
+      "source_ids": [
+        "SRC-066"
+      ],
+      "cache_seconds": 300
+    },
+    "completed-permits": {
+      "kind": "event",
+      "event_type_code": "Building Permit",
+      "sector_id": "S09",
+      "subsector_id": "HRE-09",
+      "subtype_table": "building_permit",
+      "subtype_columns": [
+        "permit_type_code",
+        "work_description",
+        "construction_value_amount",
+        "units_created_count",
+        "units_removed_count"
+      ],
+      "time_filter": "ended_recent_days",
+      "recent_days": 365,
+      "source_ids": [
+        "SRC-066"
+      ],
+      "cache_seconds": 300
+    },
+    "bunching-stops": {
+      "kind": "asset",
+      "gold_measure": "bunching",
+      "sector_id": "S04",
+      "subsector_id": "TRN-01",
+      "window_days": 7,
+      "source_ids": [
+        "SRC-002",
+        "SRC-004"
+      ],
+      "cache_seconds": 600
+    },
+    "stop-wait": {
+      "kind": "asset",
+      "gold_measure": "stop_wait",
+      "sector_id": "S04",
+      "subsector_id": "TRN-01",
+      "window_days": 7,
+      "source_ids": [
+        "SRC-002",
+        "SRC-004"
+      ],
+      "cache_seconds": 600
+    }
+  }
+}
