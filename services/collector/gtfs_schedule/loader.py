@@ -76,9 +76,9 @@ def upsert_assets(conn, asset_type, rows, batch_id) -> dict[str, int]:
 
 
 def retire_missing(conn, asset_type, keep_keys, batch_id) -> int:
-    """Routes or stops no longer in the schedule become Inactive (their history stays)."""
+    """Routes or stops no longer in the schedule become Retired, the model's value (their history stays)."""
     return conn.execute(
-        """UPDATE silver.asset SET asset_status_code = 'Inactive', out_of_service_date = CURRENT_DATE,
+        """UPDATE silver.asset SET asset_status_code = 'Retired', out_of_service_date = CURRENT_DATE,
                                    dw_loaded_ts = now(), dw_batch_id = %s
             WHERE source_id = %s AND asset_type_code = %s AND asset_status_code = 'Active'
               AND NOT (source_asset_key = ANY(%s))""",

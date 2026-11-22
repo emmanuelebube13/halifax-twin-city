@@ -55,6 +55,7 @@ def upsert_events(conn, rows: list[dict], batch_id: int, keep_earliest_start: bo
             ON CONFLICT ON CONSTRAINT ak1_event DO UPDATE
                SET event_start_ts = {start_rule},
                    event_end_ts = EXCLUDED.event_end_ts,
+                   event_date = EXCLUDED.event_date,   -- an arrival moving past midnight takes the new date (DQ-061)
                    event_status_code = EXCLUDED.event_status_code,
                    dw_loaded_ts = now(),
                    dw_batch_id = EXCLUDED.dw_batch_id

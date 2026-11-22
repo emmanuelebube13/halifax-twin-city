@@ -84,7 +84,7 @@ def test_new_version_keeps_the_old_one_and_retires_missing_stops(db, sql, tmp_pa
     assert sql("SELECT feed_version_label FROM silver.schedule_version ORDER BY 1") == [
         ("2026_08_August_20260806",), ("2026_11_November_20261120",)]
     assert sql("""SELECT asset_status_code, out_of_service_date IS NOT NULL FROM silver.asset
-                   WHERE asset_type_code = 'Stop' AND source_asset_key = '1002'""") == [("Inactive", True)]
+                   WHERE asset_type_code = 'Stop' AND source_asset_key = '1002'""") == [("Retired", True)]
     assert sql("SELECT count(*) FROM silver.asset_hist WHERE source_asset_key = '1002'") == [(1,)]
     # Each day is planned from the newest version covering it.
     assert sql("SELECT DISTINCT schedule_version_id FROM gold.planned_stop_time('2026-12-03')") == [(2,)]

@@ -34,7 +34,7 @@ The server runs in UTC, so use the Halifax date, not `CURRENT_DATE` (after 20:00
 | Rule | Why |
 | --- | --- |
 | Stops and routes are matched by GTFS id (`source_asset_key`) and updated in place | History is kept by SCD2; a reload with no change adds no history |
-| A stop or route missing from a new file becomes `Inactive` with an out-of-service date | It is never deleted |
+| A stop or route missing from a new file becomes `Retired` with an out-of-service date | It is never deleted. `Retired` is the model's value (Active, Planned, Retired); the demo wrote `Inactive` (DQ-025) |
 | A service listed only in `calendar_dates.txt` gets a `service_calendar` row with no weekdays, spanning its dates | The model requires a calendar row; with no weekdays only its "Added" dates make it run, which is what GTFS means |
 | Times past midnight stay as intervals (25:10:00) | They keep their order and their service day |
 | A repeated `stop_code` is stored as empty | `ak1_stop` makes stop_code unique |

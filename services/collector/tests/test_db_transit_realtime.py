@@ -161,3 +161,38 @@ def test_retention_runs_once_a_day(db, tmp_path):
     assert c.purge_if_due(now=1_000_000.0) is not None
     assert c.purge_if_due(now=1_000_000.0 + 3600) is None
     assert c.purge_if_due(now=1_000_000.0 + rt_collector.RETENTION_EVERY_SECONDS) is not None
+
+
+def _late_trip_updates(arrival: dt.datetime) -> bytes:
+    """Trip t1 of service day 20 Nov, stop 1001 reached at the given moment."""
+    from google.transit import gtfs_realtime_pb2 as rt
+    m = rt.FeedMessage()
+    m.header.gtfs_realtime_version = "2.0"
+    m.header.timestamp = int(arrival.timestamp())
+    tu = m.entity.add(id="1").trip_update
+    tu.trip.trip_id, tu.trip.route_id, tu.trip.start_date = "t1", "1", "20261120"
+    s = tu.stop_time_update.add(stop_sequence=1, stop_id="1001")
+    s.arrival.time, s.arrival.delay = int(arrival.timestamp()), 0
+    return m.SerializeToString()
+
+
+def test_arrival_moving_past_midnight_takes_the_new_halifax_date(schedule, sql):
+    """DQ-061: event_date follows event_start_ts when an update moves the arrival across midnight."""
+    before = dt.datetime(2026, 11, 21, 3, 59, 50, tzinfo=dt.timezone.utc)   # 23:59:50 on 20 Nov, Halifax
+    after = dt.datetime(2026, 11, 21, 4, 0, 20, tzinfo=dt.timezone.utc)     # 00:00:20 on 21 Nov, Halifax
+    fetch = FakeFetch(fetched=after + dt.timedelta(seconds=5),
+                      content={"SRC-002": _late_trip_updates(before), "SRC-003": alerts(False)})
+    c = make(fetch)
+    try:
+        c.cycle()
+        assert sql("SELECT event_date FROM silver.event WHERE event_type_code = 'Stop Arrival'") == [(dt.date(2026, 11, 20),)]
+        fetch.content["SRC-002"] = _late_trip_updates(after)
+        c.cycle()
+    finally:
+        c.close()
+    assert sql("""SELECT event_start_ts, event_date FROM silver.event WHERE event_type_code = 'Stop Arrival'""") == [
+        (after, dt.date(2026, 11, 21))]
+    # The trip keeps its service day: a trip past midnight belongs to the day it started.
+    assert sql("SELECT event_date FROM silver.event WHERE event_type_code = 'Trip'") == [(dt.date(2026, 11, 20),)]
+    assert sql("""SELECT count(*) FROM silver.event WHERE event_type_code = 'Stop Arrival'
+                    AND event_date <> (event_start_ts AT TIME ZONE 'America/Halifax')::date""") == [(0,)]
