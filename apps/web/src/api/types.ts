@@ -4,6 +4,10 @@ export interface SourceRef {
   source_id: string;
   name: string;
   publisher: string | null;
+  /** Last successful check of the source. */
+  checked_ts?: string | null;
+  /** When the data last changed; null for live feeds. */
+  last_changed_ts?: string | null;
 }
 
 export interface ErrorInfo {
@@ -142,6 +146,8 @@ export interface SourceStatus {
   reliability_tier: string;
   last_loaded_ts: string | null;
   last_attempt_ts?: string | null;
+  checked_ts?: string | null;
+  last_changed_ts?: string | null;
   status: "ok" | "stale" | "down" | "unknown";
   cadence_code?: string | null;
   source_url?: string | null;

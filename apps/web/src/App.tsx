@@ -1,4 +1,4 @@
-import { ago } from "./lib/ago";
+import { ageLine } from "./lib/ago";
 // The map shell. It reads the story register, sector register and sources from the API, decides which layers
 // to draw (City view: each live story's main layer; a sector: its stories' main layers; a story: its evidence
 // layers), and lays out the rail, map and panel (laptop) or chips, map and sheet (phone).
@@ -56,6 +56,7 @@ export function App() {
   const [searchWanted, setSearchWanted] = useState(false);
   const [threeDFailed, setThreeDFailed] = useState<ThreeDFailure | null>(null);
   const globeRef = useRef<Globe3DHandle>(null);
+  const show3dRef = useRef(false);
   const [startPlace, setStartPlace] = useState<Place | null>(null);
   const [webgl] = useState(() => hasWebGL());
   const [autoProfile] = useState<ProfileName>(() => chooseProfile(readDeviceHints()));
@@ -148,6 +149,7 @@ export function App() {
           lastOk: slot?.lastOk ?? null,
           loading: !slot || slot.loading,
           sourceIds: srcIds,
+          sources: env?.source ?? [],
           tier: env?.reliability_tier ?? null,
         };
       }),
@@ -285,7 +287,7 @@ export function App() {
         const p = tracks.current.displayPosition(id, Date.now(), glide);
         if (p) at = [p.lon, p.lat];
       } else if (f) at = anchorOf((f as unknown as Feature).geometry);
-      if (at) setTimeout(() => mapRef.current?.flyTo(at![0], at![1], 15.2), 50);
+      if (at) setTimeout(() => (show3dRef.current ? globeRef.current : mapRef.current)?.flyTo(at![0], at![1], 15.2), 50);
       if (phone) setSheet("half");
     },
     [layers, setView, glide, phone],
@@ -331,7 +333,7 @@ export function App() {
     for (const f of layerSlots["layers:stops"]?.env?.data?.features ?? []) {
       const p = f.properties as Record<string, unknown>;
       const at = anchorOf(f.geometry);
-      items.push({ group: "stops", key: `st-${p.id}`, mono: String(p.stop_code ?? ""), label: String(p.stop_name ?? p.name ?? ""), run: () => at && mapRef.current?.flyTo(at[0], at[1], 16.5) });
+      items.push({ group: "stops", key: `st-${p.id}`, mono: String(p.stop_code ?? ""), label: String(p.stop_name ?? p.name ?? ""), run: () => at && (show3dRef.current ? globeRef.current : mapRef.current)?.flyTo(at[0], at[1], 16.5) });
     }
     for (const f of (layerSlots["live:vehicles"]?.env?.data?.features ?? []) as unknown as Feature<VehicleProperties>[]) {
       const p = f.properties;
@@ -377,6 +379,8 @@ export function App() {
   const numbersAsOf = numIds.map((id) => numberSlots[id]?.env?.as_of).filter(Boolean).sort().pop() ?? null;
   const newestAsOf = storyAsOf(primary?.asOf ?? null, numbersAsOf);
   const mapAsOf = view.story ? newestAsOf : (layers.filter((l) => l.path === "live").map((l) => l.asOf).filter(Boolean).sort().pop() ?? primary?.asOf ?? null);
+  // the sources whose times the map footer reports: the story's main layer, or in City view the live layer
+  const mapAgeSources = view.story ? (primary?.sources ?? []) : (layers.find((l) => l.path === "live")?.sources ?? primary?.sources ?? []);
   const tier = primary?.tier ?? numIds.map((id) => numberSlots[id]?.env?.reliability_tier).find(Boolean) ?? null;
 
   const decision = threeDDecision({
@@ -388,6 +392,7 @@ export function App() {
   });
   const can3d = decision.available;
   const show3d = view.view === "3d" && can3d && (!!cfg || NO_ION);
+  show3dRef.current = show3d;
   const apiDown = !!storiesP.error && !storiesP.env;
 
   // ---- 2D and 3D keep the place when switching
@@ -445,7 +450,7 @@ export function App() {
     return (
       <>
         <StoryHeading story={summary} sectorName={sectorName(summary.sector_id)} />
-        <AnswerPlate foot={live ? <AnswerFoot asOf={newestAsOf} freshness={primary?.freshness} now={now} /> : undefined} story={story ? { ...story, status: summary.status, status_note: summary.status_note ?? story.status_note } : storySlot?.error ? ({ ...summary, answer: { template: "", numbers: [] }, evidence: { layers: [] }, context: { number_id: "", title: "" }, trust: { source_ids: [] } } as Story) : null} numbers={numbers} loading={numbersLoading} />
+        <AnswerPlate foot={live ? <AnswerFoot asOf={newestAsOf} freshness={primary?.freshness} now={now} sources={primary?.sources} /> : undefined} story={story ? { ...story, status: summary.status, status_note: summary.status_note ?? story.status_note } : storySlot?.error ? ({ ...summary, answer: { template: "", numbers: [] }, evidence: { layers: [] }, context: { number_id: "", title: "" }, trust: { source_ids: [] } } as Story) : null} numbers={numbers} loading={numbersLoading} />
         {phone && <LensSwitch lens={view.lens} story={summary} replayReady={replayReady} live={vehiclesLayer?.freshness === "fresh"} onChange={(l) => setView({ lens: l })} />}
         {live && primary && view.lens !== "replay" && <LegendTiles layer={primary} />}
         {phone && featureCard}
@@ -465,7 +470,7 @@ export function App() {
         {live && story && view.lens === "analytics" && <NumberCards numbers={numbers} ids={story.answer.numbers.filter((id) => !story.answer.template.includes(`{${id}}`))} />}
         {live && story?.context?.number_id && <ContextChart title={story.context.title} number={numbers[story.context.number_id] ?? null} />}
         {live && story && (
-          <Trust sourceIds={story.trust.source_ids} sources={sources} asOf={newestAsOf} tier={tier} freshness={primary?.freshness ?? "empty"} now={now} onAbout={() => setPanel("sources")} />
+          <Trust ageSources={primary?.sources} sourceIds={story.trust.source_ids} sources={sources} asOf={newestAsOf} tier={tier} freshness={primary?.freshness ?? "empty"} now={now} onAbout={() => setPanel("sources")} />
         )}
         {!live && <p className="panel-footnote">{t("trust.licence")}</p>}
       </>
@@ -574,7 +579,7 @@ export function App() {
       {!phone && <Legend entries={legendEntries} />}
       {!phone && profileSwitch}
       {inReplay && <ReplayBar from={replayFrom} to={replayTo} at={replayAt} playing={playing} speed={speed} onSeek={setReplayAt} onPlay={() => setPlaying((p) => !p)} onSpeed={setSpeed} />}
-      <Credits asOf={mapAsOf} now={now} basemapOk={basemapOk} threeD={show3d} />
+      <Credits asOf={mapAsOf} now={now} basemapOk={basemapOk} threeD={show3d} sources={mapAgeSources} />
       {apiDown && (
         <div className="map-banner" role="alert">
           <Icon name="warning" size={18} /> {t("error.api")}
@@ -651,7 +656,7 @@ export function App() {
         <BottomSheet height={sheet} onHeight={setSheet} reducedMotion={reduced}>
           {panelBody()}
           <p className="sheet-credits">
-            {mapAsOf ? `${t("age.updated", { age: ago(mapAsOf, now) })} · ` : ""}
+            {mapAsOf ? `${ageLine(mapAgeSources, mapAsOf, now)} · ` : ""}
             {show3d ? t("credits.3d") : basemapOk === false ? t("map.basemapFallback") : t("credits.short")} · {t("credits.licenceShort")}
           </p>
         </BottomSheet>

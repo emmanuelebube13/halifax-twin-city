@@ -1,9 +1,9 @@
 import type React from "react";
-import { ago } from "../lib/ago";
+import { ageLine, ago } from "../lib/ago";
 // The story panel: question, answer (the hero), evidence counts, context chart, trust. Driven entirely by the
 // story configuration from /v1/stories/{id}; no story-specific code lives here.
 
-import type { BusStatus, Lens, NumberData, SourceStatus, Story, StorySummary } from "../api/types";
+import type { BusStatus, Lens, NumberData, SourceRef, SourceStatus, Story, StorySummary } from "../api/types";
 import { hasKey, t } from "../i18n";
 import { formatByUnit, formatClock, formatCount, formatDate, formatMonth, NO_VALUE } from "../lib/format";
 import { answerIsEmpty, chooseTemplate, renderAnswerParts, storyStatusLabel } from "../lib/story";
@@ -24,6 +24,8 @@ export interface LayerView {
   lastOk: number | null;
   loading: boolean;
   sourceIds: string[];
+  /** The envelope's sources, with checked and last-changed times. */
+  sources: SourceRef[];
   tier: string | null;
 }
 
@@ -43,7 +45,7 @@ export function StoryHeading({ story, sectorName }: { story: StorySummary; secto
 
 /** The hero: one sentence, numbers in amber mono on the night-harbour plate. */
 /** The plate's footer: how old the answer is; when stale, said plainly in amber so "now" is never claimed falsely. */
-export function AnswerFoot({ asOf, freshness, now }: { asOf: string | null; freshness?: Freshness; now: number }) {
+export function AnswerFoot({ asOf, freshness, now, sources }: { asOf: string | null; freshness?: Freshness; now: number; sources?: SourceRef[] }) {
   if (!asOf) return null;
   if (freshness === "stale" || freshness === "down") {
     return (
@@ -52,7 +54,7 @@ export function AnswerFoot({ asOf, freshness, now }: { asOf: string | null; fres
       </p>
     );
   }
-  return <p className="answer-foot">{t("age.updated", { age: ago(asOf, now) })}</p>;
+  return <p className="answer-foot">{ageLine(sources, asOf, now)}</p>;
 }
 
 export function AnswerPlate({ story, numbers, loading, foot }: { story: Story | null; numbers: Record<string, NumberData | null>; loading: boolean; foot?: React.ReactNode }) {
@@ -292,8 +294,9 @@ export function NumberCards({ numbers, ids }: { numbers: Record<string, NumberDa
 
 /** Trust footer: source, data age, reliability tier, licence, and the way to every source. */
 export function Trust({
-  sourceIds, sources, asOf, tier, freshness, now, onAbout,
+  sourceIds, sources, asOf, tier, freshness, now, onAbout, ageSources,
 }: {
+  ageSources?: SourceRef[];
   sourceIds: string[];
   sources: SourceStatus[];
   asOf: string | null;
@@ -317,7 +320,7 @@ export function Trust({
       )}
       <p>
         {names.length > 0 && <>{t("trust.source", { sources: names.join("; ") })} </>}
-        {asOf && <>{t("trust.updated", { age: ago(asOf, now) })} </>}
+        {asOf && <>{ageLine(ageSources, asOf, now)}. </>}
         {tier && <>{t("trust.tier", { tier: tier.replace(/^Tier\s*/i, "") })} </>}
         <button type="button" className="linklike" onClick={onAbout}>
           {t("trust.about")}

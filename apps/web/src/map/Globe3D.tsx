@@ -14,7 +14,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type Reac
 import type * as CesiumNS from "cesium";
 import type { Feature, VehicleProperties } from "../api/types";
 import { t } from "../i18n";
-import { CAMERA_LIMITS, HALIFAX_3D_START, clampCameraPosition, clampOrbit, orbitToPlace, placeToOrbit, type Orbit, type Place } from "../lib/camera";
+import { CAMERA_LIMITS, HALIFAX_3D_START, clampCameraPosition, clampOrbit, orbitToPlace, placeToOrbit, rangeForZoom, type Orbit, type Place } from "../lib/camera";
 import { resolutionScaleFor, type Profile3D } from "../lib/profile";
 import { busStatus } from "../lib/status";
 import type { ThreeDFailure } from "../lib/threeD";
@@ -69,6 +69,7 @@ function loadCesium(): Promise<Cesium> {
 }
 
 export interface Globe3DHandle {
+  flyTo: (lon: number, lat: number, zoom?: number) => void;
   zoom: (direction: 1 | -1) => void;
   resetNorth: () => void;
   place: () => Place | null;
@@ -700,6 +701,19 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(props, ref) {
   }
 
   useImperativeHandle(ref, () => ({
+    flyTo: (lon, lat, zoom) => {
+      const C = window.Cesium;
+      const v = viewerRef.current;
+      if (!C || !v) return;
+      const o = currentOrbit(C, v);
+      const range = rangeForZoom(lat, zoom ?? 15, v.scene.canvas.clientHeight || 800);
+      const next = clampOrbit({ lon, lat, range: Math.min(range, o ? o.range : range), heading: o ? o.heading : 0, pitch: o ? Math.min(o.pitch, -25) : -40 });
+      const sphere = new C.BoundingSphere(C.Cartesian3.fromDegrees(next.lon, next.lat, 0), 1);
+      const offset = new C.HeadingPitchRange(rad(next.heading), rad(next.pitch), next.range);
+      if (propsRef.current.reducedMotion) v.scene.camera.viewBoundingSphere(sphere, offset);
+      else v.scene.camera.flyToBoundingSphere(sphere, { offset, duration: 0.9 });
+      v.scene.camera.lookAtTransform(C.Matrix4.IDENTITY);
+    },
     zoom: (direction) => {
       const C = window.Cesium;
       const v = viewerRef.current;

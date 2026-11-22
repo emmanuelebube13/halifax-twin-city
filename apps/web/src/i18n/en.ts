@@ -129,6 +129,7 @@ export const en = {
   "age.updated": "Updated {age}",
   "age.ago": "{age} ago",
   "age.on": "on {date}",
+  "age.checked": "Checked {age}, unchanged since {date}",
   "age.justNow": "just now",
   "age.never": "never",
 
