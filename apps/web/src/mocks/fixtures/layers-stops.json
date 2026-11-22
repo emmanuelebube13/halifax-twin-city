@@ -1,0 +1,44 @@
+{
+  "data": {
+    "type": "FeatureCollection",
+    "layer": "stops",
+    "features": [
+      {
+        "type": "Feature",
+        "id": 2001,
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            -63.5752,
+            44.6493
+          ]
+        },
+        "properties": {
+          "kind": "asset",
+          "sector_id": "S04",
+          "subsector_id": "TRN-01",
+          "id": 2001,
+          "source_key": "6120",
+          "source_id": "SRC-004",
+          "asset_type_code": "Stop",
+          "asset_status_code": "Active",
+          "name": "Scotia Square",
+          "stop_code": "6120",
+          "stop_name": "Barrington St [Scotia Square]",
+          "stop_kind_code": "Stop",
+          "wheelchair_boarding_code": "Accessible"
+        }
+      }
+    ]
+  },
+  "as_of": "2026-11-20T14:02:11Z",
+  "source": [
+    {
+      "source_id": "SRC-004",
+      "name": "GTFS Schedule (static) feed",
+      "publisher": "Halifax Transit"
+    }
+  ],
+  "reliability_tier": "Tier 1",
+  "licence": "Contains information licensed under the Open Government Licence – Halifax"
+}
