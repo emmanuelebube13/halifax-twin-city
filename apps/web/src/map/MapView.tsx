@@ -8,10 +8,11 @@ import maplibregl, { type GeoJSONSource, type Map as MLMap, type MapGeoJSONFeatu
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Protocol } from "pmtiles";
 import type { Feature, FeatureCollection, Kind, VehicleProperties } from "../api/types";
+import type { Place } from "../lib/camera";
 import { t } from "../i18n";
 import { busStatus } from "../lib/status";
 import { basemapAvailable, fallbackStyle, harbourStyle } from "./basemap";
-import { COLOURS, PIXEL_RATIO, buildPinImages, busImageId, drawCluster, type PinImage } from "./pins";
+import { COLOURS, PIXEL_RATIO, buildPinImages, busImageId, busRenderImage, drawBusPin, drawCluster, parseBusImageId, type PinImage } from "./pins";
 import { lookFor, pinCollection } from "./registry";
 
 let protocolAdded = false;
@@ -47,9 +48,15 @@ export interface MapSelect {
 export interface MapHandle {
   flyTo: (lon: number, lat: number, zoom?: number) => void;
   fitAll: () => void;
+  /** The place on screen now, for the 3D view to start from. */
+  place: () => Place | null;
+  /** Jump to a place (back from 3D). */
+  jumpTo: (p: Place) => void;
 }
 
 interface Props {
+  /** While 3D shows, the zoom and north buttons drive the 3D camera instead. */
+  threeD?: { zoom: (d: 1 | -1) => void; north: () => void } | null;
   dark: boolean;
   phone: boolean;
   layers: MapLayerInput[];
@@ -109,8 +116,16 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
       (map as unknown as { __basemapOk: boolean }).__basemapOk = ok;
       map.getCanvas().setAttribute("aria-label", t("map.label"));
       map.on("styleimagemissing", (e) => {
+        if (!map) return;
+        const bus = parseBusImageId(e.id);
+        if (bus) {
+          const c = drawBusPin(busRenderImage(), bus.status, bus.facingWest, bus.selected, bus.route);
+          const g = c.getContext("2d") as CanvasRenderingContext2D;
+          map.addImage(e.id, g.getImageData(0, 0, c.width, c.height), { pixelRatio: PIXEL_RATIO });
+          return;
+        }
         const m = /^cluster-([0-9a-f]{6})-(\d+)$/.exec(e.id);
-        if (!m || !map) return;
+        if (!m) return;
         const c = drawCluster(Number(m[2]), "", `#${m[1]}`);
         const g = c.getContext("2d") as CanvasRenderingContext2D;
         map.addImage(e.id, g.getImageData(0, 0, c.width, c.height), { pixelRatio: PIXEL_RATIO });
@@ -272,7 +287,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
           "icon-anchor": "bottom",
           "icon-allow-overlap": true,
           "symbol-sort-key": ["get", "sel"],
-          "icon-size": ["interpolate", ["linear"], ["zoom"], 11, ["case", ["==", ["get", "sel"], 1], 1, 0.7], 15, ["case", ["==", ["get", "sel"], 1], 1.25, 1]],
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 11, ["case", ["==", ["get", "sel"], 1], 1, 0.82], 15, ["case", ["==", ["get", "sel"], 1], 1.2, 1]],
         },
       });
     }
@@ -317,7 +332,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
       features.push({
         type: "Feature",
         geometry: { type: "Point", coordinates: [pos.lon, pos.lat] },
-        properties: { kind: "asset", id: f.id, key, sel: isSel ? 1 : 0, icon: busImageId(status, bearing > 180, isSel) },
+        properties: { kind: "asset", id: f.id, key, sel: isSel ? 1 : 0, icon: busImageId(status, bearing > 180, isSel, p.route_short_name) },
       });
       pinPoints.current.set(key, [pos.lon, pos.lat]);
     }
@@ -358,6 +373,24 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
     placePopup();
   });
 
+  // a newly selected pin (also from a shared link) is panned into view, so its popup is never clipped
+  useEffect(() => {
+    const key = props.selectedKey;
+    if (!key || props.phone || props.follow) return;
+    const timer = setTimeout(() => {
+      const map = mapRef.current;
+      const at = pinPoints.current.get(key);
+      if (!map || !at) return;
+      const pt = map.project(at);
+      const w = map.getContainer().clientWidth;
+      const h = map.getContainer().clientHeight;
+      if (pt.x > 180 && pt.x < w - 180 && pt.y > 300 && pt.y < h - 40) return;
+      map.easeTo({ center: at, offset: [0, 120], duration: props.reducedMotion ? 0 : 500 });
+    }, 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.selectedKey, styleReady]);
+
   useImperativeHandle(ref, () => ({
     flyTo: (lon, lat, zoom) => {
       const map = mapRef.current;
@@ -368,6 +401,17 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
       if (propsRef.current.reducedMotion) map.jumpTo({ center: [lon, lat], zoom: z, padding });
       else map.flyTo({ center: [lon, lat], zoom: z, duration: 900, padding });
     },
+    place: () => {
+      const map = mapRef.current;
+      if (!map) return null;
+      const c = map.getCenter();
+      return { lon: c.lng, lat: c.lat, zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
+    },
+    jumpTo: (p) => {
+      const map = mapRef.current;
+      if (!map) return;
+      map.jumpTo({ center: [p.lon, p.lat], zoom: p.zoom, bearing: p.bearing, pitch: Math.min(p.pitch, 60) });
+    },
     fitAll: () => {
       const map = mapRef.current;
       if (!map) return;
@@ -375,7 +419,10 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
     },
   }));
 
-  const zoomBy = (d: number) => mapRef.current?.easeTo({ zoom: (mapRef.current?.getZoom() ?? 12) + d, duration: props.reducedMotion ? 0 : 250 });
+  const zoomBy = (d: 1 | -1) => {
+    if (props.threeD) return props.threeD.zoom(d);
+    mapRef.current?.easeTo({ zoom: (mapRef.current?.getZoom() ?? 12) + d, duration: props.reducedMotion ? 0 : 250 });
+  };
 
   return (
     <div className={`map-shell${props.hidden ? " is-hidden" : ""}`}>
@@ -394,7 +441,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
         <button type="button" className="ctl" onClick={() => zoomBy(-1)} aria-label={t("map.zoomOut")} title={t("map.zoomOut")}>
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12" /></svg>
         </button>
-        <button type="button" className="ctl" onClick={() => mapRef.current?.easeTo({ bearing: 0, pitch: 0, duration: props.reducedMotion ? 0 : 400 })} aria-label={t("map.north")} title={t("map.north")}>
+        <button type="button" className="ctl" onClick={() => (props.threeD ? props.threeD.north() : mapRef.current?.easeTo({ bearing: 0, pitch: 0, duration: props.reducedMotion ? 0 : 400 }))} aria-label={t("map.north")} title={t("map.north")}>
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3l5 13-5-3-5 3z" /></svg>
         </button>
       </div>

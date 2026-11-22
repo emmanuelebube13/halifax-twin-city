@@ -2306,3 +2306,112 @@ button.sector-row-main:hover .sector-row-name {
 .app--phone .stage {
   overflow: clip;
 }
+
+/* ------------------------------------------------------------ 3D view */
+
+/* Google and Cesium credits: their own plate, always fully visible; the footer cards step up out of the way */
+.globe-credits {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  z-index: 5;
+  max-width: min(560px, calc(100% - 24px));
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(19, 35, 46, 0.82);
+  color: #e8edf0;
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+}
+
+.globe-credits:empty {
+  display: none;
+}
+
+.globe-credits a {
+  color: #e8edf0;
+}
+
+.globe-credits img {
+  vertical-align: middle;
+}
+
+.stage.is-3d .legend,
+.stage.is-3d .credits {
+  bottom: 58px;
+}
+
+.stage.is-3d .map-shell .map-canvas {
+  visibility: hidden;
+}
+
+.app--phone .globe-credits {
+  left: 12px;
+  right: auto;
+  top: calc(max(12px, env(safe-area-inset-top)) + 122px);
+  bottom: auto;
+  transform: none;
+  max-width: calc(100% - 90px);
+}
+
+.app--phone .stage.is-3d .phone-attrib {
+  display: none;
+}
+
+/* the 3D detail switch: under the zoom controls on a laptop, in the tool column on a phone */
+.profile-switch {
+  position: absolute;
+  top: 184px;
+  right: 16px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: var(--r-md);
+  background: var(--plate);
+  border: 1px solid var(--plate-line);
+  box-shadow: var(--shadow-1);
+  font-size: var(--fs-xs);
+  color: var(--ink-soft);
+}
+
+.profile-switch select {
+  min-height: 36px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+}
+
+.phone-tools .profile-switch {
+  position: static;
+  padding: 2px 6px;
+}
+
+.phone-tools .profile-switch span {
+  display: none;
+}
+
+.phone-tools .profile-switch select {
+  width: 50px;
+  min-height: 44px;
+}
+
+.globe {
+  transition: opacity var(--t-panel) var(--ease);
+}
+
+.globe-loading {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 10px 16px;
+  border-radius: var(--r-md);
+  background: var(--night);
+  color: var(--on-night);
+}

@@ -3,7 +3,7 @@ import { ago } from "./lib/ago";
 // to draw (City view: each live story's main layer; a sector: its stories' main layers; a story: its evidence
 // layers), and lays out the rail, map and panel (laptop) or chips, map and sheet (phone).
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api/client";
 import { useMediaQuery, useNow, usePoll } from "./api/hooks";
 import { usePollMany } from "./api/pollMany";
@@ -14,7 +14,10 @@ import { TrackStore, positionAt, type Sample } from "./lib/glide";
 import { layerFreshness, onTimeRuleFrom } from "./lib/status";
 import { sheetOnFollow, storyAsOf, storyNumberIds } from "./lib/story";
 import { usePins, useView } from "./lib/useView";
-import { Globe3D } from "./map/Globe3D";
+import type { Globe3DHandle } from "./map/Globe3D";
+import type { Place } from "./lib/camera";
+import { PROFILES, chooseProfile, hasWebGL, readDeviceHints, saveProfile, savedProfile, type ProfileName } from "./lib/profile";
+import { threeDDecision, type ThreeDFailure } from "./lib/threeD";
 import { MapView, type MapHandle, type MapSelect } from "./map/MapView";
 import { featureName, lookFor, anchorOf } from "./map/registry";
 import { BottomSheet, ChipRow, Credits, LensSwitch, Legend, Rail, ReplayBar, Search, TopBar, ViewSwitch, type LegendEntry, type SearchItem, type SheetHeight } from "./components/chrome";
@@ -36,6 +39,10 @@ const key = (s: { path: string; layer: string }) => `${s.path}:${s.layer}`;
 const SEARCH_KEYS = ["layers:routes", "layers:stops"];
 const naturalSort = (a: string, b: string) => a.localeCompare(b, "en", { numeric: true });
 
+const Globe3D = lazy(() => import("./map/Globe3D"));
+/** Developer mode: Cesium's plain globe with no Google tiles, so 3D work spends no ion requests. */
+const NO_ION = import.meta.env.VITE_3D_NO_ION === "1";
+
 export function App() {
   const [view, setView] = useView();
   const phone = useMediaQuery("(max-width: 767px)");
@@ -47,7 +54,13 @@ export function App() {
   const [sheet, setSheet] = useState<SheetHeight>("peek");
   const [basemapOk, setBasemapOk] = useState<boolean | null>(null);
   const [searchWanted, setSearchWanted] = useState(false);
-  const [threeDFailed, setThreeDFailed] = useState(false);
+  const [threeDFailed, setThreeDFailed] = useState<ThreeDFailure | null>(null);
+  const globeRef = useRef<Globe3DHandle>(null);
+  const [startPlace, setStartPlace] = useState<Place | null>(null);
+  const [webgl] = useState(() => hasWebGL());
+  const [autoProfile] = useState<ProfileName>(() => chooseProfile(readDeviceHints()));
+  const [profileChoice, setProfileChoice] = useState<ProfileName | null>(() => savedProfile());
+  const profileName: ProfileName = profileChoice ?? autoProfile;
 
   // ---- registers
   const cfgP = usePoll("cfg", api.clientConfig, null);
@@ -366,9 +379,35 @@ export function App() {
   const mapAsOf = view.story ? newestAsOf : (layers.filter((l) => l.path === "live").map((l) => l.asOf).filter(Boolean).sort().pop() ?? primary?.asOf ?? null);
   const tier = primary?.tier ?? numIds.map((id) => numberSlots[id]?.env?.reliability_tier).find(Boolean) ?? null;
 
-  const can3d = !!(cfg?.three_d_available && cfg.cesium_ion_token) && !threeDFailed;
-  const show3d = view.view === "3d" && can3d;
+  const decision = threeDDecision({
+    three_d_available: !!cfg?.three_d_available,
+    cesium_ion_token: cfg?.cesium_ion_token ?? null,
+    noIon: NO_ION,
+    webgl,
+    failed: threeDFailed,
+  });
+  const can3d = decision.available;
+  const show3d = view.view === "3d" && can3d && (!!cfg || NO_ION);
   const apiDown = !!storiesP.error && !storiesP.env;
+
+  // ---- 2D and 3D keep the place when switching
+  const switchView = useCallback(
+    (v: "2d" | "3d") => {
+      if (v === "3d") {
+        setThreeDFailed(null);
+        setStartPlace(mapRef.current?.place() ?? null);
+      } else {
+        const p = globeRef.current?.place();
+        if (p) mapRef.current?.jumpTo(p);
+      }
+      setView({ view: v });
+    },
+    [setView],
+  );
+  const routesForThreeD = useMemo(() => {
+    const l = layers.find((x) => x.name === "routes");
+    return l ? (l.features as unknown as Feature[]) : [];
+  }, [layers]);
 
   // ---- route filter options
   const routes = useMemo(() => [...new Set(liveVehicles.map((f) => f.properties.route_short_name).filter((x): x is string => !!x))].sort(naturalSort), [liveVehicles]);
@@ -486,16 +525,36 @@ export function App() {
     <Search items={searchList} onFocus={() => setSearchWanted(true)} placeholder={phone ? t("search.placeholderShort") : t("search.placeholder")} compact={phone} />
   );
   const viewSwitch = (compact: boolean) => (
-    <ViewSwitch view={show3d ? "3d" : "2d"} can3d={can3d} note={threeDFailed ? t("view.3dFailed") : (cfg?.three_d_note ?? null)} compact={compact} onChange={(v) => setView({ view: v })} />
+    <ViewSwitch view={show3d ? "3d" : "2d"} can3d={can3d} note={decision.reason ? t(`view.why.${decision.reason}`) : null} compact={compact} onChange={switchView} />
   );
+
+  const profileSwitch = show3d ? (
+    <label className="profile-switch">
+      <span>{t("view.detail")}</span>
+      <select
+        value={profileChoice ?? "auto"}
+        onChange={(e) => {
+          const v = e.target.value === "auto" ? null : (e.target.value as ProfileName);
+          setProfileChoice(v);
+          saveProfile(v);
+        }}
+      >
+        <option value="auto">{t("view.detailAuto", { level: t(`view.detail.${autoProfile}`) })}</option>
+        <option value="high">{t("view.detail.high")}</option>
+        <option value="medium">{t("view.detail.medium")}</option>
+        <option value="low">{t("view.detail.low")}</option>
+      </select>
+    </label>
+  ) : null;
 
   const map = (
     <MapView
+      threeD={show3d ? { zoom: (d) => globeRef.current?.zoom(d), north: () => globeRef.current?.resetNorth() } : null}
       ref={mapRef}
       dark={dark}
       phone={phone}
       layers={mapLayers}
-      vehicles={vehicleInput}
+      vehicles={show3d ? null : vehicleInput}
       selectedKey={selectedKey}
       routeFilter={view.route}
       highlightRoute={view.route ?? (selected?.layer.name === "vehicles" ? ((selected.props.route_short_name as string | null) ?? null) : null)}
@@ -505,7 +564,7 @@ export function App() {
       hidden={view.panel === "list" && !phone}
       onSelect={onMapSelect}
       onBasemap={setBasemapOk}
-      popup={!phone ? featureCard : null}
+      popup={!phone && !show3d ? featureCard : null}
     >
       {!phone && (
         <div className="map-top-left">
@@ -513,6 +572,7 @@ export function App() {
         </div>
       )}
       {!phone && <Legend entries={legendEntries} />}
+      {!phone && profileSwitch}
       {inReplay && <ReplayBar from={replayFrom} to={replayTo} at={replayAt} playing={playing} speed={speed} onSeek={setReplayAt} onPlay={() => setPlaying((p) => !p)} onSpeed={setSpeed} />}
       <Credits asOf={mapAsOf} now={now} basemapOk={basemapOk} threeD={show3d} />
       {apiDown && (
@@ -524,21 +584,34 @@ export function App() {
     </MapView>
   );
 
-  const globe = show3d && cfg?.cesium_ion_token ? (
-    <Globe3D
-      token={cfg.cesium_ion_token}
-      assetId={cfg.cesium_photorealistic_asset_id ?? 2275207}
-      vehicles={vehicleInput?.features ?? []}
-      positionFor={(id, n) => vehicleInput?.positionFor(id, n) ?? null}
-      selectedKey={selectedKey}
-      reducedMotion={reduced}
-      onSelect={(s) => onMapSelect(s)}
-      onFailed={() => {
-        setThreeDFailed(true);
-        setView({ view: "2d" });
-      }}
-    />
+  const globe = show3d ? (
+    <Suspense fallback={<p className="globe-loading" role="status">{t("view.3dLoading")}</p>}>
+      <Globe3D
+        ref={globeRef}
+        token={NO_ION ? null : (cfg?.cesium_ion_token ?? null)}
+        noIon={NO_ION}
+        assetId={cfg?.cesium_photorealistic_asset_id ?? 2275207}
+        profile={PROFILES[profileName]}
+        vehicles={vehicleInput?.features ?? []}
+        positionFor={(id, n) => vehicleInput?.positionFor(id, n) ?? null}
+        routes={routesForThreeD}
+        highlightRoute={view.route ?? (selected?.layer.name === "vehicles" ? ((selected.props.route_short_name as string | null) ?? null) : null)}
+        glide={glide || inReplay}
+        selectedKey={selectedKey}
+        following={following}
+        reducedMotion={reduced}
+        startPlace={startPlace}
+        popup={!phone ? featureCard : null}
+        onSelect={(s) => onMapSelect(s)}
+        onFailed={(reason) => {
+          setThreeDFailed(reason);
+          setView({ view: "2d" });
+        }}
+      />
+    </Suspense>
   ) : null;
+
+
 
   // belt and braces for browsers without overflow: clip: put the phone frame back if anything scrolls it
   useEffect(() => {
@@ -559,7 +632,7 @@ export function App() {
   if (phone) {
     return (
       <div className="app--phone">
-        <main className="stage" id="map">
+        <main className={`stage${show3d ? " is-3d" : ""}`} id="map">
           {map}
           {globe}
           <div className="phone-top">
@@ -569,6 +642,7 @@ export function App() {
           <p className={`phone-attrib phone-attrib--${sheet}`}>{show3d ? t("credits.3d") : basemapOk === false ? t("map.basemapFallback") : t("credits.short")}</p>
           <div className="phone-tools">
             {viewSwitch(true)}
+            {profileSwitch}
             <button type="button" className="ctl ctl--text ctl--list" onClick={() => setPanel("list")}>
               <Icon name="list" size={18} /> {t("view.listShort")}
             </button>
@@ -600,7 +674,7 @@ export function App() {
         allOpen={view.panel === "sectors"}
         sourcesOpen={view.panel === "sources"}
       />
-      <main className="stage" id="map" tabIndex={-1}>
+      <main className={`stage${show3d ? " is-3d" : ""}`} id="map" tabIndex={-1}>
         {map}
         {globe}
         {overlays}
