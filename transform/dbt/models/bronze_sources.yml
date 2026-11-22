@@ -1,0 +1,90 @@
+# Bronze: the fetch register. Freshness rules DQ-090 to DQ-094 read bronze.feed_fetch,
+# one entry per source (same table, filtered), so each source is judged on its own.
+# Rule ids, wording and thresholds: engineering/model/standards.md.
+version: 2
+
+sources:
+  - name: bronze
+    schema: bronze
+    description: Raw landing register. One row per download attempt (scripts 06).
+    tables:
+      - name: feed_fetch
+        description: One row per attempt to download a feed.
+        columns:
+          - name: fetch_id
+            data_tests:
+              - unique:
+                  name: dq_001_feed_fetch_fetch_id_unique
+                  config: {tags: ["DQ-001"]}
+              - not_null:
+                  name: dq_001_feed_fetch_fetch_id_not_null
+                  config: {tags: ["DQ-001"]}
+          - name: fetched_ts
+            data_tests:
+              - not_in_future:
+                  name: dq_062_feed_fetch_fetched_ts_not_in_future
+                  config: {tags: ["DQ-062"]}
+          - name: error_text
+            data_tests:
+              - expression_is_true:
+                  name: dq_097_feed_fetch_failure_has_error_text
+                  arguments:
+                    expression: "http_status = 200 or error_text is not null"
+                  config: {tags: ["DQ-097"], severity: warn}
+          - name: file_sha256
+            data_tests:
+              - expression_is_true:
+                  name: dq_098_feed_fetch_success_has_file
+                  arguments:
+                    expression: "http_status <> 200 or (file_path is not null and file_sha256 ~ '^[0-9a-f]{64}$')"
+                  config: {tags: ["DQ-098"], severity: warn}
+
+      # Freshness: last successful download of each source.
+      - name: feed_fetch_src_001
+        identifier: feed_fetch
+        description: "DQ-090. SRC-001 vehicle positions: last successful fetch."
+        config:
+          loaded_at_field: fetched_ts
+          freshness:
+            warn_after: {count: 2, period: minute}
+            error_after: {count: 10, period: minute}
+            filter: "source_id = 'SRC-001' and http_status = 200"
+      - name: feed_fetch_src_002
+        identifier: feed_fetch
+        description: "DQ-091. SRC-002 trip updates: last successful fetch."
+        config:
+          loaded_at_field: fetched_ts
+          freshness:
+            warn_after: {count: 2, period: minute}
+            error_after: {count: 10, period: minute}
+            filter: "source_id = 'SRC-002' and http_status = 200"
+      - name: feed_fetch_src_003
+        identifier: feed_fetch
+        description: "DQ-092. SRC-003 service alerts: last successful fetch."
+        config:
+          loaded_at_field: fetched_ts
+          freshness:
+            warn_after: {count: 2, period: minute}
+            error_after: {count: 10, period: minute}
+            filter: "source_id = 'SRC-003' and http_status = 200"
+      - name: feed_fetch_src_015
+        identifier: feed_fetch
+        description: "DQ-093. SRC-015 street closures: last successful fetch."
+        config:
+          loaded_at_field: fetched_ts
+          freshness:
+            warn_after: {count: 24, period: hour}
+            error_after: {count: 72, period: hour}
+            filter: "source_id = 'SRC-015' and http_status = 200"
+      - name: feed_fetch_src_066
+        identifier: feed_fetch
+        description: "DQ-094. SRC-066 building permits: last successful fetch."
+        config:
+          loaded_at_field: fetched_ts
+          freshness:
+            warn_after: {count: 7, period: day}
+            error_after: {count: 31, period: day}
+            filter: "source_id = 'SRC-066' and http_status = 200"
+
+      - name: feed_gap
+        description: Time since the previous successful fetch of the same source (Gate 0 view).
