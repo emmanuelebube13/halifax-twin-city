@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Halifax Twin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="top-bar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span>Halifax Twin</div>
+    <input class="search" type="search" placeholder="Search a place, a question or a sector" disabled
+           aria-label="Search (arrives in a later task)">
+    <div class="view-switch" role="group" aria-label="Map view">
+      <button type="button" id="btn-2d" class="active">2D</button>
+      <button type="button" id="btn-3d" disabled title="Needs a Cesium ion token">3D</button>
+    </div>
+    <button type="button" class="list-view" disabled>List view</button>
+  </header>
+
+  <nav class="sector-rail" aria-label="Sectors">
+    <button type="button" class="sector active">City</button>
+    <button type="button" class="sector">Transportation</button>
+    <button type="button" class="sector">Public Works</button>
+    <button type="button" class="sector">Housing</button>
+    <hr>
+    <button type="button" class="sector">All sectors</button>
+    <button type="button" class="sector sources">Sources</button>
+  </nav>
+
+  <main class="map-area" id="map">
+    <div class="lens" role="group" aria-label="Lens">
+      <button type="button" class="active">Live</button>
+      <button type="button" disabled>Replay</button>
+      <button type="button" disabled>Analytics</button>
+    </div>
+    <div class="map-placeholder">
+      <p class="placeholder-title">The map arrives in task D09.</p>
+      <p>This is the empty demo shell from task D01. The API and the page run as one process.</p>
+    </div>
+    <div class="credits" id="credits">Updated <span id="as-of">–</span></div>
+  </main>
+
+  <aside class="side-panel" aria-label="Now in Halifax">
+    <h1>Now in Halifax</h1>
+    <p class="lede">Demo shell. No data layers yet.</p>
+    <h2>System check</h2>
+    <dl class="checks" id="checks">
+      <dt>API</dt><dd id="chk-api">Checking</dd>
+      <dt>Database</dt><dd id="chk-db">Checking</dd>
+      <dt>3D view</dt><dd id="chk-3d">Checking</dd>
+    </dl>
+    <p class="footnote">Every number shows its source and the time it was last updated.</p>
+    <p class="footnote" id="attribution"></p>
+  </aside>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
