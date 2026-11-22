@@ -59,3 +59,20 @@ Tiles loaded fall from high to medium to low, as intended: low loads about a fif
 ### Ion use for these measurements
 
 Seven page loads (one per row), counted in `.ion-tally.json`. A single load fetched about 740 Google tile requests on the high profile in the first 15 s (see `scripts/check-3d.mjs`).
+
+### Re-check after design review round 2 (22 Nov 2026, about 13:00)
+
+Round 2 changed what is drawn: one badge per bus at every distance, one count disc across layers, a steeper opening view (more of the city in frame), and the low profile's pixel cap raised from 1 to 1.5 for sharper phones. Three ion loads and two plain-globe runs (no ion):
+
+| Profile | Condition | First 3D frame | Panning | Following | JS heap | Tiles loaded |
+| :---- | :---- | :---- | :---- | :---- | :---- | :---- |
+| Medium | Workstation | 3.5 s and 4.0 s (met) | 37 and 38 fps (not met, target 50) | 42 fps (met) | 356 MB, then 208 MB (met on the second run) | 357 to 376 |
+| Low | Phone viewport (390 by 844, 3x) | 1.6 s (met) | 30 fps (met) | 28 fps (met) | 311 MB (not met, target 250) | 139 |
+| Medium | Workstation, plain globe (no tiles) | 0.3 s | 44 fps | 34 fps | 204 MB | 0 |
+| Low | Workstation, plain globe (no tiles) | 0.3 s | 46 fps | 36 fps | 206 MB | 0 |
+
+What this says:
+
+- **The machine was busier.** The architect was using it at the time, with about 44 browser processes open. Even with no tiles at all, panning reached only 44 to 46 fps, against 50 to 51 with tiles in the first run. Treat the drop to about 38 fps as mostly the machine, partly the extra work per camera move (grouping every pin on screen into count discs).
+- **The phone viewport pays for sharpness.** Raising low's pixel cap to 1.5 draws 2.25 times the pixels on a 3x phone. Panning stays at the 30 fps target, but memory rose. If real phones struggle, setting `maxPixelRatio` back to 1 in `src/lib/profile.ts` is the one-line trade: back to softer edges.
+- **First frames stay fast** (1.6 to 4 s), well inside the targets.

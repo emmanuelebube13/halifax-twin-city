@@ -13,10 +13,12 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const base = process.argv[2] || "http://127.0.0.1:5175";
 const runs = (process.argv[3] || "high:desk,medium:desk,low:desk,high:cpu4,medium:cpu4,low:cpu4,low:phone").split(",").map((r) => r.split(":"));
 mkdirSync(join(root, "screenshots"), { recursive: true });
-const outFile = join(root, "screenshots", "perf-3d.json");
+const outFile = join(root, "screenshots", process.env.PERF_PLAIN === "1" ? "perf-3d-plain.json" : "perf-3d.json");
 const results = existsSync(outFile) ? JSON.parse(readFileSync(outFile, "utf8")) : [];
 
-guard(runs.length);
+// PERF_PLAIN=1: the server runs the plain globe (VITE_3D_NO_ION=1), so the run spends no ion requests
+const plain = process.env.PERF_PLAIN === "1";
+if (!plain) guard(runs.length);
 const browser = await chromium.launch({ args: ["--use-angle=d3d11", "--enable-gpu", "--ignore-gpu-blocklist", "--enable-precise-memory-info"] });
 const renderer = await (async () => {
   const p = await browser.newPage();
@@ -46,7 +48,7 @@ for (const [profile, condition] of runs) {
     const cdp = await ctx.newCDPSession(page);
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
   }
-  add(1, `perf-3d ${profile} ${condition}`);
+  if (!plain) add(1, `perf-3d ${profile} ${condition}`);
   const r = { profile, condition, gpu: renderer, firstFrameS: null, panFps: null, followFps: null, heapMB: null, tiles: null, notes: [] };
   try {
     await page.goto(`${base}/?story=TRN-Q01&view=3d`, { waitUntil: "domcontentloaded" });

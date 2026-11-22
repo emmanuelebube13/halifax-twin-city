@@ -11,12 +11,23 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const base = process.argv[2] || "http://127.0.0.1:5175";
 const prefix = process.argv[3] || "r1";
 const dark = process.argv[4] === "dark";
+const final = process.argv[4] === "final";
 const out = join(root, "screenshots");
 mkdirSync(out, { recursive: true });
 
 // [name, device, query, step]
 const shots = dark
   ? [["3d-story-trn-dark", "laptop", "?story=TRN-Q01&view=3d", null]]
+  : final
+  ? [
+      ["3d-city", "laptop", "?view=3d", null],
+      ["3d-selected", "laptop", "?story=TRN-Q01&view=3d&panel=list", "select"],
+      ["3d-story-hre", "laptop", "?story=HRE-Q29&view=3d", null],
+      ["3d-story-trn", "phone", "?story=TRN-Q01&view=3d", null],
+      ["3d-selected", "phone", "?story=TRN-Q01&view=3d&panel=list", "select"],
+      ["2d-story-trn", "laptop", "?story=TRN-Q01", null],
+      ["2d-story-trn", "phone", "?story=TRN-Q01", null],
+    ]
   : [
       ["2d-story-trn", "laptop", "?story=TRN-Q01", null],
       ["2d-selected", "laptop", "?story=TRN-Q01&panel=list", "select"],

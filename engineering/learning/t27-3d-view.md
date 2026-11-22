@@ -17,8 +17,8 @@
 - **Never worse than 2D.** No WebGL, a refused token, failing tiles or a 45-second wait all return you to 2D, with a short note on the 3D button.
 - **Bus pins from your renders.**
   - `assets/pins/build-bus.mjs` builds two models (80 kB and 10 kB) from `bus-side.png`, `bus-front.png` and `bus-rear.png` with free npm tools, no Blender.
-  - Up close you see the textured bus, at the distance of a neighbourhood a textured box, and from far away the 2D pin.
-  - A badge with the status shape and route number floats above each model, so status reads the same in 2D and 3D.
+  - Up close you see the textured bus, and at the distance of a neighbourhood a textured box.
+  - At every distance a badge floats above the bus, in the same grammar as the 2D pin: the route number on an ink tab, then the status shape.
   - Ground height is sampled once per GPS report, never every frame.
   - Buses that overlap on screen merge into a count, as in 2D, and route lines are draped on the tiles.
 - **The 2D pin now shows the route number.** It stays readable when the bus render is too small to see.
