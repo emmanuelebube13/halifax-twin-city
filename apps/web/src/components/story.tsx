@@ -1,0 +1,256 @@
+import { ago } from "../lib/ago";
+// The story panel: question, answer (the hero), evidence counts, context chart, trust. Driven entirely by the
+// story configuration from /v1/stories/{id}; no story-specific code lives here.
+
+import type { BusStatus, Lens, NumberData, SourceStatus, Story, StorySummary } from "../api/types";
+import { hasKey, t } from "../i18n";
+import { formatByUnit, formatClock, formatCount, NO_VALUE } from "../lib/format";
+import { answerIsEmpty, renderAnswerParts, storyStatusLabel } from "../lib/story";
+import type { Freshness } from "../lib/status";
+import { Icon, StatusMark } from "./icons";
+
+export const statusWord = (s: string) => storyStatusLabel(s, (k) => (hasKey(k) ? t(k) : null));
+
+export interface LayerView {
+  name: string;
+  path: "live" | "layers";
+  title: string;
+  property: string | null;
+  legend: { value: string; label: string; shape?: string }[];
+  features: { properties: Record<string, unknown> }[];
+  asOf: string | null;
+  freshness: Freshness;
+  lastOk: number | null;
+  loading: boolean;
+  sourceIds: string[];
+  tier: string | null;
+}
+
+export function StoryHeading({ story, sectorName }: { story: StorySummary; sectorName: string }) {
+  return (
+    <header className="story-head">
+      <p className="story-id">
+        <span className="mono">{story.id}</span>
+        <span aria-hidden="true"> · </span>
+        {sectorName}
+        {story.status !== "live" && <span className={`status-chip status-chip--${story.status}`}>{statusWord(story.status)}</span>}
+      </p>
+      <h1 className="story-question">{story.question}</h1>
+    </header>
+  );
+}
+
+/** The hero: one sentence, numbers in amber mono on the night-harbour plate. */
+export function AnswerPlate({ story, numbers, loading }: { story: Story | null; numbers: Record<string, NumberData | null>; loading: boolean }) {
+  if (!story) {
+    return (
+      <div className="answer-plate is-loading" aria-busy="true">
+        <p className="answer-text">{t("story.loading")}</p>
+      </div>
+    );
+  }
+  if (story.status !== "live") {
+    return (
+      <div className="answer-plate is-muted" role="note">
+        <p className="answer-kicker">{statusWord(story.status)}</p>
+        <p className="answer-text">{story.status_note || t("story.notLiveBody")}</p>
+      </div>
+    );
+  }
+  const empty = !loading && answerIsEmpty(story.answer.numbers.filter((id) => story.answer.template.includes(`{${id}}`)), numbers);
+  if (empty) {
+    return (
+      <div className="answer-plate is-muted" role="note">
+        <p className="answer-text">{story.answer.empty_text || t("story.noData")}</p>
+      </div>
+    );
+  }
+  const parts = renderAnswerParts(story.answer.template, numbers);
+  return (
+    <div className="answer-plate" aria-live="polite" aria-busy={loading}>
+      <p className="answer-text">
+        {parts.map((p, i) =>
+          p.kind === "text" ? (
+            <span key={i}>{p.text}</span>
+          ) : (
+            <strong key={`${i}-${p.text}`} className={`answer-num${p.missing ? " is-missing" : ""}`} title={numbers[p.id]?.label}>
+              {p.text}
+            </strong>
+          ),
+        )}
+      </p>
+    </div>
+  );
+}
+
+/** One tile per legend entry with the count of features on the map that carry it. */
+export function LegendTiles({ layer, onPick }: { layer: LayerView; onPick?: (value: string) => void }) {
+  if (!layer.property || layer.legend.length === 0) return null;
+  const counts = new Map<string, number>();
+  for (const f of layer.features) {
+    const v = String(f.properties[layer.property] ?? "");
+    counts.set(v, (counts.get(v) ?? 0) + 1);
+  }
+  const main = layer.legend.filter((l) => l.value !== "unknown");
+  const other = layer.legend.find((l) => l.value === "unknown");
+  const otherCount = other ? (counts.get(other.value) ?? 0) : 0;
+  const isStatus = layer.property === "status";
+  return (
+    <section className="tiles-wrap" aria-label={layer.title}>
+      <ul className="tiles" role="list">
+        {main.map((l) => (
+          <li key={l.value} className="tile">
+            <button type="button" className="tile-btn" onClick={() => onPick?.(l.value)} disabled={!onPick}>
+              <span className="tile-label">
+                {isStatus && <StatusMark status={l.value as BusStatus} />}
+                {l.label}
+              </span>
+              <span className="tile-value mono">{layer.loading && !layer.features.length ? NO_VALUE : formatCount(counts.get(l.value) ?? 0)}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {other && otherCount > 0 && (
+        <p className="tiles-note">
+          {isStatus && <StatusMark status="unknown" size={14} />} {formatCount(otherCount)} {other.label.toLowerCase()}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** Context chart: bars of a number's series, with a text summary and a table for screen readers. */
+export function ContextChart({ title, number, compact = false }: { title: string; number: NumberData | null; compact?: boolean }) {
+  const series = number?.series ?? [];
+  const hasData = series.some((p) => p.value !== null);
+  const isPct = (number?.unit ?? "").toLowerCase() === "percent";
+  const max = isPct ? 100 : Math.max(1, ...series.map((p) => p.value ?? 0));
+  const label = (tt: string) => (/^\d{4}$/.test(tt) ? tt : formatClock(tt));
+  const W = 360;
+  const H = compact ? 120 : 170;
+  const padB = 22;
+  const padT = 18;
+  const n = Math.max(series.length, 1);
+  const gap = n > 12 ? 2 : 6;
+  const bw = (W - gap * (n - 1)) / n;
+  const valid = series.filter((p) => p.value !== null);
+  const last = valid[valid.length - 1];
+  const summary = hasData && number
+    ? t("chart.summary", { label: title, first: label(series[0].t), last: label(series[series.length - 1].t), value: formatByUnit(last?.value ?? null, number.unit) })
+    : t("chart.noData");
+  const showEvery = n > 12 ? Math.ceil(n / 6) : 1;
+  return (
+    <section className="chart" aria-label={title}>
+      <h2 className="section-title">{title}</h2>
+      {!hasData ? (
+        <p className="chart-empty">{t("chart.noData")}</p>
+      ) : (
+        <figure className="chart-figure">
+          <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={summary} preserveAspectRatio="none" className="chart-svg">
+            {isPct && [25, 50, 75].map((g) => {
+              const y = padT + (H - padT - padB) * (1 - g / 100);
+              return <line key={g} x1="0" x2={W} y1={y} y2={y} className="chart-grid" />;
+            })}
+            {series.map((p, i) => {
+              const x = i * (bw + gap);
+              const h = p.value === null ? 0 : ((H - padT - padB) * p.value) / max;
+              const y = H - padB - h;
+              const isLast = p === last;
+              return (
+                <g key={p.t}>
+                  {p.value === null ? (
+                    <rect x={x} y={H - padB - 6} width={bw} height={6} className="chart-bar-none" />
+                  ) : (
+                    <rect x={x} y={y} width={bw} height={Math.max(h, 1)} rx={Math.min(3, bw / 4)} className={isLast ? "chart-bar is-last" : "chart-bar"} />
+                  )}
+                  {(n <= 8 || isLast) && p.value !== null && (
+                    <text x={x + bw / 2} y={y - 5} textAnchor="middle" className="chart-val">
+                      {formatByUnit(p.value, number?.unit)}
+                    </text>
+                  )}
+                  {i % showEvery === 0 && (
+                    <text x={x + bw / 2} y={H - 6} textAnchor="middle" className="chart-tick">
+                      {label(p.t)}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+          </svg>
+          {number?.window && <figcaption className="chart-caption">{number.window}{number.rule ? `. ${number.rule}` : ""}</figcaption>}
+          <table className="visually-hidden">
+            <caption>{title}</caption>
+            <tbody>
+              {series.map((p) => (
+                <tr key={p.t}>
+                  <th scope="row">{label(p.t)}</th>
+                  <td>{formatByUnit(p.value, number?.unit)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </figure>
+      )}
+    </section>
+  );
+}
+
+/** Number cards for the Analytics lens: every number the story uses, with its window and rule. */
+export function NumberCards({ numbers, ids }: { numbers: Record<string, NumberData | null>; ids: string[] }) {
+  const list = ids.map((id) => numbers[id]).filter((n): n is NumberData => !!n && !n.series);
+  if (!list.length) return null;
+  return (
+    <ul className="numcards" role="list">
+      {list.map((n) => (
+        <li key={n.id} className="numcard">
+          <span className="numcard-label">{n.label}</span>
+          <span className="numcard-value mono">{formatByUnit(n.value, n.unit)}</span>
+          {n.window && <span className="numcard-window">{n.window}</span>}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Trust footer: source, data age, reliability tier, licence, and the way to every source. */
+export function Trust({
+  sourceIds, sources, asOf, tier, freshness, now, onAbout,
+}: {
+  sourceIds: string[];
+  sources: SourceStatus[];
+  asOf: string | null;
+  tier: string | null;
+  freshness: Freshness;
+  now: number;
+  onAbout: () => void;
+}) {
+  const names = sourceIds.map((id) => sources.find((s) => s.source_id === id)?.dataset_name ?? id);
+  const down = sourceIds.map((id) => sources.find((s) => s.source_id === id)).filter((s) => s && s.status === "down");
+  return (
+    <footer className="trust">
+      {(freshness === "stale" || freshness === "down") && (
+        <p className={`trust-alert trust-alert--${freshness}`} role="status">
+          <Icon name="warning" size={18} />
+          <span>
+            {freshness === "stale" ? t("layer.stale", { time: formatClock(asOf) }) : t("layer.down")}
+            {down.length > 0 && `: ${down.map((s) => s!.dataset_name).join(", ")}`}
+          </span>
+        </p>
+      )}
+      <p>
+        {names.length > 0 && <>{t("trust.source", { sources: names.join("; ") })} </>}
+        {asOf && <>{t("trust.updated", { age: ago(asOf, now) })} </>}
+        {tier && <>{t("trust.tier", { tier: tier.replace(/^Tier\s*/i, "") })} </>}
+        <button type="button" className="linklike" onClick={onAbout}>
+          {t("trust.about")}
+        </button>
+      </p>
+      <p className="trust-licence">{t("trust.licence")}</p>
+    </footer>
+  );
+}
+
+export function LensNote({ lens, story }: { lens: Lens; story: StorySummary | null }) {
+  if (!story || story.lenses.includes(lens)) return null;
+  return <p className="lens-note">{t("lens.notForStory")}</p>;
+}

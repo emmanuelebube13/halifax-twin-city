@@ -52,7 +52,8 @@ export const en = {
   "map.attribution": "Basemap © OpenStreetMap contributors, Protomaps",
 
   "city.title": "Now in Halifax",
-  "city.summary": "{count} live events across {sectors} sectors.",
+  "city.summaryRest": "things on the map now, across {sectors} sectors.",
+  "city.summaryOne": "things on the map now, in 1 sector.",
   "city.summaryNone": "Waiting for live data.",
   "city.live": "{count} live",
   "city.questions": "Questions you can ask",
@@ -73,6 +74,15 @@ export const en = {
   "story.reportPlanned": "Route performance report, Power BI",
   "story.reportSoon": "Coming after release 1",
   "story.swipe": "Swipe up for the chart, reports and sources.",
+  "story.status.live": "Live",
+  "story.status.planned": "Planned",
+  "story.status.collecting_data": "Collecting data",
+  "story.status.source_incomplete": "Source incomplete",
+  "story.notLive": "No answer yet",
+  "story.notLiveBody": "This question is registered but cannot be answered honestly yet.",
+  "story.count": "{count} questions",
+  "story.browse": "Questions in this sector",
+  "story.open": "Open question",
   "story.notFound": "This question is not in the story register.",
 
   "trust.source": "Source: {sources}.",
@@ -100,6 +110,7 @@ export const en = {
 
   "age.updated": "Updated {age}",
   "age.ago": "{age} ago",
+  "age.on": "on {date}",
   "age.justNow": "just now",
   "age.never": "never",
 
@@ -149,7 +160,7 @@ export const en = {
   "sectors.pinsUsed": "{used} of {max} pins used. A new sector appears here as one more row.",
   "sectors.pinsFull": "All {max} pins are used. Unpin one first.",
   "sectors.none": "No sector matches.",
-  "sectors.fallback": "Showing the built-in sector list: the API does not offer it yet.",
+  "sectors.failed": "The sector list could not load. Is the API running?",
 
   "sources.title": "Data and sources",
   "sources.intro": "Every source the map uses, its licence, and when it last loaded.",

@@ -11,14 +11,13 @@ for (const [path, body] of Object.entries(files)) byName.set(path.replace("./fix
 const LICENCE = "Contains information licensed under the Open Government Licence – Halifax";
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
 
+/** The newest envelope as_of: the moment the examples describe as "now" (end dates may lie in the future). */
 function newestTime(): number {
   let max = 0;
-  const walk = (v: unknown) => {
-    if (typeof v === "string" && ISO.test(v)) max = Math.max(max, Date.parse(v));
-    else if (Array.isArray(v)) v.forEach(walk);
-    else if (v && typeof v === "object") Object.values(v).forEach(walk);
-  };
-  for (const b of byName.values()) walk(b);
+  for (const b of byName.values()) {
+    const asOf = (b as { as_of?: unknown }).as_of;
+    if (typeof asOf === "string" && ISO.test(asOf)) max = Math.max(max, Date.parse(asOf));
+  }
   return max || Date.now();
 }
 

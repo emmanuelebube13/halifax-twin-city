@@ -87,8 +87,12 @@ export interface StorySummary {
   sector_id: string;
   subsector_id: string;
   lenses: Lens[];
-  status: "live" | "planned";
+  /** live, planned, collecting_data, source_incomplete; unknown values are shown as words, never as numbers. */
+  status: StoryStatus;
+  status_note?: string | null;
 }
+
+export type StoryStatus = "live" | "planned" | "collecting_data" | "source_incomplete" | (string & {});
 
 export interface LegendItem {
   value: string;

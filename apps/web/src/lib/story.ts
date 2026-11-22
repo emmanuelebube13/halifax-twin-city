@@ -45,3 +45,11 @@ export function storyNumberIds(story: { answer: { numbers: string[]; template: s
   if (story.context?.number_id) ids.add(story.context.number_id);
   return [...ids];
 }
+
+/** Words for a story status: known ones from the language file, others turned from snake_case into a phrase. */
+export function storyStatusLabel(status: string, known: (key: string) => string | null): string {
+  const k = known(`story.status.${status}`);
+  if (k) return k;
+  const words = status.replace(/[_-]+/g, " ").trim();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : status;
+}

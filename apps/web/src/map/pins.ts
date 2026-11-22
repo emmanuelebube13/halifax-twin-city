@@ -8,17 +8,17 @@ import { STATUS_SHAPE } from "../lib/status";
 export const PIXEL_RATIO = 2;
 
 export const COLOURS = {
-  ink: "#1b1f24",
-  late: "#a8430a",
+  ink: "#13232e",
+  late: "#b3410e",
   early: "#ffffff",
   unknown: "#6b7580",
   plate: "#ffffff",
-  selected: "#0b5ea8",
-  selectedFill: "#e3edf7",
-  closure: "#7a3e00",
+  selected: "#0d5466",
+  selectedFill: "#d9e7ec",
+  closure: "#8a3a0c",
   permit: "#4b3a8c",
   generic: "#2f5d50",
-  route: "#0b5ea8",
+  route: "#0d5466",
 };
 
 export const STATUS_FILL: Record<BusStatus, string> = {
@@ -190,13 +190,13 @@ export function drawGlyphPin(glyph: "triangle" | "house" | "square" | "stop", co
 }
 
 /** Cluster pin: a count on a plate. Drawn on demand, so counts need no map fonts. */
-export function drawCluster(count: number, label: string): HTMLCanvasElement {
+export function drawCluster(count: number, label: string, colour: string = COLOURS.ink): HTMLCanvasElement {
   const text = count > 999 ? `${Math.round(count / 100) / 10}k` : String(count);
   const W = Math.max(36, 16 + text.length * 10);
   const H = 36;
   const [c, g] = canvas(W, H);
   roundRect(g, 1.5, 1.5, W - 3, H - 3, H / 2 - 1.5);
-  g.fillStyle = COLOURS.ink;
+  g.fillStyle = colour;
   g.fill();
   g.lineWidth = 2;
   g.strokeStyle = "#ffffff";

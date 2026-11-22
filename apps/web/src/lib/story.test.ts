@@ -26,3 +26,14 @@ describe("answer sentence", () => {
       .toEqual(["trn.buses_live", "trn.on_time_share", "trn.on_time_share_24h"]);
   });
 });
+
+import { storyStatusLabel } from "./story";
+describe("story status words", () => {
+  const known = (k: string) => (k === "story.status.collecting_data" ? "Collecting data" : null);
+  it("uses the language file for known statuses", () => {
+    expect(storyStatusLabel("collecting_data", known)).toBe("Collecting data");
+  });
+  it("turns unknown statuses into a sentence-case phrase", () => {
+    expect(storyStatusLabel("source_lacks_dates", known)).toBe("Source lacks dates");
+  });
+});
