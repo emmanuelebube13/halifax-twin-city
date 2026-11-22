@@ -1,0 +1,42 @@
+{
+  "id": "TRN-Q01",
+  "question": "Where is every bus right now, and is it on time?",
+  "title": "Buses now",
+  "sector_id": "S04",
+  "subsector_id": "TRN-01",
+  "lenses": ["live", "replay", "analytics"],
+  "status": "live",
+  "answer": {
+    "template": "{trn.buses_live} buses are on the road now, and {trn.on_time_share} of stop arrivals in the last 30 minutes were on time.",
+    "numbers": ["trn.buses_live", "trn.on_time_share", "trn.on_time_count", "trn.late_count", "trn.early_count", "trn.trips_planned_today"],
+    "empty_text": "No buses have reported in the last 3 minutes."
+  },
+  "evidence": {
+    "layers": [
+      {
+        "layer": "vehicles",
+        "path": "live",
+        "title": "Buses",
+        "property": "status",
+        "legend": [
+          {"value": "on_time", "label": "On time", "shape": "disc"},
+          {"value": "late", "label": "Late", "shape": "diamond"},
+          {"value": "early", "label": "Early", "shape": "ring"},
+          {"value": "unknown", "label": "No arrival yet", "shape": "square"}
+        ]
+      },
+      {
+        "layer": "routes",
+        "path": "layers",
+        "title": "Routes",
+        "property": null,
+        "legend": [{"value": "route", "label": "Bus route", "shape": "line"}]
+      }
+    ]
+  },
+  "context": {"number_id": "trn.on_time_share_24h", "title": "On time by hour, last 24 hours"},
+  "trust": {
+    "source_ids": ["SRC-001", "SRC-002", "SRC-004"],
+    "note": "On time means 60 s early to 300 s late (interim rule, not yet decided)."
+  }
+}

@@ -1,0 +1,43 @@
+# Interim business rules for the Halifax Digital Twin.
+# Status: not yet decided. The architect owns these values; change them here, never in code.
+# Read by the serving API (services/api) and the collectors (services/collector).
+status: not yet decided
+
+on_time:
+  # A bus is on time when it is between 60 s early and 300 s late (not yet decided).
+  early_limit_seconds: -60
+  late_limit_seconds: 300
+
+frequent_service:
+  # A route counts as frequent when a bus comes every 15 minutes or better,
+  # weekdays 07:00 to 19:00 (not yet decided).
+  max_headway_minutes: 15
+  weekdays_from: "07:00"
+  weekdays_to: "19:00"
+
+walk:
+  # A 5-minute walk is taken as 400 m in a straight line (not yet decided).
+  five_minute_walk_metres: 400
+
+stops:
+  # Store both the HRM stop number and the GTFS stop_id; show the HRM number (not yet decided).
+  display_number: hrm_stop_number
+
+# Raw files under the data root are kept for a rolling 7 days, then deleted.
+# bronze.feed_fetch rows are always kept. Decided 21 Nov 2026.
+raw_retention_days: 7
+
+live:
+  # A live feed with no successful load for this long is marked stale.
+  stale_after_seconds: 120
+  # A bus counts as live when it reported a position within this window.
+  vehicle_window_seconds: 180
+  # On-time numbers look at stop arrivals within this window.
+  arrival_window_minutes: 30
+  # How often the web app should ask for live layers again.
+  refresh_seconds: 15
+
+display:
+  time_zone: America/Halifax
+  clock: 24-hour
+  date_format: "21 Nov 2026"

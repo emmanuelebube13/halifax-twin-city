@@ -1,0 +1,30 @@
+{
+  "id": "PWK-Q13",
+  "question": "Where does utility work restrict street access or parking, and for how long?",
+  "title": "Street closures now",
+  "sector_id": "S05",
+  "subsector_id": "PWK-03",
+  "lenses": ["live"],
+  "status": "live",
+  "answer": {
+    "template": "{pwk.closures_active} street closures are in effect now, planned to last {pwk.closure_median_days} days at the median.",
+    "numbers": ["pwk.closures_active", "pwk.closure_median_days"],
+    "empty_text": "No street closures are recorded as in effect now."
+  },
+  "evidence": {
+    "layers": [
+      {
+        "layer": "road-closures",
+        "path": "layers",
+        "title": "Street closures",
+        "property": null,
+        "legend": [{"value": "closure", "label": "Closure in effect", "shape": "line"}]
+      }
+    ]
+  },
+  "context": {"number_id": "pwk.closures_by_month", "title": "Closures starting each month, last 12 months"},
+  "trust": {
+    "source_ids": ["SRC-015"],
+    "note": "In effect means started and not yet past its planned end."
+  }
+}

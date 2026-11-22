@@ -443,7 +443,16 @@ components:
         lenses:
           type: array
           items: { $ref: "#/components/schemas/Lens" }
-        status: { type: string, enum: [live, planned] }
+        status:
+          type: string
+          enum: [live, planned, collecting_data, source_incomplete]
+          description: |
+            live: answered from data now. planned: not built yet. collecting_data: built, but the archive
+            is too short to answer honestly yet. source_incomplete: the source lacks a field the answer needs.
+            The web app shows status_note instead of an answer when status is not live.
+        status_note:
+          type: [string, "null"]
+          description: One sentence for people saying why the story is not live, for example "Needs 2 weeks of archived arrivals; 3 days so far."
 
     LegendItem:
       type: object
@@ -510,7 +519,7 @@ components:
       type: object
       required: [t, value]
       properties:
-        t: { type: string, description: "Start of the bucket: a UTC timestamp, or a year as YYYY" }
+        t: { type: string, description: "Start of the bucket: a UTC timestamp, a year (YYYY), a month (YYYY-MM) or a category label" }
         value: { type: [number, "null"] }
 
     Number:
