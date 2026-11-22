@@ -519,7 +519,7 @@ export function App() {
 
   if (phone) {
     return (
-      <div className="app app--phone">
+      <div className="app--phone">
         <main className="stage" id="map">
           {map}
           {globe}
@@ -536,9 +536,8 @@ export function App() {
         </main>
         <BottomSheet height={sheet} onHeight={setSheet} reducedMotion={reduced}>
           <p className="sheet-credits">
-            {mapAsOf ? `${t("age.updated", { age: ago(mapAsOf, now) })}. ` : ""}
-            {show3d ? "Google, Cesium ion. " : basemapOk === false ? `${t("map.basemapFallback")} ` : `${t("map.attribution")}. `}
-            Open Government Licence – Halifax.
+            {mapAsOf ? `${t("age.updated", { age: ago(mapAsOf, now) })} · ` : ""}
+            {show3d ? "Google, Cesium ion" : basemapOk === false ? t("map.basemapFallback") : "© OpenStreetMap, Protomaps"} · OGL Halifax
           </p>
           {!view.story && view.panel !== "detail" && (
             <div className="sheet-lens">

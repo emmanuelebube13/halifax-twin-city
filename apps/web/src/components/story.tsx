@@ -4,7 +4,7 @@ import { ago } from "../lib/ago";
 
 import type { BusStatus, Lens, NumberData, SourceStatus, Story, StorySummary } from "../api/types";
 import { hasKey, t } from "../i18n";
-import { formatByUnit, formatClock, formatCount, NO_VALUE } from "../lib/format";
+import { formatByUnit, formatClock, formatCount, formatDate, NO_VALUE } from "../lib/format";
 import { answerIsEmpty, renderAnswerParts, storyStatusLabel } from "../lib/story";
 import type { Freshness } from "../lib/status";
 import { Icon, StatusMark } from "./icons";
@@ -119,13 +119,28 @@ export function LegendTiles({ layer, onPick }: { layer: LayerView; onPick?: (val
   );
 }
 
+/**
+ * Labels for a series' buckets: years stay years; timestamps within one day show the clock (19:00); longer
+ * spans show the date (21 Nov); anything else (a route, a band) is shown as given.
+ */
+export function seriesLabeller(ts: string[]): (t: string) => string {
+  const times = ts.map((x) => (/^\d{4}-\d{2}-\d{2}/.test(x) ? Date.parse(x) : NaN));
+  const allTimes = times.length > 0 && times.every((x) => Number.isFinite(x));
+  const span = allTimes ? Math.max(...times) - Math.min(...times) : 0;
+  return (x: string) => {
+    if (/^\d{4}$/.test(x)) return x;
+    if (allTimes) return span > 86_400_000 ? formatDate(x).replace(/ \d{4}$/, "") : formatClock(x);
+    return x;
+  };
+}
+
 /** Context chart: bars of a number's series, with a text summary and a table for screen readers. */
 export function ContextChart({ title, number, compact = false }: { title: string; number: NumberData | null; compact?: boolean }) {
   const series = number?.series ?? [];
   const hasData = series.some((p) => p.value !== null);
   const isPct = (number?.unit ?? "").toLowerCase() === "percent";
   const max = isPct ? 100 : Math.max(1, ...series.map((p) => p.value ?? 0));
-  const label = (tt: string) => (/^\d{4}$/.test(tt) ? tt : formatClock(tt));
+  const label = seriesLabeller(series.map((p) => p.t));
   const W = 360;
   const H = compact ? 120 : 170;
   const padB = 22;

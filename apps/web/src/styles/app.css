@@ -1868,7 +1868,7 @@ button.sector-row-main:hover .sector-row-name {
 }
 
 .sheet {
-  --sheet-offset: calc(100% - 300px);
+  --sheet-offset: calc(100% - 330px);
   position: absolute;
   left: 0;
   right: 0;

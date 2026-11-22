@@ -18,7 +18,8 @@
         "trn.on_time_share",
         "trn.on_time_count",
         "trn.late_count",
-        "trn.early_count"
+        "trn.early_count",
+        "trn.trips_planned_today"
       ],
       "empty_text": "No buses have reported in the last 3 minutes."
     },
@@ -78,10 +79,27 @@
         "SRC-004"
       ],
       "note": "On time means 60 s early to 300 s late (interim rule, not yet decided)."
-    }
+    },
+    "status_note": null
   },
-  "as_of": "2026-11-21T23:15:04Z",
-  "source": [],
-  "reliability_tier": null,
+  "as_of": "2026-11-22T05:39:36Z",
+  "source": [
+    {
+      "source_id": "SRC-001",
+      "name": "GTFS Realtime – Vehicle Positions",
+      "publisher": "Halifax Transit"
+    },
+    {
+      "source_id": "SRC-002",
+      "name": "GTFS Realtime – Trip Updates",
+      "publisher": "Halifax Transit"
+    },
+    {
+      "source_id": "SRC-004",
+      "name": "GTFS Schedule (static) feed",
+      "publisher": "Halifax Transit"
+    }
+  ],
+  "reliability_tier": "Tier 1",
   "licence": "Contains information licensed under the Open Government Licence – Halifax"
 }

@@ -1,7 +1,7 @@
 import { ago } from "../lib/ago";
 // City view, sector view, the feature card (map popup or phone card) and the feature detail panel.
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { api } from "../api/client";
 import { usePoll } from "../api/hooks";
 import type { BusStatus, Kind, Sector, StorySummary, VehicleProperties } from "../api/types";
@@ -152,6 +152,8 @@ function eventFacts(p: Record<string, unknown>): string[] {
 
 const KIND_KEY: Record<string, "closure.kind" | "permit.kind" | "stop.kind" | "route.kind" | "bus.kind"> = {
   "road-closures": "closure.kind",
+  "road-closures-upcoming": "closure.kind",
+  "new-units": "permit.kind",
   "building-permits": "permit.kind",
   stops: "stop.kind",
   routes: "route.kind",
@@ -180,8 +182,13 @@ export function FeatureCard({
   const v = props as VehicleProperties;
   const status: BusStatus | null = isBus ? busStatus(v.status, v.delay_seconds) : null;
   const title = isBus ? busTitle(v) : featureName(props);
+  const ref = useRef<HTMLElement>(null);
+  const selKey = `${String(props.kind)}:${String(props.id)}`;
+  useEffect(() => {
+    if (phone) ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [phone, selKey]);
   return (
-    <section className={`feature-card${phone ? " feature-card--phone" : ""}`} aria-label={title}>
+    <section ref={ref} className={`feature-card${phone ? " feature-card--phone" : ""}`} aria-label={title}>
       {!phone && (
         <button type="button" className="feature-card-close" onClick={onClose} aria-label={t("bus.close")}>
           <Icon name="close" size={18} />
@@ -195,7 +202,7 @@ export function FeatureCard({
       {isBus && status && (
         <p className={`feature-card-status status-text--${status}`}>
           <StatusMark status={status} />
-          <span>{v.delay_seconds !== null && v.delay_seconds !== undefined && status !== "unknown" ? `${t(`status.${status}`)}, ${formatDelay(v.delay_seconds)}` : t(`status.${status}`)}</span>
+          <span>{v.delay_seconds !== null && v.delay_seconds !== undefined && status !== "unknown" ? `${t(`status.${status}`)} · ${formatDelay(v.delay_seconds)}` : t(`status.${status}`)}</span>
         </p>
       )}
       {isBus ? (

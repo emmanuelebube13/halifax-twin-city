@@ -23,7 +23,9 @@ export const REGISTRY: Record<string, Partial<LayerLook>> = {
   routes: { kind: "route", colour: COLOURS.route, context: true, cluster: false },
   stops: { kind: "stop", colour: COLOURS.ink, context: true, cluster: false, minzoom: 14 },
   "road-closures": { kind: "event", glyph: "triangle", colour: COLOURS.closure, cluster: true, dashed: true },
+  "road-closures-upcoming": { kind: "event", glyph: "triangle", colour: COLOURS.closure, cluster: true, dashed: true },
   "building-permits": { kind: "event", glyph: "house", colour: COLOURS.permit, cluster: true },
+  "new-units": { kind: "event", glyph: "house", colour: COLOURS.permit, cluster: true },
 };
 
 export function lookFor(layer: string): LayerLook {

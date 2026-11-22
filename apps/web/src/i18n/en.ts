@@ -102,6 +102,8 @@ export const en = {
   "layer.stops": "Stops",
   "layer.road-closures": "Road closures",
   "layer.building-permits": "Building permits",
+  "layer.road-closures-upcoming": "Planned closures",
+  "layer.new-units": "New units",
   "layer.stale": "Stale since {time}",
   "layer.down": "Not available",
   "layer.downDetail": "{layer} could not load. Other layers still work. Last good data {time}.",
