@@ -22,7 +22,8 @@ function ensureProtocol(): void {
   protocolAdded = true;
 }
 
-export const HALIFAX_CENTRE: [number, number] = [-63.5915, 44.6560];
+// The peninsula and downtown Dartmouth, where most of the city's activity is.
+export const HALIFAX_CENTRE: [number, number] = [-63.5880, 44.6560];
 const MAX_BOUNDS: [[number, number], [number, number]] = [[-64.3, 44.3], [-62.9, 45.1]];
 
 export interface MapLayerInput {
@@ -55,6 +56,8 @@ interface Props {
   vehicles: VehicleInput | null;
   selectedKey: string | null;
   routeFilter: string | null;
+  /** A route to draw boldly: the filtered route, or the selected bus's route. */
+  highlightRoute: string | null;
   follow: boolean;
   glide: boolean;
   reducedMotion: boolean;
@@ -92,7 +95,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
         container: container.current,
         style: ok ? harbourStyle(dark) : fallbackStyle(dark),
         center: HALIFAX_CENTRE,
-        zoom: propsRef.current.phone ? 11.6 : 12.4,
+        zoom: propsRef.current.phone ? 12.1 : 12.9,
         maxBounds: MAX_BOUNDS,
         attributionControl: false,
         dragRotate: true,
@@ -234,12 +237,16 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
       const op = l.dim ? 0.4 : 1;
       for (const id of [`p-${l.name}-pin`, `p-${l.name}-cluster`]) if (map.getLayer(id)) map.setPaintProperty(id, "icon-opacity", op);
       if (map.getLayer(`d-${l.name}-line`)) {
-        const rf = props.routeFilter;
-        const routeOp = look.kind === "route" ? (rf ? ["case", ["==", ["get", "route_short_name"], rf], 0.95, 0.12] : 0.42) : 0.9;
+        const hr = props.highlightRoute;
+        const routeOp = look.kind === "route" ? (hr ? ["case", ["==", ["get", "route_short_name"], hr], 1, props.routeFilter ? 0.15 : 0.35] : 0.55) : 0.9;
         map.setPaintProperty(`d-${l.name}-line`, "line-opacity", l.dim ? 0.35 : (routeOp as never));
+        if (look.kind === "route") {
+          const w = (n: number) => (hr ? ["case", ["==", ["get", "route_short_name"], hr], n * 2.4, n] : n);
+          map.setPaintProperty(`d-${l.name}-line`, "line-width", ["interpolate", ["linear"], ["zoom"], 11, w(1) as never, 14, w(1.8) as never, 17, w(3.5) as never] as never);
+        }
       }
     }
-  }, [props.layers, props.selectedKey, props.routeFilter, styleReady]);
+  }, [props.layers, props.selectedKey, props.routeFilter, props.highlightRoute, styleReady]);
 
   // ---- vehicles
   useEffect(() => {
@@ -354,13 +361,15 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
       const map = mapRef.current;
       if (!map) return;
       const z = Math.max(zoom ?? 15, map.getZoom());
-      if (propsRef.current.reducedMotion) map.jumpTo({ center: [lon, lat], zoom: z });
-      else map.flyTo({ center: [lon, lat], zoom: z, duration: 900 });
+      // on a phone the sheet covers the lower half: centre the pin in the strip of map above it
+      const padding = propsRef.current.phone ? { top: 130, bottom: Math.round(window.innerHeight * 0.56), left: 0, right: 0 } : { top: 0, bottom: 0, left: 0, right: 0 };
+      if (propsRef.current.reducedMotion) map.jumpTo({ center: [lon, lat], zoom: z, padding });
+      else map.flyTo({ center: [lon, lat], zoom: z, duration: 900, padding });
     },
     fitAll: () => {
       const map = mapRef.current;
       if (!map) return;
-      map.easeTo({ center: HALIFAX_CENTRE, zoom: propsRef.current.phone ? 11.6 : 12.4, bearing: 0, pitch: 0, duration: propsRef.current.reducedMotion ? 0 : 600 });
+      map.easeTo({ center: HALIFAX_CENTRE, zoom: propsRef.current.phone ? 12.1 : 12.9, bearing: 0, pitch: 0, duration: propsRef.current.reducedMotion ? 0 : 600 });
     },
   }));
 

@@ -85,6 +85,7 @@ export const en = {
   "story.open": "Open question",
   "story.notFound": "This question is not in the story register.",
 
+  "answer.stale": "As of {time}, {age}. The data has not refreshed since.",
   "trust.source": "Source: {sources}.",
   "trust.updated": "Updated {age}.",
   "trust.tier": "Reliability tier {tier}.",

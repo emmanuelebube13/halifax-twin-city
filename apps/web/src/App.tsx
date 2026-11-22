@@ -21,7 +21,7 @@ import { BottomSheet, ChipRow, Credits, LensSwitch, Legend, Rail, ReplayBar, Sea
 import { Icon } from "./components/icons";
 import { ListView, SectorsBrowser, SourcesPanel } from "./components/overlays";
 import { CityPanel, FeatureCard, FeatureDetailPanel, SectorPanel, busTitle, type SectorCount } from "./components/panels";
-import { AnswerPlate, ContextChart, LegendTiles, NumberCards, StoryHeading, Trust, statusWord, type LayerView } from "./components/story";
+import { AnswerFoot, AnswerPlate, ContextChart, LegendTiles, NumberCards, StoryHeading, Trust, statusWord, type LayerView } from "./components/story";
 
 interface Spec {
   layer: string;
@@ -395,8 +395,8 @@ export function App() {
     return (
       <>
         <StoryHeading story={summary} sectorName={sectorName(summary.sector_id)} />
+        <AnswerPlate foot={live ? <AnswerFoot asOf={newestAsOf} freshness={primary?.freshness} now={now} /> : undefined} story={story ? { ...story, status: summary.status, status_note: summary.status_note ?? story.status_note } : storySlot?.error ? ({ ...summary, answer: { template: "", numbers: [] }, evidence: { layers: [] }, context: { number_id: "", title: "" }, trust: { source_ids: [] } } as Story) : null} numbers={numbers} loading={numbersLoading} />
         {phone && <LensSwitch lens={view.lens} story={summary} replayReady={replayReady} live={vehiclesLayer?.freshness === "fresh"} onChange={(l) => setView({ lens: l })} />}
-        <AnswerPlate story={story ? { ...story, status: summary.status, status_note: summary.status_note ?? story.status_note } : storySlot?.error ? ({ ...summary, answer: { template: "", numbers: [] }, evidence: { layers: [] }, context: { number_id: "", title: "" }, trust: { source_ids: [] } } as Story) : null} numbers={numbers} loading={numbersLoading} />
         {live && primary && view.lens !== "replay" && <LegendTiles layer={primary} />}
         {phone && featureCard}
         {live && view.lens === "replay" && (
@@ -441,7 +441,22 @@ export function App() {
     return (
       <>
         {phone && featureCard && <div className="panel-body">{featureCard}</div>}
-        <CityPanel counts={counts} stories={stories} sectorName={sectorName} onOpenStory={openStory} onOpenSector={openSector} />
+        <CityPanel
+          counts={counts}
+          stories={stories}
+          sectorName={sectorName}
+          onOpenStory={openStory}
+          onOpenSector={openSector}
+          foot={<AnswerFoot asOf={mapAsOf} freshness={vehiclesLayer?.freshness} now={now} />}
+          afterHead={
+            phone ? (
+              <div className="sheet-lens">
+                <LensSwitch lens={view.lens} story={summary} replayReady={replayReady} live={vehiclesLayer?.freshness === "fresh"} onChange={(l) => setView({ lens: l })} />
+                <Legend entries={legendEntries} compact />
+              </div>
+            ) : null
+          }
+        />
       </>
     );
   };
@@ -472,6 +487,7 @@ export function App() {
       vehicles={vehicleInput}
       selectedKey={selectedKey}
       routeFilter={view.route}
+      highlightRoute={view.route ?? (selected?.layer.name === "vehicles" ? ((selected.props.route_short_name as string | null) ?? null) : null)}
       follow={following}
       glide={glide || inReplay}
       reducedMotion={reduced}
@@ -527,6 +543,7 @@ export function App() {
             {search}
             <ChipRow pinned={pinnedSectors} active={activeSector} onCity={openCity} onSector={openSector} onAll={() => setView({ panel: "sectors" }, { push: true })} />
           </div>
+          <p className={`phone-attrib phone-attrib--${sheet}`}>{show3d ? t("credits.3d") : basemapOk === false ? t("map.basemapFallback") : t("credits.short")}</p>
           <div className="phone-tools">
             {viewSwitch(true)}
             <button type="button" className="ctl" aria-label={t("view.list")} title={t("view.list")} onClick={() => setPanel("list")}>
@@ -535,17 +552,11 @@ export function App() {
           </div>
         </main>
         <BottomSheet height={sheet} onHeight={setSheet} reducedMotion={reduced}>
+          {panelBody()}
           <p className="sheet-credits">
             {mapAsOf ? `${t("age.updated", { age: ago(mapAsOf, now) })} · ` : ""}
             {show3d ? t("credits.3d") : basemapOk === false ? t("map.basemapFallback") : t("credits.short")} · {t("credits.licenceShort")}
           </p>
-          {!view.story && view.panel !== "detail" && (
-            <div className="sheet-lens">
-              <LensSwitch lens={view.lens} story={summary} replayReady={replayReady} live={vehiclesLayer?.freshness === "fresh"} onChange={(l) => setView({ lens: l })} />
-              <Legend entries={legendEntries} compact />
-            </div>
-          )}
-          {panelBody()}
         </BottomSheet>
         {overlays}
       </div>

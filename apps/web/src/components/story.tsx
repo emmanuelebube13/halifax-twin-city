@@ -1,3 +1,4 @@
+import type React from "react";
 import { ago } from "../lib/ago";
 // The story panel: question, answer (the hero), evidence counts, context chart, trust. Driven entirely by the
 // story configuration from /v1/stories/{id}; no story-specific code lives here.
@@ -41,7 +42,20 @@ export function StoryHeading({ story, sectorName }: { story: StorySummary; secto
 }
 
 /** The hero: one sentence, numbers in amber mono on the night-harbour plate. */
-export function AnswerPlate({ story, numbers, loading }: { story: Story | null; numbers: Record<string, NumberData | null>; loading: boolean }) {
+/** The plate's footer: how old the answer is; when stale, said plainly in amber so "now" is never claimed falsely. */
+export function AnswerFoot({ asOf, freshness, now }: { asOf: string | null; freshness?: Freshness; now: number }) {
+  if (!asOf) return null;
+  if (freshness === "stale" || freshness === "down") {
+    return (
+      <p className="answer-foot is-stale" role="status">
+        <Icon name="warning" size={16} /> {t("answer.stale", { time: formatClock(asOf), age: ago(asOf, now) })}
+      </p>
+    );
+  }
+  return <p className="answer-foot">{t("age.updated", { age: ago(asOf, now) })}</p>;
+}
+
+export function AnswerPlate({ story, numbers, loading, foot }: { story: Story | null; numbers: Record<string, NumberData | null>; loading: boolean; foot?: React.ReactNode }) {
   if (!story) {
     return (
       <div className="answer-plate is-loading" aria-busy="true">
@@ -79,6 +93,7 @@ export function AnswerPlate({ story, numbers, loading }: { story: Story | null; 
           ),
         )}
       </p>
+      {foot}
     </div>
   );
 }

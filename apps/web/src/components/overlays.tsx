@@ -100,13 +100,13 @@ export function ListView({
                         {status ? (
                           <span className={`status-text--${status} list-status`}>
                             <StatusMark status={status} /> {t(`status.${status}`)}
-                            {typeof p.delay_seconds === "number" && status !== "unknown" ? ` · ${formatDelay(p.delay_seconds)}` : ""}
+                            {typeof p.delay_seconds === "number" && status !== "unknown" ? ` (${formatDelay(p.delay_seconds)})` : ""}
                           </span>
                         ) : (
                           <span>{String(p.closure_type_code ?? p.permit_type_code ?? p.stop_code ?? p.route_long_name ?? p.event_status_code ?? "")}{p.event_start_ts ? `, ${formatDate(p.event_start_ts as string)}` : ""}</span>
                         )}
                       </td>
-                      <td className="mono">{p.position_ts ? formatAge(p.position_ts as string, now) : p.event_start_ts ? formatDate(p.event_start_ts as string) : l.asOf ? formatDateTime(l.asOf) : ""}</td>
+                      <td>{p.position_ts ? formatAge(p.position_ts as string, now) : p.event_start_ts ? formatDate(p.event_start_ts as string) : l.asOf ? formatDateTime(l.asOf) : ""}</td>
                     </tr>
                   );
                 })}

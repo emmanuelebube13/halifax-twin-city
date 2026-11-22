@@ -103,41 +103,66 @@ function toPin(id: string, c: HTMLCanvasElement): PinImage {
   return { id, canvas: c, data: g.getImageData(0, 0, c.width, c.height) };
 }
 
-/** Bus pin: plate with the bus render, status base under it. Anchor at the bottom centre. */
+/**
+ * Bus pin: the architect's render on a white plate with an ink border and a soft shadow, the status base
+ * attached beneath it, and a short stem to the ground point. Selected: harbour outline, tinted plate and an
+ * amber halo (the map also draws it 25% larger). Anchor at the bottom centre.
+ */
 export function drawBusPin(img: HTMLImageElement | null, status: BusStatus, facingWest: boolean, selected: boolean): HTMLCanvasElement {
-  const W = 64;
-  const plateH = 24;
-  const baseW = 26;
-  const pad = 3;
-  const H = plateH + 4 + 14;
+  const W = 84;
+  const plateW = 72;
+  const plateH = 28;
+  const baseW = 30;
+  const top = 6;
+  const H = top + plateH + 22;
   const [c, g] = canvas(W, H);
-  const x = 2;
-  const y = 2;
-  const pw = W - 4;
-  roundRect(g, x, y, pw, plateH, 6);
+  const x = (W - plateW) / 2;
+  if (selected) {
+    roundRect(g, x - 4, top - 4, plateW + 8, plateH + 8, 11);
+    g.fillStyle = "rgba(245, 181, 68, 0.95)";
+    g.fill();
+  }
+  g.save();
+  g.shadowColor = "rgba(19, 35, 46, 0.35)";
+  g.shadowBlur = 6;
+  g.shadowOffsetY = 2;
+  roundRect(g, x, top, plateW, plateH, 7);
   g.fillStyle = selected ? COLOURS.selectedFill : COLOURS.plate;
   g.fill();
-  g.lineWidth = selected ? 3 : 1.5;
+  g.restore();
+  roundRect(g, x, top, plateW, plateH, 7);
+  g.lineWidth = selected ? 3 : 2;
   g.strokeStyle = selected ? COLOURS.selected : COLOURS.ink;
   g.stroke();
-  const iw = pw - 2 * pad - 2;
+  const pad = 5;
+  const iw = plateW - 2 * pad;
   const ih = iw * (53 / 192);
-  const iy = y + (plateH - ih) / 2;
+  const iy = top + (plateH - ih) / 2;
   if (img && img.complete && img.naturalWidth) {
     g.save();
     if (facingWest) {
-      g.translate(x + pad + 1 + iw, iy);
+      g.translate(x + pad + iw, iy);
       g.scale(-1, 1);
       g.drawImage(img, 0, 0, iw, ih);
     } else {
-      g.drawImage(img, x + pad + 1, iy, iw, ih);
+      g.drawImage(img, x + pad, iy, iw, ih);
     }
     g.restore();
   } else {
     g.fillStyle = COLOURS.ink;
-    g.fillRect(x + pad + 1, iy, iw, ih);
+    g.fillRect(x + pad, iy, iw, ih);
   }
-  drawBase(g, STATUS_SHAPE[status], W / 2, plateH + 4 + 6, baseW, STATUS_FILL[status]);
+  // stem from the plate to the base, so the base reads as part of the pin
+  g.fillStyle = COLOURS.ink;
+  g.fillRect(W / 2 - 1, top + plateH, 2, 6);
+  // white backing so every base shape stands out from the map
+  g.save();
+  g.fillStyle = "#ffffff";
+  g.beginPath();
+  g.ellipse(W / 2, top + plateH + 13, baseW / 2 + 3, 9, 0, 0, Math.PI * 2);
+  g.fill();
+  g.restore();
+  drawBase(g, STATUS_SHAPE[status], W / 2, top + plateH + 13, baseW, STATUS_FILL[status]);
   return c;
 }
 

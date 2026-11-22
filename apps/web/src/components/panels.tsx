@@ -1,3 +1,4 @@
+import type React from "react";
 import { ago } from "../lib/ago";
 // City view, sector view, the feature card (map popup or phone card) and the feature detail panel.
 
@@ -40,8 +41,10 @@ function orderStories(list: StorySummary[]): StorySummary[] {
 }
 
 export function CityPanel({
-  counts, stories, sectorName, onOpenStory, onOpenSector,
+  counts, stories, sectorName, onOpenStory, onOpenSector, afterHead, foot,
 }: {
+  afterHead?: React.ReactNode;
+  foot?: React.ReactNode;
   counts: SectorCount[];
   stories: StorySummary[];
   sectorName: (id: string) => string;
@@ -67,8 +70,10 @@ export function CityPanel({
               </>
             )}
           </p>
+          {foot}
         </div>
       </header>
+      {afterHead}
       <ul className="sector-counts" role="list">
         {counts.map((c) => (
           <li key={c.sector.sector_id}>
@@ -185,7 +190,12 @@ export function FeatureCard({
   const ref = useRef<HTMLElement>(null);
   const selKey = `${String(props.kind)}:${String(props.id)}`;
   useEffect(() => {
-    if (phone) ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    // bring the card into view inside the sheet only: scrollIntoView would also move the fixed page
+    if (!phone || !ref.current) return;
+    const body = ref.current.closest(".sheet-body") as HTMLElement | null;
+    if (!body) return;
+    const top = ref.current.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop - 8;
+    body.scrollTo({ top, behavior: "auto" });
   }, [phone, selKey]);
   return (
     <section ref={ref} className={`feature-card${phone ? " feature-card--phone" : ""}`} aria-label={title}>
@@ -202,7 +212,7 @@ export function FeatureCard({
       {isBus && status && (
         <p className={`feature-card-status status-text--${status}`}>
           <StatusMark status={status} />
-          <span>{v.delay_seconds !== null && v.delay_seconds !== undefined && status !== "unknown" ? `${t(`status.${status}`)} · ${formatDelay(v.delay_seconds)}` : t(`status.${status}`)}</span>
+          <span>{v.delay_seconds !== null && v.delay_seconds !== undefined && status !== "unknown" ? `${t(`status.${status}`)} (${formatDelay(v.delay_seconds)})` : t(`status.${status}`)}</span>
         </p>
       )}
       {isBus ? (

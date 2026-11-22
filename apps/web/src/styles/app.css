@@ -181,8 +181,8 @@ ol {
 .ctl[aria-disabled="true"],
 .seg button[aria-disabled="true"] {
   color: var(--ink-soft);
+  font-weight: 400;
   cursor: not-allowed;
-  background-image: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--line) 70%, transparent) 5px 6px);
 }
 
 /* ------------------------------------------------------------ laptop frame */
@@ -561,14 +561,7 @@ ol {
   font-weight: 400;
 }
 
-.lens-btn.is-off::after {
-  content: "";
-  position: absolute;
-  left: 18px;
-  right: 18px;
-  bottom: 9px;
-  border-bottom: 1.5px dotted var(--on-night-soft);
-}
+
 
 .lens :focus-visible {
   outline-color: var(--buoy);
@@ -1040,7 +1033,10 @@ ol {
 }
 
 .chart-bar.is-last {
-  fill: var(--ink);
+  fill: var(--harbour);
+  stroke: var(--buoy);
+  stroke-width: 3;
+  paint-order: stroke;
 }
 
 .chart-bar-none {
@@ -2000,4 +1996,121 @@ button.sector-row-main:hover .sector-row-name {
 /* Cesium credits must stay visible */
 .globe .cesium-widget-credits {
   display: block !important;
+}
+
+/* ------------------------------------------------------------ review round 1 refinements */
+
+.answer-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--night-line);
+  font-size: var(--fs-sm);
+  color: var(--on-night-soft);
+}
+
+.answer-foot.is-stale {
+  color: var(--buoy);
+  font-weight: 500;
+}
+
+.answer-foot .icon {
+  flex: none;
+}
+
+/* status counts: one instrument strip under the plate, not a row of dashboard cards */
+.tiles {
+  display: flex;
+  gap: 0;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.tiles .tile {
+  flex: 1;
+  min-width: 0;
+}
+
+.tiles .tile + .tile {
+  border-left: 1px solid var(--line);
+}
+
+.tile-btn {
+  border: 0;
+  border-radius: 0;
+  min-height: 76px;
+  background: transparent;
+}
+
+.tile-value {
+  font-size: 28px;
+}
+
+.select-field select {
+  appearance: none;
+  border-radius: var(--r-pill);
+  padding: 0 44px 0 18px;
+  font-weight: 500;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2313232e' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 16px center,
+    var(--surface);
+}
+
+@media (prefers-color-scheme: dark) {
+  .select-field select {
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23e8edf0' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 16px center,
+      var(--surface);
+  }
+}
+
+.list-status {
+  white-space: nowrap;
+}
+
+.list-table td:last-child {
+  white-space: nowrap;
+}
+
+.rail-item {
+  hyphens: none;
+  overflow-wrap: normal;
+}
+
+.phone-attrib {
+  position: absolute;
+  right: 10px;
+  z-index: 5;
+  margin: 0;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--plate);
+  border: 1px solid var(--plate-line);
+  font-size: var(--fs-xs);
+  color: var(--ink-soft);
+  transition: bottom var(--t-panel) var(--ease);
+}
+
+.phone-attrib--peek {
+  bottom: 338px;
+}
+
+.phone-attrib--half {
+  bottom: calc(56dvh + 8px);
+}
+
+.phone-attrib--full {
+  display: none;
+}
+
+.sheet .sheet-lens {
+  padding: 0;
+}
+
+.sheet-credits {
+  padding: 4px 18px 18px;
 }
