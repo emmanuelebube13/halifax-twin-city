@@ -1,0 +1,10 @@
+# Halifax Digital Twin collectors: Python packages (Python 3.12).
+# scripts\collector-start.ps1 installs these into services\collector\.venv when the file changes.
+psycopg[binary]>=3.2
+requests>=2.32
+gtfs-realtime-bindings>=1.0
+pyyaml>=6.0
+tzdata>=2024.1
+
+# Tests
+pytest>=8.0
