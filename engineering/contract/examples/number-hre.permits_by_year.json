@@ -7,6 +7,11 @@
     "window": "Calendar years in Halifax time; value is the current year to date",
     "series": [
       {
+        "t": "2020",
+        "value": 2,
+        "partial": true
+      },
+      {
         "t": "2023",
         "value": 4120
       },
@@ -20,7 +25,8 @@
       },
       {
         "t": "2026",
-        "value": 3114
+        "value": 3114,
+        "partial": true
       }
     ]
   },

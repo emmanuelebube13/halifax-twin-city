@@ -92,15 +92,28 @@ class SourceRegister:
                 self.cache.get("source-register", 0, lambda: found)
         return found
 
+    def _freshness(self) -> dict:
+        from .sources import freshness
+
+        def load():
+            try:
+                return freshness(self.db)
+            except SourceUnavailable:
+                return None
+        return self.cache.get("source-freshness", 30, load) or {}
+
     def refs(self, ids) -> list[dict]:
         known = self._all()
+        fresh = self._freshness() if ids else {}
         out, seen = [], set()
         for sid in ids:
             if not sid or sid in seen:
                 continue
             seen.add(sid)
             name, publisher, _ = known.get(sid, (sid, None, None))
-            out.append({"source_id": sid, "name": name, "publisher": publisher})
+            checked, changed = fresh.get(sid, (None, None))
+            out.append({"source_id": sid, "name": name, "publisher": publisher,
+                        "checked_ts": iso(checked), "last_changed_ts": iso(changed)})
         return out
 
     def tier(self, ids) -> str | None:

@@ -134,17 +134,23 @@
     {
       "source_id": "SRC-001",
       "name": "GTFS Realtime – Vehicle Positions",
-      "publisher": "Halifax Transit"
+      "publisher": "Halifax Transit",
+      "checked_ts": "2026-11-21T23:14:58Z",
+      "last_changed_ts": null
     },
     {
       "source_id": "SRC-002",
       "name": "GTFS Realtime – Trip Updates",
-      "publisher": "Halifax Transit"
+      "publisher": "Halifax Transit",
+      "checked_ts": "2026-11-21T23:14:58Z",
+      "last_changed_ts": null
     },
     {
       "source_id": "SRC-004",
       "name": "GTFS Schedule (static) feed",
-      "publisher": "Halifax Transit"
+      "publisher": "Halifax Transit",
+      "checked_ts": "2026-11-21T07:00:12Z",
+      "last_changed_ts": "2026-11-20T14:02:11Z"
     }
   ],
   "reliability_tier": "Tier 1",

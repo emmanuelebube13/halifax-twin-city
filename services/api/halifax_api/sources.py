@@ -5,6 +5,31 @@ import datetime as dt
 
 from .envelope import iso
 
+# When each source was last checked and last changed.
+# checked: the newest successful download (HTTP 2xx, no error) in bronze.feed_fetch.
+# changed: for sources that are checked rather than streamed (cadence not Real-time), the newest
+# dw_loaded_ts on that source's event, asset and location rows. Loaders update a row only when a value
+# really changed, so this is "unchanged since". Live feeds get null: their as_of already says it.
+FRESHNESS_SQL = """
+SELECT s.source_id, ok.fetched_ts,
+       CASE WHEN s.cadence_code IS DISTINCT FROM 'Real-time' THEN
+            greatest((SELECT max(dw_loaded_ts) FROM silver.event    WHERE source_id = s.source_id),
+                     (SELECT max(dw_loaded_ts) FROM silver.asset    WHERE source_id = s.source_id),
+                     (SELECT max(dw_loaded_ts) FROM silver.location WHERE source_id = s.source_id))
+       END
+  FROM silver.source s
+  LEFT JOIN LATERAL (
+        SELECT f.fetched_ts FROM bronze.feed_fetch f
+         WHERE f.source_id = s.source_id AND f.http_status BETWEEN 200 AND 299 AND f.error_text IS NULL
+         ORDER BY f.fetched_ts DESC LIMIT 1) ok ON true
+"""
+
+
+def freshness(db) -> dict[str, tuple]:
+    """source_id -> (checked_ts, last_changed_ts), both datetimes or None."""
+    return {sid: (checked, changed) for sid, checked, changed in db.fetch(FRESHNESS_SQL)}
+
+
 SOURCES_SQL = """
 SELECT s.source_id, s.dataset_name, p.party_name, s.licence_name, s.reliability_tier_code, s.cadence_code,
        s.source_url, ok.fetched_ts, last.fetched_ts, last.failed
@@ -46,10 +71,14 @@ def status_of(cadence: str | None, last_ok, last_failed: bool | None, now: dt.da
 def list_sources(db, stale_after_seconds: int) -> list[dict]:
     now = dt.datetime.now(dt.timezone.utc)
     live_limit = dt.timedelta(seconds=stale_after_seconds)
+    fresh = freshness(db)
     out = []
     for sid, name, publisher, licence, tier, cadence, url, last_ok, last_attempt, failed in db.fetch(SOURCES_SQL):
+        checked, changed = fresh.get(sid, (None, None))
+        # Status follows the last successful check (last_ok), never the last change.
         out.append({"source_id": sid, "dataset_name": name, "publisher": publisher, "licence": licence,
                     "reliability_tier": tier, "last_loaded_ts": iso(last_ok), "last_attempt_ts": iso(last_attempt),
+                    "checked_ts": iso(checked), "last_changed_ts": iso(changed),
                     "status": status_of(cadence, last_ok, failed, now, live_limit), "cadence_code": cadence,
                     "source_url": url})
     return out

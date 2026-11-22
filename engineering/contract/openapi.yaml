@@ -180,7 +180,8 @@ paths:
       summary: Every source with licence, last successful load, tier and status
       description: |
         status: ok, stale (live feed with no successful load for 2 minutes, or a periodic source past
-        its cadence), down (last attempt failed), unknown (never loaded).
+        its cadence), down (last attempt failed), unknown (never loaded). Staleness follows the last
+        successful check, not the last change: a source checked a minute ago with nothing new is ok.
       responses:
         "200":
           description: Sources
@@ -284,6 +285,19 @@ components:
         source_id: { type: string, examples: ["SRC-001"] }
         name: { type: string }
         publisher: { type: [string, "null"] }
+        checked_ts:
+          allOf: [{ $ref: "#/components/schemas/NullableTimestamp" }]
+          description: |
+            Optional. The last successful check of this source (download with HTTP 2xx and no error in
+            bronze.feed_fetch), whether or not anything changed. Null if never checked.
+        last_changed_ts:
+          allOf: [{ $ref: "#/components/schemas/NullableTimestamp" }]
+          description: |
+            Optional. For sources that are checked rather than streamed (cadence not Real-time, for example
+            SRC-004, SRC-015, SRC-066): when the data last changed (newest load time on the source's event,
+            asset and location rows; loaders touch a row only when a value changed). Null for live feeds,
+            whose envelope as_of already gives the data time. With checked_ts the app can say
+            "Checked 1 min ago, unchanged since ...".
 
     ErrorInfo:
       type: object
@@ -558,6 +572,12 @@ components:
       properties:
         t: { type: string, description: "Start of the bucket: a UTC timestamp, a year (YYYY), a month (YYYY-MM) or a category label" }
         value: { type: [number, "null"] }
+        partial:
+          type: boolean
+          description: |
+            Optional. True when the point covers only part of its period: the current year, month or hour to
+            date, or a first period that the source covers only in part (building permits start on
+            22 Dec 2020, so the 2020 point holds a few days). Absent means the period is complete.
 
     Number:
       type: object
@@ -585,6 +605,12 @@ components:
         reliability_tier: { type: string }
         last_loaded_ts: { $ref: "#/components/schemas/NullableTimestamp" }
         last_attempt_ts: { $ref: "#/components/schemas/NullableTimestamp" }
+        checked_ts:
+          allOf: [{ $ref: "#/components/schemas/NullableTimestamp" }]
+          description: Optional. Same as source[].checked_ts in the envelope (equals last_loaded_ts).
+        last_changed_ts:
+          allOf: [{ $ref: "#/components/schemas/NullableTimestamp" }]
+          description: Optional. Same as source[].last_changed_ts in the envelope.
         status: { type: string, enum: [ok, stale, down, unknown] }
         cadence_code: { type: [string, "null"] }
         source_url: { type: [string, "null"] }
