@@ -1,0 +1,58 @@
+{
+  "data": {
+    "id": "HRE-Q08",
+    "question": "How many new rental units are being added each year, and where?",
+    "title": "New units",
+    "sector_id": "S09",
+    "subsector_id": "HRE-02",
+    "lenses": [
+      "analytics"
+    ],
+    "status": "source_incomplete",
+    "status_note": "The permit source has no rental or ownership field, so rental units cannot be told apart; the numbers count all new units.",
+    "answer": {
+      "template": "Permits issued so far this year create {hre.units_created_ytd} new units, rental and owned together.",
+      "numbers": [
+        "hre.units_created_ytd"
+      ],
+      "empty_text": "No building permits are loaded yet."
+    },
+    "evidence": {
+      "layers": [
+        {
+          "layer": "new-units",
+          "path": "layers",
+          "title": "Permits adding units, last 12 months",
+          "property": null,
+          "legend": [
+            {
+              "value": "permit",
+              "label": "Permit adding units",
+              "shape": "disc"
+            }
+          ]
+        }
+      ]
+    },
+    "context": {
+      "number_id": "hre.units_created_by_year",
+      "title": "New units by year"
+    },
+    "trust": {
+      "source_ids": [
+        "SRC-066"
+      ],
+      "note": "Units are the permit's net new units; tenure is not published in the geolocated permit layer."
+    }
+  },
+  "as_of": "2026-11-22T05:39:37Z",
+  "source": [
+    {
+      "source_id": "SRC-066",
+      "name": "PPL&C Issued Building Permits; Permits Geolocated; Construction Permits",
+      "publisher": "Halifax Regional Municipality"
+    }
+  ],
+  "reliability_tier": "Tier 1",
+  "licence": "Contains information licensed under the Open Government Licence – Halifax"
+}

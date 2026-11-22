@@ -1,0 +1,27 @@
+{
+  "data": {
+    "type": "FeatureCollection",
+    "layer": "vehicles",
+    "features": []
+  },
+  "as_of": null,
+  "source": [
+    {
+      "source_id": "SRC-001",
+      "name": "GTFS Realtime – Vehicle Positions",
+      "publisher": "Halifax Transit"
+    },
+    {
+      "source_id": "SRC-002",
+      "name": "GTFS Realtime – Trip Updates",
+      "publisher": "Halifax Transit"
+    },
+    {
+      "source_id": "SRC-004",
+      "name": "GTFS Schedule (static) feed",
+      "publisher": "Halifax Transit"
+    }
+  ],
+  "reliability_tier": "Tier 1",
+  "licence": "Contains information licensed under the Open Government Licence – Halifax"
+}

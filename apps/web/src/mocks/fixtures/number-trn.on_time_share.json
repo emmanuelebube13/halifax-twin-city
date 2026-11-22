@@ -1,0 +1,20 @@
+{
+  "data": {
+    "id": "trn.on_time_share",
+    "label": "Arrivals on time",
+    "value": 64.8,
+    "unit": "percent",
+    "window": "Stop arrivals in the last 30 minutes",
+    "rule": "60 s early to 300 s late (interim, not yet decided)"
+  },
+  "as_of": "2026-11-21T23:14:40Z",
+  "source": [
+    {
+      "source_id": "SRC-002",
+      "name": "GTFS Realtime – Trip Updates",
+      "publisher": "Halifax Transit"
+    }
+  ],
+  "reliability_tier": "Tier 1",
+  "licence": "Contains information licensed under the Open Government Licence – Halifax"
+}

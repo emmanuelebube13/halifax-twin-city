@@ -1,0 +1,17 @@
+{
+  "data": null,
+  "as_of": null,
+  "source": [
+    {
+      "source_id": "SRC-015",
+      "name": "Street Closures (all, active, upcoming) and Development Street Closures",
+      "publisher": "Halifax Regional Municipality"
+    }
+  ],
+  "reliability_tier": "Tier 1",
+  "licence": "Contains information licensed under the Open Government Licence – Halifax",
+  "error": {
+    "code": "source_unavailable",
+    "message": "This layer cannot be read right now. Other layers are not affected."
+  }
+}
