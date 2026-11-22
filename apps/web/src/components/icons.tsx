@@ -149,6 +149,7 @@ export function LayerMark({ look }: { look: { kind: string; glyph: string; colou
       {look.glyph === "triangle" && <path d="M9 4.5l4.5 8h-9z" fill="none" stroke={look.colour} strokeWidth="1.5" strokeLinejoin="round" />}
       {look.glyph === "house" && <path d="M4.5 9L9 5l4.5 4v4.5h-9z" fill="none" stroke={look.colour} strokeWidth="1.5" strokeLinejoin="round" />}
       {look.glyph === "square" && <rect x="6" y="6" width="6" height="6" fill={look.colour} />}
+      {look.glyph === "dot" && <circle cx="9" cy="9" r="3.5" fill={look.colour} />}
     </svg>
   );
 }

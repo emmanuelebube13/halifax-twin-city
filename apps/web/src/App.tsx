@@ -412,6 +412,11 @@ export function App() {
   show3dRef.current = show3d;
   const apiDown = !!storiesP.error && !storiesP.env;
 
+  // a link or a previous story may carry a lens this story does not offer: use the story's first lens
+  useEffect(() => {
+    if (summary && summary.lenses.length && !summary.lenses.includes(view.lens)) setView({ lens: summary.lenses[0] });
+  }, [summary, view.lens, setView]);
+
   // ---- 2D and 3D keep the place when switching
   const switchView = useCallback(
     (v: "2d" | "3d") => {
@@ -629,6 +634,7 @@ export function App() {
         following={following}
         reducedMotion={reduced}
         startPlace={startPlace}
+        phone={phone}
         popup={!phone ? featureCard : null}
         onSelect={(s) => onMapSelect(s)}
         onFailed={(reason) => {
@@ -660,7 +666,7 @@ export function App() {
   if (phone) {
     return (
       <div className="app--phone">
-        <main className={`stage${show3d ? " is-3d" : ""}`} id="map">
+        <main className={`stage${show3d ? " is-3d" : ""}`} id="map" data-sheet={sheet}>
           {map}
           {globe}
           <div className="phone-top">

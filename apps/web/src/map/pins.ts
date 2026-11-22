@@ -178,7 +178,7 @@ export function drawBusPin(img: HTMLImageElement | null, status: BusStatus, faci
 }
 
 /** Simple glyph pins for event and location kinds (closure triangle, permit house, generic square). */
-export function drawGlyphPin(glyph: "triangle" | "house" | "square" | "stop", colour: string, selected: boolean): HTMLCanvasElement {
+export function drawGlyphPin(glyph: "triangle" | "house" | "square" | "stop" | "dot", colour: string, selected: boolean): HTMLCanvasElement {
   const W = 30;
   const H = 38;
   const [c, g] = canvas(W, H);
@@ -215,7 +215,7 @@ export function drawGlyphPin(glyph: "triangle" | "house" | "square" | "stop", co
     g.lineTo(cx - 8, cy + 8);
     g.closePath();
     g.stroke();
-  } else if (glyph === "stop") {
+  } else if (glyph === "stop" || glyph === "dot") {
     g.arc(cx, cy, 6, 0, Math.PI * 2);
     g.fill();
   } else {
@@ -295,6 +295,7 @@ export async function buildPinImages(): Promise<PinImage[]> {
     out.push(toPin(`glyph-triangle${s}`, drawGlyphPin("triangle", COLOURS.closure, sel)));
     out.push(toPin(`glyph-house${s}`, drawGlyphPin("house", COLOURS.permit, sel)));
     out.push(toPin(`glyph-square${s}`, drawGlyphPin("square", COLOURS.generic, sel)));
+    out.push(toPin(`glyph-dot${s}`, drawGlyphPin("dot", COLOURS.generic, sel)));
   }
   return out;
 }

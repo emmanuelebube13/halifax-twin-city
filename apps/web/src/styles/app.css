@@ -2456,3 +2456,45 @@ button.sector-row-main:hover .sector-row-name {
   max-width: calc(100% - 92px);
   text-align: left;
 }
+
+/* review round 2: phone credits are a one-line logo strip just above the sheet (data credits sit behind
+   Cesium's "Data attribution" link), so they never cover the map's top third */
+.app--phone .globe-credits {
+  top: auto;
+  left: 10px;
+  right: auto;
+  max-width: calc(100% - 20px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 3px 8px;
+}
+
+.app--phone .stage[data-sheet="peek"] .globe-credits {
+  bottom: 308px;
+}
+
+.app--phone .stage[data-sheet="half"] .globe-credits {
+  bottom: calc(56dvh + 8px);
+}
+
+.app--phone .stage[data-sheet="full"] .globe-credits {
+  bottom: calc(100dvh - 64px);
+}
+
+.app--phone .globe-credits img {
+  max-height: 16px;
+  width: auto;
+}
+
+/* dark mode: lift the answer plate off the panel so it stays the hero */
+@media (prefers-color-scheme: dark) {
+  .answer-plate {
+    background: #173543;
+    box-shadow: inset 0 0 0 1px rgba(143, 211, 224, 0.35);
+  }
+
+  .answer-plate.is-muted {
+    background: #12303c;
+  }
+}

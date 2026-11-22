@@ -48,7 +48,7 @@ export interface Globe3DMetrics {
 
 export interface PinLayer3D {
   name: string;
-  glyph: "triangle" | "house" | "square";
+  glyph: "triangle" | "house" | "square" | "dot";
   colour: string;
   dashed: boolean;
   features: Feature[];
@@ -114,6 +114,8 @@ interface Props {
   following: boolean;
   reducedMotion: boolean;
   startPlace: Place | null;
+  /** On a phone the data credits sit behind Cesium's "Data attribution" link; the logos stay on screen. */
+  phone: boolean;
   /** Route lines (GeoJSON features), draped on the tiles as one ground primitive. */
   routes: Feature[];
   highlightRoute: string | null;
@@ -257,7 +259,7 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
             skipLevelOfDetail: prof.skipLevelOfDetail,
             dynamicScreenSpaceError: true,
             foveatedScreenSpaceError: true,
-            showCreditsOnScreen: true,
+            showCreditsOnScreen: !p.phone,
           });
           if (cancelled) return;
           tilesetRef.current = tileset;
@@ -479,7 +481,14 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
     const fit = props.fit;
     if (!C || !v || status !== "ready" || !fit || !fit.points.length || fitted.current === fit.key) return;
     fitted.current = fit.key;
-    const pts = fit.points.slice(0, 2000).map(([lon, lat]) => C.Cartesian3.fromDegrees(lon, lat, 0));
+    // frame the densest 80%: drop the points farthest from the median, so outliers do not widen the view
+    const sorted = (a: number[]) => [...a].sort((x, y) => x - y);
+    const lons = sorted(fit.points.map((q) => q[0]));
+    const lats = sorted(fit.points.map((q) => q[1]));
+    const mid: [number, number] = [lons[Math.floor(lons.length / 2)], lats[Math.floor(lats.length / 2)]];
+    const near = [...fit.points].sort((a, b) => (a[0] - mid[0]) ** 2 + (a[1] - mid[1]) ** 2 - ((b[0] - mid[0]) ** 2 + (b[1] - mid[1]) ** 2));
+    const keep = near.slice(0, Math.max(1, Math.ceil(near.length * 0.8)));
+    const pts = keep.slice(0, 2000).map(([lon, lat]) => C.Cartesian3.fromDegrees(lon, lat, 0));
     const sphere = C.BoundingSphere.fromPoints(pts);
     const range = Math.min(CAMERA_LIMITS.maxRange, Math.max(700, sphere.radius * 2.8));
     const offset = new C.HeadingPitchRange(v.scene.camera.heading, rad(-50), range);
@@ -512,24 +521,29 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
       for (const line of lines) {
         if (line.length < 2) continue;
         const positions = C.Cartesian3.fromDegreesArray(line.flat());
-        casing.push(
-          new C.GeometryInstance({
-            geometry: new C.GroundPolylineGeometry({ positions, width: on ? 11 : 6 }),
-            attributes: { color: C.ColorGeometryInstanceAttribute.fromColor(C.Color.fromCssColorString("#f4f3ee").withAlpha(hr && !on ? 0.35 : 0.85)) },
-          }),
-        );
+        if (on) {
+          // only the selected route gets a fog casing, so it stands out; the others stay a single line
+          casing.push(
+            new C.GeometryInstance({
+              geometry: new C.GroundPolylineGeometry({ positions, width: 11 }),
+              attributes: { color: C.ColorGeometryInstanceAttribute.fromColor(C.Color.fromCssColorString("#f4f3ee").withAlpha(0.9)) },
+            }),
+          );
+        }
         instances.push(
           new C.GeometryInstance({
             geometry: new C.GroundPolylineGeometry({ positions, width: on ? 7 : 3 }),
-            attributes: { color: C.ColorGeometryInstanceAttribute.fromColor(C.Color.fromCssColorString(COLOURS.route).withAlpha(on ? 1 : hr ? 0.4 : 0.92)) },
+            attributes: { color: C.ColorGeometryInstanceAttribute.fromColor(C.Color.fromCssColorString(COLOURS.route).withAlpha(on ? 1 : hr ? 0.4 : 0.8)) },
           }),
         );
       }
     }
     if (!instances.length) return;
-    casingPrim.current = v.scene.groundPrimitives.add(
-      new C.GroundPolylinePrimitive({ geometryInstances: casing, appearance: new C.PolylineColorAppearance(), classificationType: C.ClassificationType.BOTH, asynchronous: true }),
-    );
+    if (casing.length) {
+      casingPrim.current = v.scene.groundPrimitives.add(
+        new C.GroundPolylinePrimitive({ geometryInstances: casing, appearance: new C.PolylineColorAppearance(), classificationType: C.ClassificationType.BOTH, asynchronous: true }),
+      );
+    }
     routesPrim.current = v.scene.groundPrimitives.add(
       new C.GroundPolylinePrimitive({ geometryInstances: instances, appearance: new C.PolylineColorAppearance(), classificationType: C.ClassificationType.BOTH, asynchronous: true }),
     );
@@ -685,10 +699,13 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
           bb.show = true;
           return;
         }
-        let l = layers.get(layer);
+        // one count disc across layers, in ink, so the city view does not turn into confetti
+        void layer;
+        void colour;
+        let l = layers.get("all");
         if (!l) {
-          l = { colour, items: [] };
-          layers.set(layer, l);
+          l = { colour: COLOURS.ink, items: [] };
+          layers.set("all", l);
         }
         l.items.push({ id: n, x: win.x, y: win.y, world, bb });
       };
@@ -793,6 +810,9 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
         }
         b.badge.position = C.Cartesian3.fromDegrees(pos.lon, pos.lat, h + 4.2);
         b.badge.show = true;
+        // the selected bus is drawn in front of its neighbours and a quarter larger, as in 2D
+        b.badge.eyeOffset = isSel ? new C.Cartesian3(0, 0, -200) : C.Cartesian3.ZERO;
+        b.badge.scale = (isSel ? 1.25 : 1) / PIXEL_RATIO;
         if (isSel) selectedPos = position;
       }
       for (const [id, b] of busesRef.current) {
