@@ -1,8 +1,8 @@
 -- =====================================================================
 -- Halifax Digital Twin - physical model V1 (PostgreSQL 16 + PostGIS 3)
 -- 08  Reference data
--- Sectors, Phase 1 subsectors, the two publishing organizations, the 17
--- verified sources from Source Inventory V1, and a calendar 2015-2035.
+-- Sectors, Phase 1 subsectors, the two publishing organizations, the verified
+-- sources from Source Inventory V1 that loaders use, and a calendar 2015-2035.
 -- Safe to re-run: every insert skips rows that already exist.
 -- =====================================================================
 
@@ -74,7 +74,7 @@ INSERT INTO silver.organization (party_id, organization_type_code, legal_name, w
 ON CONFLICT (party_id) DO NOTHING;
 SELECT setval(pg_get_serial_sequence('silver.party', 'party_id'), GREATEST(2, (SELECT max(party_id) FROM silver.party)));
 
--- Sources (Source Inventory V1, checked 2026-11-12).
+-- Sources (Source Inventory V1, checked 2026-11-12 unless the row says otherwise).
 INSERT INTO silver.source (source_id, publisher_party_id, dataset_name, source_format_code, access_method_code,
                            cadence_code, availability_code, licence_name, attribution_required_flag,
                            record_grain_description, source_url, reliability_tier_code, source_status_code,
@@ -95,7 +95,8 @@ INSERT INTO silver.source (source_id, publisher_party_id, dataset_name, source_f
     ('SRC-014', 2, 'Mobility Counters; Bicycle Counts', 'ArcGIS REST API', 'API', NULL, 'Open', 'Open Government Licence – Halifax', true, 'One counter site; one count for a site and period', 'https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/ArcGIS/rest/services/Bicycle_Counts/FeatureServer', 'Tier 1', 'Verified', '2026-11-12'),
     ('SRC-015', 2, 'Street Closures and Development Street Closures', 'ArcGIS REST API', 'API', NULL, 'Open', 'Open Government Licence – Halifax', true, 'One street closure', 'https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/ArcGIS/rest/services/Street_Closures/FeatureServer', 'Tier 1', 'Verified', '2026-11-12'),
     ('SRC-016', 2, 'Bike Infrastructure; Active Travelways; Bike Amenities', 'ArcGIS REST API', 'API', NULL, 'Open', 'Open Government Licence – Halifax', true, 'One bikeway or travelway segment', 'https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/ArcGIS/rest/services/Bike_Infrastructure_and_Suggested_Routes/FeatureServer', 'Tier 1', 'Verified', '2026-11-12'),
-    ('SRC-017', 2, 'Truck Routes', 'ArcGIS REST API', 'API', NULL, 'Open', 'Open Government Licence – Halifax', true, 'One designated truck route segment', 'https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/ArcGIS/rest/services/Truck_Routes/FeatureServer', 'Tier 1', 'Verified', '2026-11-12')
+    ('SRC-017', 2, 'Truck Routes', 'ArcGIS REST API', 'API', NULL, 'Open', 'Open Government Licence – Halifax', true, 'One designated truck route segment', 'https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/ArcGIS/rest/services/Truck_Routes/FeatureServer', 'Tier 1', 'Verified', '2026-11-12'),
+    ('SRC-066', 2, 'PPL&C Issued Building Permits; Permits Geolocated; Construction Permits', 'ArcGIS REST API', 'API', NULL, 'Open', 'Open Government Licence – Halifax', true, 'One building permit', 'https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/ArcGIS/rest/services/PPLC_Permits_Geolocated/FeatureServer', 'Tier 1', 'Verified', '2026-11-21')
 ON CONFLICT (source_id) DO NOTHING;
 
 -- Calendar: one row per day, 2015-01-01 to 2035-12-31. Seasons are meteorological.

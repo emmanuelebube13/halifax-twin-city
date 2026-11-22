@@ -1,0 +1,390 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "id": 17632894,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -63.5669889930841,
+     44.6727178682671
+    ]
+   },
+   "properties": {
+    "OBJECTID": 17632894,
+    "PERMIT_NUMBER": "BPRES-2022-02230",
+    "DATE_OF_SUBMISSION": 1645617600000,
+    "DATE_OF_PERMIT_ISSUANCE": 1647518400000,
+    "COMPLETED_DATE": null,
+    "EXPIRATION_DATE": 1710676800000,
+    "PERMIT_NAME": "Residential Building Permit",
+    "WORK_TYPE": "Renovation",
+    "PRIMARY_WORK_SCOPE": "Renovation",
+    "PERMIT_STATUS": "Expired",
+    "CIVIC_NUMBER": "42",
+    "STREET_NAME": "TULIP ST",
+    "COMMUNITY": "DARTMOUTH",
+    "ESTIMATED_PROJECT_VALUE": 180000,
+    "TYPE_OF_STRUCTURE": "Dwelling - Single Detached",
+    "EXISTING_RESIDENTIAL_UNITS": 2,
+    "TOTAL_END_RESIDENTIAL_UNITS": 1,
+    "NET_NEW_UNITS": -1,
+    "NUMBER_OF_STOREYS": 2,
+    "WORK_DESCRIPTION": "Convert two unit dwelling into single unit. Ensuite bathroom renovation, new windows 2nd floor",
+    "PID": "00121491",
+    "DISTRICT": "District 05"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 17633033,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -63.5748810372084,
+     44.6352681992719
+    ]
+   },
+   "properties": {
+    "OBJECTID": 17633033,
+    "PERMIT_NUMBER": "BPRES-2025-09089",
+    "DATE_OF_SUBMISSION": 1749729600000,
+    "DATE_OF_PERMIT_ISSUANCE": 1754654400000,
+    "COMPLETED_DATE": 1787140800000,
+    "EXPIRATION_DATE": 1817726400000,
+    "PERMIT_NAME": "Residential Building Permit",
+    "WORK_TYPE": "Renovation",
+    "PRIMARY_WORK_SCOPE": "Renovation",
+    "PERMIT_STATUS": "Completed",
+    "CIVIC_NUMBER": "1028",
+    "STREET_NAME": "LUCKNOW ST",
+    "COMMUNITY": "HALIFAX",
+    "ESTIMATED_PROJECT_VALUE": 160000,
+    "TYPE_OF_STRUCTURE": "Dwelling - Semi-Detached",
+    "EXISTING_RESIDENTIAL_UNITS": 2,
+    "TOTAL_END_RESIDENTIAL_UNITS": 1,
+    "NET_NEW_UNITS": -1,
+    "NUMBER_OF_STOREYS": 2,
+    "WORK_DESCRIPTION": "Converting Existing Two-Unit Dwelling to Single Unit Dwelling",
+    "PID": "00065409",
+    "DISTRICT": "District 07"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 17632731,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -63.6281348345081,
+     44.6611133296734
+    ]
+   },
+   "properties": {
+    "OBJECTID": 17632731,
+    "PERMIT_NUMBER": "BPCOM-2021-15327",
+    "DATE_OF_SUBMISSION": 1631707200000,
+    "DATE_OF_PERMIT_ISSUANCE": 1649073600000,
+    "COMPLETED_DATE": 1742385600000,
+    "EXPIRATION_DATE": 1769083200000,
+    "PERMIT_NAME": "Mixed Use & Commercial Building Permit",
+    "WORK_TYPE": "New Building",
+    "PRIMARY_WORK_SCOPE": "New Building",
+    "PERMIT_STATUS": "Completed",
+    "CIVIC_NUMBER": "3840",
+    "STREET_NAME": "JOSEPH HOWE DR",
+    "COMMUNITY": "HALIFAX",
+    "ESTIMATED_PROJECT_VALUE": 22000000,
+    "TYPE_OF_STRUCTURE": "Dwelling - Multiple Units",
+    "EXISTING_RESIDENTIAL_UNITS": null,
+    "TOTAL_END_RESIDENTIAL_UNITS": 110,
+    "NET_NEW_UNITS": 110,
+    "NUMBER_OF_STOREYS": 7,
+    "WORK_DESCRIPTION": "Scope of work is limited to: Construct a new seven storey, 110 unit multi-residential building with an underground parking garage and some amenity space on Joseph Howe Drive.",
+    "PID": "40311540",
+    "DISTRICT": "District 10"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 17632759,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -63.5644146002471,
+     44.6706094375615
+    ]
+   },
+   "properties": {
+    "OBJECTID": 17632759,
+    "PERMIT_NUMBER": "BPCOM-2025-01830",
+    "DATE_OF_SUBMISSION": 1742299200000,
+    "DATE_OF_PERMIT_ISSUANCE": 1757419200000,
+    "COMPLETED_DATE": null,
+    "EXPIRATION_DATE": 1820491200000,
+    "PERMIT_NAME": "Mixed Use & Commercial Building Permit",
+    "WORK_TYPE": "New Building",
+    "PRIMARY_WORK_SCOPE": "New Building",
+    "PERMIT_STATUS": "Issued",
+    "CIVIC_NUMBER": "173",
+    "STREET_NAME": "OCHTERLONEY ST",
+    "COMMUNITY": "DARTMOUTH",
+    "ESTIMATED_PROJECT_VALUE": 24265000,
+    "TYPE_OF_STRUCTURE": "Dwelling - Multiple Units",
+    "EXISTING_RESIDENTIAL_UNITS": null,
+    "TOTAL_END_RESIDENTIAL_UNITS": 65,
+    "NET_NEW_UNITS": 65,
+    "NUMBER_OF_STOREYS": 7,
+    "WORK_DESCRIPTION": "Scope of Work; Construction of new Multi-Unit Residential (Group C) Building, 65 unit, 7 story multi-residential concrete tower, with two levels of underground parking",
+    "PID": "00128454",
+    "DISTRICT": "District 05"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 17632723,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -63.6407163336419,
+     44.8032762038407
+    ]
+   },
+   "properties": {
+    "OBJECTID": 17632723,
+    "PERMIT_NUMBER": "BPRES-2024-15533",
+    "DATE_OF_SUBMISSION": 1735992000000,
+    "DATE_OF_PERMIT_ISSUANCE": null,
+    "COMPLETED_DATE": 1749470400000,
+    "EXPIRATION_DATE": null,
+    "PERMIT_NAME": "Residential Building Permit",
+    "WORK_TYPE": "Renovation",
+    "PRIMARY_WORK_SCOPE": "Renovation",
+    "PERMIT_STATUS": "Withdrawn",
+    "CIVIC_NUMBER": "18",
+    "STREET_NAME": "HARDMAN LANE",
+    "COMMUNITY": "WINDSOR JUNCTION",
+    "ESTIMATED_PROJECT_VALUE": 5000,
+    "TYPE_OF_STRUCTURE": "Dwelling - Backyard Suite",
+    "EXISTING_RESIDENTIAL_UNITS": null,
+    "TOTAL_END_RESIDENTIAL_UNITS": 1,
+    "NET_NEW_UNITS": 1,
+    "NUMBER_OF_STOREYS": 1,
+    "WORK_DESCRIPTION": "Legalize Backyard Suite",
+    "PID": "00511287",
+    "DISTRICT": "District 01"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 17632726,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -63.6410936687264,
+     44.8033778780041
+    ]
+   },
+   "properties": {
+    "OBJECTID": 17632726,
+    "PERMIT_NUMBER": "BPRES-2026-01682",
+    "DATE_OF_SUBMISSION": 1771156800000,
+    "DATE_OF_PERMIT_ISSUANCE": null,
+    "COMPLETED_DATE": null,
+    "EXPIRATION_DATE": null,
+    "PERMIT_NAME": "Residential Building Permit",
+    "WORK_TYPE": "Renovation",
+    "PRIMARY_WORK_SCOPE": "Renovation",
+    "PERMIT_STATUS": "Applicant Revisions",
+    "CIVIC_NUMBER": "16",
+    "STREET_NAME": "HARDMAN LANE",
+    "COMMUNITY": "WINDSOR JUNCTION",
+    "ESTIMATED_PROJECT_VALUE": 1,
+    "TYPE_OF_STRUCTURE": "Dwelling - Backyard Suite",
+    "EXISTING_RESIDENTIAL_UNITS": null,
+    "TOTAL_END_RESIDENTIAL_UNITS": 1,
+    "NET_NEW_UNITS": 1,
+    "NUMBER_OF_STOREYS": 1,
+    "WORK_DESCRIPTION": "Legalize Backyard Suite",
+    "PID": "00511287",
+    "DISTRICT": "District 01"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 17632754,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -63.4753418854916,
+     44.9782355620401
+    ]
+   },
+   "properties": {
+    "OBJECTID": 17632754,
+    "PERMIT_NUMBER": "BPRES-2024-09451",
+    "DATE_OF_SUBMISSION": 1723723200000,
+    "DATE_OF_PERMIT_ISSUANCE": 1726660800000,
+    "COMPLETED_DATE": null,
+    "EXPIRATION_DATE": 1789732800000,
+    "PERMIT_NAME": "Residential Building Permit",
+    "WORK_TYPE": "Addition",
+    "PRIMARY_WORK_SCOPE": "Addition",
+    "PERMIT_STATUS": "Expired",
+    "CIVIC_NUMBER": "517",
+    "STREET_NAME": "OLD TRUNK RD",
+    "COMMUNITY": "LANTZ",
+    "ESTIMATED_PROJECT_VALUE": 26000,
+    "TYPE_OF_STRUCTURE": "Accessory Structure",
+    "EXISTING_RESIDENTIAL_UNITS": null,
+    "TOTAL_END_RESIDENTIAL_UNITS": null,
+    "NET_NEW_UNITS": 0,
+    "NUMBER_OF_STOREYS": 1,
+    "WORK_DESCRIPTION": "Construct garage addition",
+    "PID": "00525956",
+    "DISTRICT": "District 01"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 17632724,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -63.6410936687264,
+     44.8033778780041
+    ]
+   },
+   "properties": {
+    "OBJECTID": 17632724,
+    "PERMIT_NUMBER": "BP-2021-07062",
+    "DATE_OF_SUBMISSION": 1619092800000,
+    "DATE_OF_PERMIT_ISSUANCE": 1621598400000,
+    "COMPLETED_DATE": 1729080000000,
+    "EXPIRATION_DATE": 1752840000000,
+    "PERMIT_NAME": "Residential Building Permit",
+    "WORK_TYPE": "New Building",
+    "PRIMARY_WORK_SCOPE": "New Building",
+    "PERMIT_STATUS": "Completed",
+    "CIVIC_NUMBER": "16",
+    "STREET_NAME": "HARDMAN LANE",
+    "COMMUNITY": "WINDSOR JUNCTION",
+    "ESTIMATED_PROJECT_VALUE": 24000,
+    "TYPE_OF_STRUCTURE": "Dwelling - Single Detached",
+    "EXISTING_RESIDENTIAL_UNITS": null,
+    "TOTAL_END_RESIDENTIAL_UNITS": 1,
+    "NET_NEW_UNITS": 1,
+    "NUMBER_OF_STOREYS": 2,
+    "WORK_DESCRIPTION": "Construct backyard suite accessory to existing single unit dwelling.",
+    "PID": "00511287",
+    "DISTRICT": "District 01"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 17632725,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -63.6410936687264,
+     44.8033778780041
+    ]
+   },
+   "properties": {
+    "OBJECTID": 17632725,
+    "PERMIT_NUMBER": "BPRES-2025-11564",
+    "DATE_OF_SUBMISSION": 1753876800000,
+    "DATE_OF_PERMIT_ISSUANCE": 1769169600000,
+    "COMPLETED_DATE": 1773403200000,
+    "EXPIRATION_DATE": 1832241600000,
+    "PERMIT_NAME": "Residential Building Permit",
+    "WORK_TYPE": "Renovation",
+    "PRIMARY_WORK_SCOPE": "Renovation",
+    "PERMIT_STATUS": "Completed",
+    "CIVIC_NUMBER": "16",
+    "STREET_NAME": "HARDMAN LANE",
+    "COMMUNITY": "WINDSOR JUNCTION",
+    "ESTIMATED_PROJECT_VALUE": null,
+    "TYPE_OF_STRUCTURE": "Accessory Structure",
+    "EXISTING_RESIDENTIAL_UNITS": null,
+    "TOTAL_END_RESIDENTIAL_UNITS": null,
+    "NET_NEW_UNITS": 0,
+    "NUMBER_OF_STOREYS": 2,
+    "WORK_DESCRIPTION": "Converting 16 Hardman Lane (backyard suite) to accessory structure.",
+    "PID": "00511287",
+    "DISTRICT": "District 01"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 17632725,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -63.6410936687264,
+     44.8033778780041
+    ]
+   },
+   "properties": {
+    "OBJECTID": 17632725,
+    "PERMIT_NUMBER": "BPRES-2025-11564",
+    "DATE_OF_SUBMISSION": 1753876800000,
+    "DATE_OF_PERMIT_ISSUANCE": 1769169600000,
+    "COMPLETED_DATE": 1773403200000,
+    "EXPIRATION_DATE": 1832241600000,
+    "PERMIT_NAME": "Residential Building Permit",
+    "WORK_TYPE": "Renovation",
+    "PRIMARY_WORK_SCOPE": "Renovation",
+    "PERMIT_STATUS": "Completed",
+    "CIVIC_NUMBER": "16",
+    "STREET_NAME": "HARDMAN LANE",
+    "COMMUNITY": "WINDSOR JUNCTION",
+    "ESTIMATED_PROJECT_VALUE": null,
+    "TYPE_OF_STRUCTURE": "Accessory Structure",
+    "EXISTING_RESIDENTIAL_UNITS": null,
+    "TOTAL_END_RESIDENTIAL_UNITS": null,
+    "NET_NEW_UNITS": 0,
+    "NUMBER_OF_STOREYS": 2,
+    "WORK_DESCRIPTION": "Converting 16 Hardman Lane (backyard suite) to accessory structure.",
+    "PID": "00511287",
+    "DISTRICT": "District 01"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 17632857,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -63.706866276486,
+     44.7230589393262
+    ]
+   },
+   "properties": {
+    "OBJECTID": 17632857,
+    "PERMIT_NUMBER": "BPCOM-2022-06445",
+    "DATE_OF_SUBMISSION": 1652097600000,
+    "DATE_OF_PERMIT_ISSUANCE": 1658318400000,
+    "COMPLETED_DATE": null,
+    "EXPIRATION_DATE": 1721476800000,
+    "PERMIT_NAME": "Mixed Use & Commercial Building Permit",
+    "WORK_TYPE": "Addition",
+    "PRIMARY_WORK_SCOPE": "Addition",
+    "PERMIT_STATUS": "Expired",
+    "CIVIC_NUMBER": "185",
+    "STREET_NAME": "GARY MARTIN DR",
+    "COMMUNITY": "BEDFORD",
+    "ESTIMATED_PROJECT_VALUE": null,
+    "TYPE_OF_STRUCTURE": "Institutional and Governmental",
+    "EXISTING_RESIDENTIAL_UNITS": null,
+    "TOTAL_END_RESIDENTIAL_UNITS": null,
+    "NET_NEW_UNITS": 0,
+    "NUMBER_OF_STOREYS": 2,
+    "WORK_DESCRIPTION": "Addition of a pedestrian pedway from Northwood Ivany Campus to Northwood Place Seniors Apartments",
+    "PID": "41466723",
+    "DISTRICT": "District 16"
+   }
+  }
+ ]
+}

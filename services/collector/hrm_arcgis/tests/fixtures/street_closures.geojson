@@ -1,0 +1,525 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "id": 35,
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -63.6126912487448,
+      44.6430660223136
+     ],
+     [
+      -63.6126081015804,
+      44.6430688850646
+     ],
+     [
+      -63.6115754495338,
+      44.6428370158396
+     ],
+     [
+      -63.6114909602863,
+      44.6428102979966
+     ],
+     [
+      -63.6114386567772,
+      44.6427530452517
+     ],
+     [
+      -63.6109585413938,
+      44.6422415927313
+     ]
+    ]
+   },
+   "properties": {
+    "OBJECTID": 35,
+    "GLOBALID": "93170700-9bc5-4132-993f-079bd0bf6bca",
+    "CLOSURE_TYPE": "Utility",
+    "CLOSURE_STAGE": "Approved",
+    "START_DATE": 1668729600000,
+    "END_DATE": 1668729600000,
+    "START_TIME": "7AM",
+    "END_TIME": "8PM",
+    "ALT_START_DATE": null,
+    "ALT_END_DATE": null,
+    "ALT_DATE_USED": 0,
+    "REOPEN_EVENINGS": "Yes",
+    "REOPEN_WEEKENDS": "Yes",
+    "PERMIT_NO": "TPW-ROW-2022-12475",
+    "APPLICATION_DATE": 1664928000000,
+    "DETOUR_URL": "N/A",
+    "ADDDATE": 1665506520000,
+    "MODDATE": 1668017592000,
+    "STREET_NAME": "BLINK BONNIE TERR",
+    "FROM_STR": "MACDONALD ST",
+    "TO_STR": "CHURCHILL DR",
+    "RDMID": 82068
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 41,
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -63.5642109811695,
+      44.6746127296053
+     ],
+     [
+      -63.5645757609553,
+      44.6742846655498
+     ],
+     [
+      -63.5647313285012,
+      44.6740557810652
+     ],
+     [
+      -63.5647474218195,
+      44.6740061897336
+     ]
+    ]
+   },
+   "properties": {
+    "OBJECTID": 41,
+    "GLOBALID": "1f0e4d65-9b8f-4a12-9f40-70e8d5c1c7cf",
+    "CLOSURE_TYPE": "Utility",
+    "CLOSURE_STAGE": "Approved",
+    "START_DATE": 1668988800000,
+    "END_DATE": 1668988800000,
+    "START_TIME": "7AM",
+    "END_TIME": "8PM",
+    "ALT_START_DATE": null,
+    "ALT_END_DATE": null,
+    "ALT_DATE_USED": 0,
+    "REOPEN_EVENINGS": "Yes",
+    "REOPEN_WEEKENDS": "No",
+    "PERMIT_NO": "TPW-ROW-2022-12475",
+    "APPLICATION_DATE": 1664841600000,
+    "DETOUR_URL": "N/A",
+    "ADDDATE": 1664974314000,
+    "MODDATE": 1668017857000,
+    "STREET_NAME": "CRICHTON AVE",
+    "FROM_STR": "HAWTHORNE ST",
+    "TO_STR": "OAK ST",
+    "RDMID": 81781
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 136,
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -63.5794264612973,
+      44.6396568982611
+     ],
+     [
+      -63.5775113645027,
+      44.6401340207463
+     ]
+    ]
+   },
+   "properties": {
+    "OBJECTID": 136,
+    "GLOBALID": "3a7183d2-77e0-49f0-9161-87780959c776",
+    "CLOSURE_TYPE": "Utility",
+    "CLOSURE_STAGE": "Approved",
+    "START_DATE": 1651460400000,
+    "END_DATE": 1656558000000,
+    "START_TIME": "24 Hours",
+    "END_TIME": "24 Hours",
+    "ALT_START_DATE": null,
+    "ALT_END_DATE": null,
+    "ALT_DATE_USED": 0,
+    "REOPEN_EVENINGS": "No",
+    "REOPEN_WEEKENDS": "No",
+    "PERMIT_NO": "TPW-ROW-2022-05012",
+    "APPLICATION_DATE": 1650596400000,
+    "DETOUR_URL": "N/A",
+    "ADDDATE": 1651255245000,
+    "MODDATE": 1651257831000,
+    "STREET_NAME": "UNIVERSITY AVE",
+    "FROM_STR": "BRENTON ST",
+    "TO_STR": "CATHEDRAL LANE",
+    "RDMID": 69623
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 458,
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -63.576875381536,
+      44.6431231884645
+     ],
+     [
+      -63.5761082687924,
+      44.6433197520046
+     ]
+    ]
+   },
+   "properties": {
+    "OBJECTID": 458,
+    "GLOBALID": "6f9537cb-7f55-4757-9b2e-f9a5292ae0ff",
+    "CLOSURE_TYPE": "Construction",
+    "CLOSURE_STAGE": "Approved",
+    "START_DATE": 1665532800000,
+    "END_DATE": 1666310400000,
+    "START_TIME": "24 hours",
+    "END_TIME": "24 hours",
+    "ALT_START_DATE": null,
+    "ALT_END_DATE": null,
+    "ALT_DATE_USED": 0,
+    "REOPEN_EVENINGS": "No",
+    "REOPEN_WEEKENDS": "No",
+    "PERMIT_NO": "188604",
+    "APPLICATION_DATE": 1665532800000,
+    "DETOUR_URL": "N/A",
+    "ADDDATE": 1665601323000,
+    "MODDATE": 1665601323000,
+    "STREET_NAME": "SPRING GARDEN RD",
+    "FROM_STR": "BIRMINGHAM ST",
+    "TO_STR": "QUEEN ST",
+    "RDMID": 82082
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 648,
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -63.5503647769782,
+      44.6630205774751
+     ],
+     [
+      -63.5500187719819,
+      44.662984330981
+     ],
+     [
+      -63.5497344587877,
+      44.6635871711886
+     ]
+    ]
+   },
+   "properties": {
+    "OBJECTID": 648,
+    "GLOBALID": "53ff4e53-10ff-4e33-ac6e-0180604c4de4",
+    "CLOSURE_TYPE": "Construction",
+    "CLOSURE_STAGE": "Approved",
+    "START_DATE": 1792983600000,
+    "END_DATE": 1793156400000,
+    "START_TIME": "7:00AM",
+    "END_TIME": "7:00PM",
+    "ALT_START_DATE": 1793156400000,
+    "ALT_END_DATE": 1793156400000,
+    "ALT_DATE_USED": 1,
+    "REOPEN_EVENINGS": "No",
+    "REOPEN_WEEKENDS": "N/A",
+    "PERMIT_NO": "TPW-ROW-2026-13094",
+    "APPLICATION_DATE": 1790305200000,
+    "DETOUR_URL": null,
+    "ADDDATE": 1790874903000,
+    "MODDATE": 1793030873000,
+    "STREET_NAME": "PRINCE ARTHUR AVE",
+    "FROM_STR": "JOHNSTONE AVE",
+    "TO_STR": "DUSTAN ST",
+    "RDMID": 111398
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 2,
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -63.6110165635781,
+      44.6665392023083
+     ],
+     [
+      -63.6104988968192,
+      44.6661424177349
+     ]
+    ]
+   },
+   "properties": {
+    "OBJECTID": 2,
+    "GLOBALID": "01d310f6-707a-4450-8fa0-51aeb0cc0ee2",
+    "CLOSURE_TYPE": "Block Party",
+    "CLOSURE_STAGE": "Approved",
+    "START_DATE": 1725246000000,
+    "END_DATE": 1725246000000,
+    "START_TIME": "12:00PM",
+    "END_TIME": "12:00AM",
+    "ALT_START_DATE": null,
+    "ALT_END_DATE": null,
+    "ALT_DATE_USED": 0,
+    "REOPEN_EVENINGS": "No",
+    "REOPEN_WEEKENDS": "Yes",
+    "PERMIT_NO": null,
+    "APPLICATION_DATE": 1724209200000,
+    "DETOUR_URL": "N/A",
+    "ADDDATE": 1724348659000,
+    "MODDATE": 1724430604000,
+    "STREET_NAME": "ROSEMEADE AVE",
+    "FROM_STR": "WOODBINE AVE",
+    "TO_STR": "HILLSIDE AVE",
+    "RDMID": 110363
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 11,
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -63.6110020018873,
+      44.6665272646299
+     ],
+     [
+      -63.6105594369811,
+      44.6661981996575
+     ]
+    ]
+   },
+   "properties": {
+    "OBJECTID": 11,
+    "GLOBALID": "83e1d359-b838-4e21-8ec2-505f6d17012a",
+    "CLOSURE_TYPE": "Block Party",
+    "CLOSURE_STAGE": "Approved",
+    "START_DATE": 1672444800000,
+    "END_DATE": 1672444800000,
+    "START_TIME": "5:00PM",
+    "END_TIME": "12:00AM",
+    "ALT_START_DATE": 1672531200000,
+    "ALT_END_DATE": 1672531200000,
+    "ALT_DATE_USED": 0,
+    "REOPEN_EVENINGS": "No",
+    "REOPEN_WEEKENDS": "N/A",
+    "PERMIT_NO": null,
+    "APPLICATION_DATE": 1671062400000,
+    "DETOUR_URL": "N/A",
+    "ADDDATE": 1671561417000,
+    "MODDATE": 1671642420000,
+    "STREET_NAME": "ROSEMEADE AVE",
+    "FROM_STR": "WOODBINE AVE",
+    "TO_STR": "HILLSIDE AVE",
+    "RDMID": 86209
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 2,
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -63.6110165635781,
+      44.6665392023083
+     ],
+     [
+      -63.6104988968192,
+      44.6661424177349
+     ]
+    ]
+   },
+   "properties": {
+    "OBJECTID": 2,
+    "GLOBALID": "01d310f6-707a-4450-8fa0-51aeb0cc0ee2",
+    "CLOSURE_TYPE": "Block Party",
+    "CLOSURE_STAGE": "Approved",
+    "START_DATE": 1725246000000,
+    "END_DATE": 1725246000000,
+    "START_TIME": "12:00PM",
+    "END_TIME": "12:00AM",
+    "ALT_START_DATE": null,
+    "ALT_END_DATE": null,
+    "ALT_DATE_USED": 0,
+    "REOPEN_EVENINGS": "No",
+    "REOPEN_WEEKENDS": "Yes",
+    "PERMIT_NO": null,
+    "APPLICATION_DATE": 1724209200000,
+    "DETOUR_URL": "N/A",
+    "ADDDATE": 1724348659000,
+    "MODDATE": 1724430604000,
+    "STREET_NAME": "ROSEMEADE AVE",
+    "FROM_STR": "WOODBINE AVE",
+    "TO_STR": "HILLSIDE AVE",
+    "RDMID": 110363
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 5,
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -63.5975696371743,
+      44.6397636130151
+     ],
+     [
+      -63.5954828786171,
+      44.6403399756542
+     ]
+    ]
+   },
+   "properties": {
+    "OBJECTID": 5,
+    "GLOBALID": "9ad81cdb-bc62-443a-ba74-3e05702e9c65",
+    "CLOSURE_TYPE": "Block Party",
+    "CLOSURE_STAGE": "Approved",
+    "START_DATE": 1695427200000,
+    "END_DATE": 1695427200000,
+    "START_TIME": "8AM",
+    "END_TIME": "6PM",
+    "ALT_START_DATE": 1695513600000,
+    "ALT_END_DATE": 1695513600000,
+    "ALT_DATE_USED": 0,
+    "REOPEN_EVENINGS": "Yes",
+    "REOPEN_WEEKENDS": "No",
+    "PERMIT_NO": null,
+    "APPLICATION_DATE": 1692230400000,
+    "DETOUR_URL": "N/A",
+    "ADDDATE": 1693310101000,
+    "MODDATE": 1694696547000,
+    "STREET_NAME": "JENNINGS ST",
+    "FROM_STR": "OXFORD ST",
+    "TO_STR": "PRESTON ST",
+    "RDMID": 102241
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 470,
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -63.5721241677438,
+      44.6476471826365
+     ],
+     [
+      -63.571906909294,
+      44.6472197362298
+     ]
+    ]
+   },
+   "properties": {
+    "OBJECTID": 470,
+    "GLOBALID": "704a2f13-32e6-46ec-b08e-d9a63c7d7a3b",
+    "CLOSURE_TYPE": "Mobility Response – Streets",
+    "CLOSURE_STAGE": "Approved",
+    "START_DATE": 1622602800000,
+    "END_DATE": 1635735600000,
+    "START_TIME": null,
+    "END_TIME": null,
+    "ALT_START_DATE": null,
+    "ALT_END_DATE": null,
+    "ALT_DATE_USED": 0,
+    "REOPEN_EVENINGS": null,
+    "REOPEN_WEEKENDS": null,
+    "PERMIT_NO": "N/A",
+    "APPLICATION_DATE": null,
+    "DETOUR_URL": null,
+    "ADDDATE": 1622472940000,
+    "MODDATE": 1631549900000,
+    "STREET_NAME": "BEDFORD ROW",
+    "FROM_STR": "PRINCE ST",
+    "TO_STR": "SACKVILLE ST",
+    "RDMID": 50962
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 1533,
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -63.5718509586249,
+      44.6662063295919
+     ],
+     [
+      -63.572127225609,
+      44.6659602447571
+     ]
+    ]
+   },
+   "properties": {
+    "OBJECTID": 1533,
+    "GLOBALID": "209d3c18-d928-41c2-8b8a-752865236f37",
+    "CLOSURE_TYPE": "Other",
+    "CLOSURE_STAGE": "Approved",
+    "START_DATE": 1640318400000,
+    "END_DATE": 4102372800000,
+    "START_TIME": "7am",
+    "END_TIME": "11:59PM",
+    "ALT_START_DATE": null,
+    "ALT_END_DATE": null,
+    "ALT_DATE_USED": 0,
+    "REOPEN_EVENINGS": null,
+    "REOPEN_WEEKENDS": null,
+    "PERMIT_NO": "N/A",
+    "APPLICATION_DATE": null,
+    "DETOUR_URL": "N/A",
+    "ADDDATE": 1640360065000,
+    "MODDATE": 1640360379000,
+    "STREET_NAME": "CHURCH ST",
+    "FROM_STR": "ALDERNEY DR",
+    "TO_STR": "END",
+    "RDMID": 62849
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 2456,
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -63.5821571394367,
+      44.6390848491451
+     ],
+     [
+      -63.5785737076661,
+      44.6398787865438
+     ]
+    ]
+   },
+   "properties": {
+    "OBJECTID": 2456,
+    "GLOBALID": "3822762b-2e3a-4c49-a035-01f43759cf52",
+    "CLOSURE_TYPE": "Special Event",
+    "CLOSURE_STAGE": "Approved",
+    "START_DATE": 1778900400000,
+    "END_DATE": 1776308400000,
+    "START_TIME": "8am",
+    "END_TIME": "12pm",
+    "ALT_START_DATE": null,
+    "ALT_END_DATE": null,
+    "ALT_DATE_USED": 0,
+    "REOPEN_EVENINGS": "Yes",
+    "REOPEN_WEEKENDS": "Yes",
+    "PERMIT_NO": null,
+    "APPLICATION_DATE": 1776222000000,
+    "DETOUR_URL": null,
+    "ADDDATE": 1777489367000,
+    "MODDATE": 1777489367000,
+    "STREET_NAME": "UNIVERSITY AVE",
+    "FROM_STR": "SUMMER ST",
+    "TO_STR": "SOUTH PARK ST",
+    "RDMID": 111134
+   }
+  }
+ ]
+}
