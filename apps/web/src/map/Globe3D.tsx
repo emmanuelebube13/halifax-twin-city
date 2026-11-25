@@ -23,6 +23,7 @@ import { COLOURS, PIXEL_RATIO, buildPinImages, busRenderImage, drawCluster, draw
 import { anchorOf } from "./registry";
 import { drawBusBadge } from "./badge";
 import { clusterScreenPoints, decimateLine } from "./declutter";
+import { enableAsyncShaders } from "./asyncShaders";
 import { createCleanTwinController, type CleanTwinController, type StreetTwinMode } from "./cleanTwin3D";
 
 type Cesium = typeof CesiumNS;
@@ -179,6 +180,7 @@ const Globe3D = memo(forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps,
   const cameraMovingRef = useRef(false);
   const pinHeightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tileLoadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heightsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pinImagesCacheRef = useRef(new Map<string, HTMLCanvasElement>());
   const prevSelectedKeyRef = useRef<string | null>(null);
   const cleanTwinRef = useRef<CleanTwinController | null>(null);
@@ -247,13 +249,20 @@ const Globe3D = memo(forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps,
       }
       viewerRef.current = viewer;
       const scene = viewer.scene;
+      // shaders compile in the background (see asyncShaders.ts); null when the browser cannot
+      const asyncShaders = enableAsyncShaders(C, scene);
       // Speed: Cesium compiles its picking shaders on the first click, which froze that click for about
-      // 0.1 to 0.4 s. One throwaway pick while the browser is idle moves that cost off the user's click.
+      // 0.1 to 0.4 s. One throwaway pick while the browser is idle moves that cost off the user's click,
+      // and with background compiling it does not freeze anything itself.
       const warmPick = () => {
         const run = () => {
           if (cancelled || !viewer || viewer.isDestroyed()) return;
-          try {
+          const pick = () => {
             scene.pick(new C.Cartesian2(1, 1));
+          };
+          try {
+            if (asyncShaders) void asyncShaders.prewarm(pick);
+            else pick();
           } catch {
             // warming is best effort
           }
@@ -293,9 +302,18 @@ const Globe3D = memo(forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps,
       });
       cleanTwinRef.current = cleanTwin;
       cleanTwin.setRoutes(p.routes, p.highlightRoute);
+      // while shaders compile in the background, keep drawing frames until the last one is ready
+      let shaderFrameQueued = false;
       scene.postRender.addEventListener(() => {
         metrics.frames++;
         placePopup();
+        if (asyncShaders && asyncShaders.pending() > 0 && !shaderFrameQueued) {
+          shaderFrameQueued = true;
+          requestAnimationFrame(() => {
+            shaderFrameQueued = false;
+            if (!cancelled && viewer && !viewer.isDestroyed()) scene.requestRender();
+          });
+        }
       });
 
       // Track pointer drag state so hover hit-testing, height raycasts and bus ticks never stall camera motion
@@ -409,10 +427,23 @@ const Globe3D = memo(forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps,
               propsRef.current.profile.name,
               propsRef.current.noIon,
             );
-            refreshHeights(true);
-            refreshPinHeights();
-            scene.requestRender();
-            warmPick();
+            // Height sampling compiles its own shaders. Warm them with a throwaway sample at the centre of the
+            // view first, so placing buses and pins on the ground does not freeze the page.
+            const placeOnGround = () => {
+              if (cancelled || !viewer || viewer.isDestroyed()) return;
+              refreshHeights(true);
+              refreshPinHeights();
+              scene.requestRender();
+              warmPick();
+            };
+            const centre = currentOrbit(C, viewer!);
+            if (asyncShaders && centre) {
+              void asyncShaders
+                .prewarm(() => {
+                  scene.sampleHeight(C.Cartographic.fromDegrees(centre.lon, centre.lat));
+                })
+                .then(placeOnGround);
+            } else placeOnGround();
           });
           failTimer = setTimeout(() => {
             if (metrics.firstFrameMs === null) fail("timeout");
@@ -478,6 +509,10 @@ const Globe3D = memo(forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps,
       if (tileLoadTimerRef.current) {
         clearTimeout(tileLoadTimerRef.current);
         tileLoadTimerRef.current = null;
+      }
+      if (heightsTimerRef.current) {
+        clearTimeout(heightsTimerRef.current);
+        heightsTimerRef.current = null;
       }
       cleanupDomListeners?.();
       try {
@@ -751,6 +786,7 @@ const Globe3D = memo(forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps,
     const w = v.scene.canvas.clientWidth;
     const h = v.scene.canvas.clientHeight;
     let budget = 48;
+    const sliceStart = performance.now();
     let hasMoreVisible = false;
     let updated = false;
     const scratchCarto = new C.Cartographic();
@@ -771,7 +807,8 @@ const Globe3D = memo(forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps,
       if (pin.height !== null || pin.triedTiles === currentTiles) continue;
       const win = C.SceneTransforms.worldToWindowCoordinates(v.scene, pin.bb.position);
       if (!win || win.x < -120 || win.x > w + 120 || win.y < -120 || win.y > h + 120) continue;
-      if (budget-- <= 0) {
+      // same 8 ms slices as refreshHeights: the rest carry on in the next round, 80 ms later
+      if (budget-- <= 0 || performance.now() - sliceStart > 8) {
         hasMoreVisible = true;
         break;
       }
@@ -1467,6 +1504,14 @@ const Globe3D = memo(forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps,
     const h = v.scene.canvas.clientHeight;
     let budget = all ? 120 : 40;
     const scratchCarto = new C.Cartographic();
+    // Speed: each height sample draws the scene once more out of sight. 120 at once froze the page for about
+    // 0.2 s (0.5 s on a slow phone), so work in slices of about 8 ms and carry on after the next frame.
+    if (heightsTimerRef.current) {
+      clearTimeout(heightsTimerRef.current);
+      heightsTimerRef.current = null;
+    }
+    const sliceStart = performance.now();
+    let sliced = false;
 
     for (const f of p.vehicles) {
       const b = busesRef.current.get(f.id);
@@ -1490,6 +1535,10 @@ const Globe3D = memo(forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps,
           continue;
         }
       }
+      if (performance.now() - sliceStart > 8) {
+        sliced = true;
+        break;
+      }
       if (budget-- <= 0) break;
       b.triedTiles = currentTiles;
       const objects = [b.near, b.mid].filter(Boolean) as object[];
@@ -1501,6 +1550,13 @@ const Globe3D = memo(forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps,
       } else if (b.height === null) {
         b.height = -18; // Halifax's geoid lies about 18 m below the ellipsoid: close enough until tiles arrive
       }
+    }
+    if (sliced) {
+      heightsTimerRef.current = setTimeout(() => {
+        heightsTimerRef.current = null;
+        refreshHeights(all);
+        drawRef.current();
+      }, 16);
     }
   }
 

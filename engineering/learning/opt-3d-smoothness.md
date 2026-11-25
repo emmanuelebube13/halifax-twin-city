@@ -22,15 +22,32 @@ Measured on the production build, RTX 5070 laptop screen (1440 x 900), story TRN
 5. **Warm the picking shaders.** Cesium works out what you clicked by drawing the scene once in hidden colours. The first time, it compiles those shaders, which froze the first click. One throwaway pick at idle time, after the first tiles load, now pays that cost before you click.
 6. **Close 3D in the background.** Destroying the viewer frees thousands of tile objects (about 0.3-0.5 s). The view now stops drawing straight away and destroys the viewer when the browser is next idle, after 2D has painted.
 
+## Part 2: no freeze when 3D opens
+
+The freeze when 3D first opened turned out not to be Cesium's script starting up. It was the graphics driver compiling shaders, the small programs on the graphics card that draw each kind of thing (photo tiles, bus badges, route lines). Cesium compiles each shader the first time it draws with it, then asks straight away "did that work?". The page has to wait for the answer. On Windows, where Chrome draws through Direct3D, that came to 1.74 s across 21 shaders, in two chunks of about 0.6 s.
+
+| Opening 3D from 2D (laptop) | Before | After |
+| :---- | ----: | ----: |
+| Time spent waiting for shaders | 1,744 ms | 27 ms |
+| Longest freeze | 615 ms | 59 ms |
+| Same, simulated slow phone | 941 ms | 281 ms |
+
+1. **Compile in the background** (`src/map/asyncShaders.ts`). Browsers can compile shaders without making the page wait (the WebGL extension `KHR_parallel_shader_compile`), but Cesium does not use it. Our code wraps Cesium's draw call. The first time a normal frame is about to draw with a shader that is not ready, it compiles an identical copy in the background and skips that draw. Each later frame asks whether the copy is finished, and asking never waits. Once it is, Cesium compiles its own, and the browser serves it from its shader cache, which is keyed by the shader's source text, in a few milliseconds. Things appear a frame or two later, which you cannot see while tiles stream in anyway. Clicks (picking) and height sampling never skip, so they always give a real answer. Without the extension, Cesium works exactly as before.
+2. **Warm-up passes that do not freeze either.** The throwaway pick from part 1, and a new throwaway height sample, now run in "warm-only" mode: their shaders compile in the background too, and their answers are thrown away. Buses and pins are placed on the ground once those shaders are ready.
+3. **Place buses on the ground in slices.** Every height sample draws the scene once more out of sight, and up to 120 buses at once froze the page for 0.17 s. Bus and pin heights now work in slices of about 8 ms and carry on after the next frame.
+
+What is left, and outside our code: Cesium spends about 0.3 s, spread over many frames, building and parsing the Google tile web addresses. On a slow phone, opening the site straight into 3D (a `?view=3d` link) still has a 0.96 s freeze while the page itself starts up. That has not been profiled yet.
+
 ## How I verified
 
-- `npx tsc --noEmit` clean. `npx vitest run`: 111 tests pass (one new).
+- `npx tsc --noEmit` clean. `npx vitest run`: 117 tests pass (seven new, six for background compiling using a stand-in WebGL).
 - Production build, served with `vite preview`, driven by Playwright with the GPU on. Event Timing gives click durations, the Long Tasks API catches freezes, `requestAnimationFrame` gives frame times, and a CPU profile shows where time went. The scripts are in the session scratch folder and not committed yet.
-- Simulated mid-range phone (4x slower processor): the slowest click stays at 72 ms. The phone's longest freeze while 3D first loads (about 0.9 s, Cesium starting up) is unchanged and is the next thing to fix.
+- Simulated mid-range phone (4x slower processor): the slowest click stays under 90 ms.
+- Shader timing: a script wraps WebGL's `getProgramParameter` and times each wait for a link result while 3D opens.
 
 ## Not done here
 
-- Cesium's 4 MB script still takes about 0.5 s on desktop (0.9 s on a slow phone) to start when you first open 3D. The next step is to load it in the background while 2D is showing.
+- The 0.96 s freeze when a slow phone opens a `?view=3d` link directly.
 - An automated speed check that fails a pull request when a click goes over 100 ms.
 
 ## Hands-on exercise
