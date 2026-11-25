@@ -21,7 +21,8 @@
 /cesium/*
   Cache-Control: public, max-age=604800
 
-/tiles/halifax.pmtiles
+/tiles/v/*
+  Content-Type: application/x-protobuf
   Cache-Control: public, max-age=86400, stale-while-revalidate=604800
 
 /tiles/fonts/*

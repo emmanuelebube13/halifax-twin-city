@@ -19,7 +19,9 @@ param(
   [string]$Origin = "https://hfxtwin.profine.ca",
   [int]$Port = 8020,
   [int]$DailyLimit = 30,
-  [string]$Tunnel = "hfxtwin"
+  [string]$Tunnel = "hfxtwin",
+  # Python of an existing API environment; default: services\api\.venv in this folder
+  [string]$Python = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -29,7 +31,7 @@ $dataDir = if ($env:HALIFAX_TWIN_DATA_DIR) { $env:HALIFAX_TWIN_DATA_DIR } else {
 $logs = Join-Path $dataDir "logs"
 New-Item -ItemType Directory -Force $logs | Out-Null
 
-$python = Join-Path $api ".venv\Scripts\python.exe"
+$python = if ($Python) { $Python } else { Join-Path $api ".venv\Scripts\python.exe" }
 if (-not (Test-Path $python)) { throw "No API environment at $python. Run scripts\start-all.ps1 from this folder once, or make the .venv." }
 
 $publicToken = [Environment]::GetEnvironmentVariable("CESIUM_ION_TOKEN_PUBLIC", "User")
