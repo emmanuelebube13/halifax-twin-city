@@ -43,7 +43,8 @@ const MB = 1024 * 1024;
 export const PROFILES: Record<ProfileName, Profile3D> = {
   high: {
     name: "high",
-    maximumScreenSpaceError: 4,
+    // 4 loaded ~3x the tiles of 8 for little visible gain, and every frame walks all of them (25 Nov 2026)
+    maximumScreenSpaceError: 8,
     maxPixelRatio: 2,
     cacheBytes: 1024 * MB,
     preloadWhenHidden: true,
@@ -53,7 +54,8 @@ export const PROFILES: Record<ProfileName, Profile3D> = {
     fog: true,
     shadows: false,
     lighting: true,
-    fxaa: true,
+    // MSAA already smooths edges; FXAA on top was a second full-screen pass for no visible gain
+    fxaa: false,
     msaaSamples: 4,
     nearModelMetres: 600,
     midModelMetres: 3000,

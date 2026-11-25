@@ -181,7 +181,6 @@ const Globe3D = memo(forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps,
   const tileLoadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pinImagesCacheRef = useRef(new Map<string, HTMLCanvasElement>());
   const prevSelectedKeyRef = useRef<string | null>(null);
-  const brightnessStageRef = useRef<CesiumNS.PostProcessStage | null>(null);
   const cleanTwinRef = useRef<CleanTwinController | null>(null);
   const [status, setStatus] = useState<"loading" | "ready">("loading");
   useEffect(() => {
@@ -248,6 +247,20 @@ const Globe3D = memo(forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps,
       }
       viewerRef.current = viewer;
       const scene = viewer.scene;
+      // Speed: Cesium compiles its picking shaders on the first click, which froze that click for about
+      // 0.1 to 0.4 s. One throwaway pick while the browser is idle moves that cost off the user's click.
+      const warmPick = () => {
+        const run = () => {
+          if (cancelled || !viewer || viewer.isDestroyed()) return;
+          try {
+            scene.pick(new C.Cartesian2(1, 1));
+          } catch {
+            // warming is best effort
+          }
+        };
+        if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(run, { timeout: 2000 });
+        else setTimeout(run, 500);
+      };
       scene.backgroundColor = C.Color.fromCssColorString(p.noIon ? "#dfe3dd" : "#13232e");
       scene.renderError.addEventListener(() => fail("load"));
       applyProfile(C, viewer, null, prof);
@@ -399,6 +412,7 @@ const Globe3D = memo(forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps,
             refreshHeights(true);
             refreshPinHeights();
             scene.requestRender();
+            warmPick();
           });
           failTimer = setTimeout(() => {
             if (metrics.firstFrameMs === null) fail("timeout");
@@ -450,6 +464,7 @@ const Globe3D = memo(forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps,
 
       setStatus("ready");
       scene.requestRender();
+      if (p.noIon) warmPick();
     })();
 
     return () => {
@@ -474,13 +489,22 @@ const Globe3D = memo(forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps,
       pinsRef.current.clear();
       cleanTwinRef.current?.destroy();
       cleanTwinRef.current = null;
-      brightnessStageRef.current = null;
       tilesetRef.current = null;
       viewerRef.current = null;
-      try {
-        viewer?.destroy();
-      } catch {
-        // already gone
+      // Speed: destroying the viewer frees thousands of tiles in one go (about 0.5 s). Stop drawing now and free
+      // them once the 2D map has painted and the browser is idle, so the switch back to 2D answers at once.
+      const dying = viewer;
+      if (dying && !dying.isDestroyed()) {
+        dying.useDefaultRenderLoop = false;
+        const destroy = () => {
+          try {
+            if (!dying.isDestroyed()) dying.destroy();
+          } catch {
+            // already gone
+          }
+        };
+        if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(destroy, { timeout: 4000 });
+        else setTimeout(destroy, 1500);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -918,25 +942,10 @@ const Globe3D = memo(forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps,
     if (scene.globe) scene.globe.enableLighting = prof.lighting;
     scene.highDynamicRange = false;
     v.shadows = prof.shadows;
-    try {
-      const liftShadows = !propsRef.current.noIon && (prof.name === "high" || prof.name === "medium");
-      if (liftShadows) {
-        if (!brightnessStageRef.current && C.PostProcessStageLibrary?.createBrightnessStage) {
-          const stage = C.PostProcessStageLibrary.createBrightnessStage();
-          stage.uniforms.brightness = 1.08;
-          scene.postProcessStages.add(stage);
-          brightnessStageRef.current = stage;
-        }
-        if (brightnessStageRef.current) {
-          brightnessStageRef.current.uniforms.brightness = 1.08;
-          brightnessStageRef.current.enabled = true;
-        }
-      } else if (brightnessStageRef.current) {
-        brightnessStageRef.current.enabled = false;
-      }
-    } catch {
-      // brightness stage is optional visual polish
-    }
+    // Lift the photo tiles' dark shadows with a CSS filter on the canvas: the browser's compositor does it for
+    // free, where a Cesium post-process stage cost one more full-screen WebGL pass on every frame.
+    const liftShadows = !propsRef.current.noIon && (prof.name === "high" || prof.name === "medium");
+    scene.canvas.style.filter = liftShadows ? "brightness(1.08)" : "";
     if (ts) {
       ts.maximumScreenSpaceError = prof.maximumScreenSpaceError;
       ts.cacheBytes = prof.cacheBytes;
@@ -1267,6 +1276,12 @@ const Globe3D = memo(forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps,
       scene.requestRender();
     });
 
+    // Speed: a frame of Google tiles costs tens of milliseconds, so a glide tick asks for one only when a bus on
+    // screen has moved by a visible amount (MIN_MOVE_PX for the profile), or something else about the buses changed.
+    // Slower devices wait for a larger step: a 1.5 px hop is still smooth to the eye and costs far fewer frames.
+    const MIN_MOVE_PX: Record<string, number> = { high: 0.4, medium: 0.75, low: 1.5 };
+    const MAX_QUIET_MS = 1000;
+    let lastBusRenderAt = 0;
     drawRef.current = () => {
       const p = propsRef.current;
       const prof = p.profile;
@@ -1276,6 +1291,11 @@ const Globe3D = memo(forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps,
       const camPos = scene.camera.positionWC;
       const modelLoadRadius = prof.midModelMetres * 1.25;
       let selectedPos: CesiumNS.Cartesian3 | null = null;
+      // metres covered by one screen pixel, per metre of distance from the camera
+      const fovy = (scene.camera.frustum as { fovy?: number }).fovy ?? 1;
+      const pxPerRadian = (scene.canvas.clientHeight || 800) / (2 * Math.tan(fovy / 2));
+      let needRender = Boolean(p.following);
+      let anyMoved = false;
 
       for (const f of p.vehicles) {
         const pos = p.positionFor(f.id, now);
@@ -1305,6 +1325,7 @@ const Globe3D = memo(forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps,
           busesRef.current.set(f.id, b);
           // one pin vocabulary in 3D: the badge at every distance, a little smaller far away
           b.badge.scaleByDistance = badgeScaleByDistance;
+          needRender = true;
         }
         // heading from route-snapped bearing if given, else movement delta, else the reported bearing
         if (typeof pos.bearing === "number" && Number.isFinite(pos.bearing)) {
@@ -1359,9 +1380,17 @@ const Globe3D = memo(forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps,
           b.badge.verticalOrigin = C.VerticalOrigin.BOTTOM;
           b.badge.disableDepthTestDistance = Number.POSITIVE_INFINITY;
           b.badgeKey = badgeKey;
+          needRender = true;
         }
-        b.badge.position = C.Cartesian3.fromDegrees(pos.lon, pos.lat, busH + 4.2);
-        b.badge.show = true;
+        const badgePos = C.Cartesian3.fromDegrees(pos.lon, pos.lat, busH + 4.2);
+        const moved = C.Cartesian3.distance(b.badge.position, badgePos);
+        if (moved > 0) {
+          anyMoved = true;
+          // on-screen (or selected) buses that moved by a visible amount need a frame; the rest wait
+          if ((b.visible || isSel) && (moved / Math.max(camDist, 1)) * pxPerRadian >= (MIN_MOVE_PX[prof.name] ?? 0.75)) needRender = true;
+        }
+        b.badge.position = badgePos;
+        // show and hide are decided by declutterBuses below, which runs whenever a frame is drawn
         // the selected bus is drawn in front of its neighbours and a quarter larger, as in 2D
         b.badge.eyeOffset = isSel ? selectedEyeOffset : C.Cartesian3.ZERO;
         b.badge.scale = (isSel ? 1.25 : 1) / PIXEL_RATIO;
@@ -1373,8 +1402,13 @@ const Globe3D = memo(forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps,
         if (b.mid) scene.primitives.remove(b.mid);
         billboards.remove(b.badge);
         busesRef.current.delete(id);
+        needRender = true;
       }
       if (window.__globe3d) window.__globe3d.buses = busesRef.current.size;
+      // a bus gliding in from off screen is caught by the occasional frame, at most MAX_QUIET_MS late
+      if (!needRender && anyMoved && now - lastBusRenderAt >= MAX_QUIET_MS) needRender = true;
+      if (!needRender) return;
+      lastBusRenderAt = now;
       declutterBuses();
       // follow: keep the camera's angle and distance, move with the bus
       if (p.following && selectedPos) {
