@@ -31,6 +31,11 @@ describe("device profiles", () => {
     expect(PROFILES.low.maximumScreenSpaceError).toBeGreaterThan(PROFILES.medium.maximumScreenSpaceError);
     expect(PROFILES.medium.maximumScreenSpaceError).toBeGreaterThan(PROFILES.high.maximumScreenSpaceError);
   });
+  it("never runs two anti-aliasing passes, and keeps high's tile detail within frame budget", () => {
+    for (const p of Object.values(PROFILES)) expect(p.fxaa && p.msaaSamples > 1).toBe(false);
+    // below 8, every frame walks about three times the tiles for little visible gain (measured 25 Nov 2026)
+    expect(PROFILES.high.maximumScreenSpaceError).toBeGreaterThanOrEqual(8);
+  });
   it("caps the pixel ratio", () => {
     expect(resolutionScaleFor(3, 1)).toBeCloseTo(1 / 3);
     expect(resolutionScaleFor(1, 2)).toBe(1);
