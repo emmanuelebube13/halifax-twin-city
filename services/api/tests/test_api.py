@@ -224,6 +224,75 @@ def test_no_token_means_2d(database_ready):
     assert data["business_rules"]["raw_retention_days"] == 7
 
 
+# ---------------------------------------------------------------- the public site (Cloudflare Tunnel)
+
+PUBLIC = "https://hfxtwin.example"
+PUBLIC_TOKEN = "public-token-for-tests-only"
+TUNNEL = {"Origin": PUBLIC, "CF-Connecting-IP": "203.0.113.7", "CF-Ray": "abc123"}
+
+
+def make_public_client(limit: int = 2, counter_file=None, client_host: str = "127.0.0.1"):
+    from fastapi.testclient import TestClient
+    from halifax_api.config import load_config
+    from halifax_api.db import Database
+    from halifax_api.main import create_app
+    from halifax_api.settings import Settings
+    from .conftest import REPO_DIR, TEST_DB_URL
+    settings = Settings(database_url=TEST_DB_URL, config_dir=REPO_DIR / "config", cesium_ion_token=FAKE_TOKEN,
+                        public_origins=(PUBLIC,), cors_origins=("http://127.0.0.1:5173", "http://localhost:5173", PUBLIC),
+                        public_cesium_ion_token=PUBLIC_TOKEN, three_d_daily_limit=limit, three_d_counter_file=counter_file)
+    app = create_app(settings=settings, database=Database(TEST_DB_URL), config=load_config(settings.config_dir))
+    return TestClient(app, client=(client_host, 50000))
+
+
+def test_tunnel_visitor_never_gets_the_local_token(database_ready):
+    # through the tunnel every visitor arrives from 127.0.0.1; the proxy headers give them away
+    with make_public_client() as c:
+        for headers in (TUNNEL, {"CF-Connecting-IP": "203.0.113.7"}, {"X-Forwarded-For": "203.0.113.7"}):
+            r = c.get("/v1/client-config", headers=headers)
+            assert FAKE_TOKEN not in r.text and PUBLIC_TOKEN not in r.text
+            assert r.json()["data"]["cesium_ion_token"] is None
+            assert FAKE_TOKEN not in c.get("/v1/three-d/token", headers=headers).text
+
+
+def test_public_page_gets_3d_on_request_up_to_the_daily_limit(database_ready, tmp_path):
+    counter = tmp_path / "count.json"
+    with make_public_client(limit=2, counter_file=counter) as c:
+        data = c.get("/v1/client-config", headers=TUNNEL).json()["data"]
+        assert data["three_d_available"] is True and data["three_d_on_request"] is True and data["cesium_ion_token"] is None
+        for _ in range(2):
+            r = c.get("/v1/three-d/token", headers=TUNNEL)
+            assert r.status_code == 200 and r.json()["data"]["cesium_ion_token"] == PUBLIC_TOKEN
+            assert r.headers["cache-control"] == "private, no-store"
+        r = c.get("/v1/three-d/token", headers=TUNNEL)
+        assert r.status_code == 429 and r.json()["error"]["code"] == "three_d_limit" and PUBLIC_TOKEN not in r.text
+        data = c.get("/v1/client-config", headers=TUNNEL).json()["data"]
+        assert data["three_d_available"] is False and "limit" in data["three_d_note"]
+    # a restart keeps today's count
+    with make_public_client(limit=2, counter_file=counter) as c:
+        assert c.get("/v1/three-d/token", headers=TUNNEL).status_code == 429
+
+
+def test_other_sites_get_no_public_token(database_ready):
+    with make_public_client() as c:
+        for headers in ({**TUNNEL, "Origin": "https://evil.example"}, {"CF-Connecting-IP": "203.0.113.7"}):
+            r = c.get("/v1/three-d/token", headers=headers)
+            assert r.status_code == 403 and PUBLIC_TOKEN not in r.text
+            assert c.get("/v1/client-config", headers=headers).json()["data"]["three_d_available"] is False
+
+
+def test_this_computer_gets_its_own_token_uncounted(database_ready):
+    with make_public_client(limit=1) as c:
+        for _ in range(3):
+            r = c.get("/v1/three-d/token")
+            assert r.status_code == 200 and r.json()["data"]["cesium_ion_token"] == FAKE_TOKEN
+
+
+def test_live_answers_are_shared_briefly_at_the_edge(client):
+    cc = client.get("/v1/live/vehicles").headers["cache-control"]
+    assert "s-maxage=5" in cc and "private" not in cc
+
+
 # ---------------------------------------------------------------- CORS
 
 @pytest.mark.parametrize("origin", ["http://127.0.0.1:5173", "http://localhost:5173"])
@@ -445,7 +514,7 @@ def test_http_caching_etag_and_private_client_config(client):
     assert first.status_code == 200
     etag = first.headers.get("etag")
     assert etag and etag.startswith('W/"')
-    assert first.headers.get("cache-control") == "public, max-age=30"
+    assert first.headers.get("cache-control") == "public, max-age=30, s-maxage=30"
 
     not_modified = client.get("/v1/sectors", headers={"If-None-Match": etag})
     assert not_modified.status_code == 304

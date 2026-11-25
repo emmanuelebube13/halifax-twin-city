@@ -57,6 +57,7 @@ export function App() {
   const [basemapOk, setBasemapOk] = useState<boolean | null>(null);
   const [searchWanted, setSearchWanted] = useState(false);
   const [threeDFailed, setThreeDFailed] = useState<ThreeDFailure | null>(null);
+  const [askedToken, setAskedToken] = useState<string | null>(null);
   const globeRef = useRef<Globe3DHandle>(null);
   const show3dRef = useRef(false);
   const [startPlace, setStartPlace] = useState<Place | null>(null);
@@ -575,16 +576,39 @@ export function App() {
   const mapAgeSources = view.story ? (primary?.sources ?? []) : (layers.find((l) => l.path === "live")?.sources ?? primary?.sources ?? []);
   const tier = primary?.tier ?? numIds.map((id) => numberSlots[id]?.env?.reliability_tier).find(Boolean) ?? null;
 
+  const token = cfg?.cesium_ion_token ?? askedToken;
   const decision = threeDDecision({
     three_d_available: !!cfg?.three_d_available,
-    cesium_ion_token: cfg?.cesium_ion_token ?? null,
+    cesium_ion_token: token,
+    on_request: !!cfg?.three_d_on_request,
     noIon: NO_ION,
     webgl,
     failed: threeDFailed,
   });
   const can3d = decision.available;
-  const show3d = view.view === "3d" && can3d && (!!cfg || NO_ION);
+  // public site: 3D's token is asked for (and counted against the day's limit) only when 3D opens
+  const asking3dToken = view.view === "3d" && can3d && !NO_ION && !token && !!cfg?.three_d_on_request;
+  const show3d = view.view === "3d" && can3d && (!!cfg || NO_ION) && (NO_ION || !!token);
   show3dRef.current = show3d;
+  useEffect(() => {
+    if (!asking3dToken) return;
+    let current = true;
+    api.threeDToken().then(
+      (tok) => current && setAskedToken(tok),
+      (e: { status?: number }) => {
+        if (!current) return;
+        setThreeDFailed(e?.status === 429 ? "limit" : "no-token");
+        setView({ view: "2d" });
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [asking3dToken, setView]);
+  // leaving 3D forgets the token, so the next open asks again: each open loads Google's tiles afresh and counts
+  useEffect(() => {
+    if (view.view !== "3d") setAskedToken(null);
+  }, [view.view]);
   const apiDown = !!storiesP.error && !storiesP.env;
 
   // a link or a previous story may carry a lens this story does not offer: use the story's first lens
@@ -746,7 +770,7 @@ export function App() {
     <Search items={searchList} onFocus={() => setSearchWanted(true)} placeholder={phone ? t("search.placeholderShort") : t("search.placeholder")} compact={phone} />
   );
   const viewSwitch = (compact: boolean) => (
-    <ViewSwitch view={show3d ? "3d" : "2d"} can3d={can3d} note={decision.reason ? t(`view.why.${decision.reason}`) : null} compact={compact} onChange={switchView} />
+    <ViewSwitch view={show3d ? "3d" : "2d"} can3d={can3d} note={decision.reason === "no-token" && cfg?.three_d_note ? cfg.three_d_note : decision.reason ? t(`view.why.${decision.reason}`) : null} compact={compact} onChange={switchView} />
   );
 
   const profileSwitch = show3d ? (
@@ -833,7 +857,7 @@ export function App() {
     <Suspense fallback={<p className="globe-loading" role="status">{t("view.3dLoading")}</p>}>
       <Globe3D
         ref={globeRef}
-        token={NO_ION ? null : (cfg?.cesium_ion_token ?? null)}
+        token={NO_ION ? null : token}
         noIon={NO_ION}
         assetId={cfg?.cesium_photorealistic_asset_id ?? 2275207}
         profileChoice={profileChoice}
@@ -856,6 +880,8 @@ export function App() {
         onFailed={onThreeDFailed}
       />
     </Suspense>
+  ) : asking3dToken ? (
+    <p className="globe-loading" role="status">{t("view.3dLoading")}</p>
   ) : null;
 
 

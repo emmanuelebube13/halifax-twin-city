@@ -242,6 +242,24 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/HealthResponse" }
 
+  /v1/three-d/token:
+    get:
+      tags: [operational]
+      operationId: getThreeDToken
+      summary: The Cesium ion token, asked for each time 3D opens
+      description: |
+        On this computer: the local token. From a public web origin: the public token (restricted in Cesium ion
+        to the public web address), counted against a daily limit. 429 once today's limit is reached, 403 when
+        3D is not offered to this caller. Never cached.
+      responses:
+        "200":
+          description: The token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ThreeDTokenResponse" }
+        "403": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+
   /v1/client-config:
     get:
       tags: [operational]
@@ -250,7 +268,9 @@ paths:
       description: |
         Business rules for display, refresh and stale thresholds, and whether 3D is available.
         The Cesium ion token is included only when the request comes from this computer
-        (127.0.0.1 or ::1, and no foreign Origin); otherwise `cesium_ion_token` is null.
+        (127.0.0.1 or ::1, no foreign Origin, and no proxy or tunnel headers); otherwise `cesium_ion_token` is null.
+        On the public site, `three_d_on_request` is true while today's 3D limit has room: the web app then asks
+        /v1/three-d/token each time someone opens 3D.
       responses:
         "200":
           description: The settings
@@ -704,6 +724,7 @@ components:
       required: [three_d_available, cesium_ion_token, time_zone, stale_after_seconds, live_refresh_seconds, business_rules]
       properties:
         three_d_available: { type: boolean }
+        three_d_on_request: { type: boolean, description: "3D is offered, and its token comes from /v1/three-d/token." }
         three_d_note: { type: [string, "null"] }
         cesium_ion_token: { type: [string, "null"] }
         cesium_photorealistic_asset_id: { type: [integer, "null"] }
@@ -712,6 +733,12 @@ components:
         live_refresh_seconds: { type: integer }
         business_rules: { type: object }
         attribution: { type: string }
+
+    ThreeDToken:
+      type: object
+      required: [cesium_ion_token]
+      properties:
+        cesium_ion_token: { type: string }
 
     # ---------- Responses ----------
     StoryListResponse:
@@ -773,3 +800,9 @@ components:
         - { $ref: "#/components/schemas/Envelope" }
         - properties:
             data: { $ref: "#/components/schemas/ClientConfig" }
+
+    ThreeDTokenResponse:
+      allOf:
+        - { $ref: "#/components/schemas/Envelope" }
+        - properties:
+            data: { $ref: "#/components/schemas/ThreeDToken" }

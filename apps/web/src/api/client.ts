@@ -117,7 +117,24 @@ async function get<T>(path: string, signal?: AbortSignal): Promise<Envelope<T>> 
   return withAbort(req, signal);
 }
 
+/** Asks for the 3D token as 3D opens. Never cached: on the public site each ask counts against a daily limit. */
+async function threeDToken(): Promise<string> {
+  let res: Response;
+  try {
+    res = await fetch(API_BASE + "/v1/three-d/token", { headers: { Accept: "application/json" }, cache: "no-store" });
+  } catch {
+    throw new ApiError(0, "network", "The data service is not answering.", null);
+  }
+  const body = (await res.json().catch(() => null)) as Envelope<{ cesium_ion_token: string }> | null;
+  if (!res.ok || !body?.data?.cesium_ion_token) {
+    const env = body as unknown as Envelope<null> | null;
+    throw new ApiError(res.status, env?.error?.code ?? "http_" + res.status, env?.error?.message ?? "The request failed.", env);
+  }
+  return body.data.cesium_ion_token;
+}
+
 export const api = {
+  threeDToken,
   clientConfig: (s?: AbortSignal) => get<ClientConfig>("/v1/client-config", s),
   stories: (s?: AbortSignal) => get<StorySummary[]>("/v1/stories", s),
   story: (id: string, s?: AbortSignal) => get<Story>(`/v1/stories/${encodeURIComponent(id)}`, s),
