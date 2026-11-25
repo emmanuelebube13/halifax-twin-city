@@ -7,6 +7,12 @@ import type { StyleSpecification } from "maplibre-gl";
 
 export const TILES_BASE = `${location.origin}/tiles`;
 export const PMTILES_URL = `${TILES_BASE}/halifax.pmtiles`;
+/**
+ * Public build (Cloudflare Pages, which ignores range requests): the same tiles unpacked into plain files by
+ * scripts/export_basemap_tiles.py, one small file per tile.
+ */
+export const TILE_FOLDER = import.meta.env.VITE_BASEMAP_TILE_FOLDER === "1";
+const TILE_FOLDER_URL = `${TILES_BASE}/v/{z}/{x}/{y}.pbf`;
 
 const LIGHT: Partial<Flavor> = {
   background: "#e9ebe5",
@@ -176,11 +182,20 @@ export function harbourStyle(dark: boolean): StyleSpecification {
     glyphs: `${TILES_BASE}/fonts/{fontstack}/{range}.pbf`,
     sprite: `${TILES_BASE}/sprites/v4/${dark ? "dark" : "light"}`,
     sources: {
-      protomaps: {
-        type: "vector",
-        url: `pmtiles://${PMTILES_URL}`,
-        attribution: "© OpenStreetMap contributors, Protomaps",
-      },
+      protomaps: TILE_FOLDER
+        ? {
+            type: "vector",
+            tiles: [TILE_FOLDER_URL],
+            minzoom: 0,
+            maxzoom: 15,
+            bounds: [-63.85, 44.55, -63.35, 44.85],
+            attribution: "© OpenStreetMap contributors, Protomaps",
+          }
+        : {
+            type: "vector",
+            url: `pmtiles://${PMTILES_URL}`,
+            attribution: "© OpenStreetMap contributors, Protomaps",
+          },
     },
     layers: sentenceCase(layers("protomaps", harbourFlavor(dark), { lang: "en" }) as StyleSpecification["layers"]),
   };
@@ -213,6 +228,10 @@ export function fallbackStyle(dark: boolean): StyleSpecification {
 /** Is the local extract there? A HEAD-like range request for its first bytes. */
 export async function basemapAvailable(): Promise<boolean> {
   try {
+    if (TILE_FOLDER) {
+      const res = await fetch(TILE_FOLDER_URL.replace("{z}/{x}/{y}", "0/0/0"), { method: "HEAD" });
+      return res.ok && !(res.headers.get("Content-Type") ?? "").includes("html");
+    }
     const res = await fetch(PMTILES_URL, { headers: { Range: "bytes=0-15" } });
     return res.ok || res.status === 206;
   } catch {

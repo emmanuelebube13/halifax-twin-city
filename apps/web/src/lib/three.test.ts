@@ -101,6 +101,11 @@ describe("3D fallback", () => {
     expect(threeDDecision({ ...ok, failed: "tiles" })).toEqual({ available: false, reason: "tiles" });
     expect(threeDDecision({ ...ok, failed: "token-refused" }).reason).toBe("token-refused");
   });
+  it("on the public site, offers 3D before the token arrives, and explains the daily limit", () => {
+    expect(threeDDecision({ ...ok, cesium_ion_token: null, on_request: true })).toEqual({ available: true, reason: null });
+    expect(threeDDecision({ ...ok, cesium_ion_token: null, on_request: true, failed: "limit" }).reason).toBe("limit");
+    expect(threeDDecision({ ...ok, cesium_ion_token: null, on_request: false }).reason).toBe("no-token");
+  });
   it("lets the developer globe (no ion) run without a token", () => {
     expect(threeDDecision({ ...ok, three_d_available: false, cesium_ion_token: null, noIon: true }).available).toBe(true);
   });

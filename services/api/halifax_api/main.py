@@ -10,6 +10,8 @@ import datetime as dt
 import hashlib
 import json
 import logging
+import pathlib
+import threading
 from contextlib import asynccontextmanager
 from zoneinfo import ZoneInfo
 
@@ -42,6 +44,12 @@ def not_found(message: str) -> ApiError:
 
 
 UNAVAILABLE = "This data cannot be read right now. Other layers are not affected."
+THREE_D_LIMIT_NOTE = "3D has reached today's limit, which keeps it free. It comes back tomorrow. The 2D map shows everything."
+
+
+# Headers that a proxy or tunnel adds. Through a Cloudflare Tunnel every visitor reaches the API from
+# 127.0.0.1, so a request carrying any of these came from the internet, not from this computer.
+PROXY_HEADERS = ("cf-connecting-ip", "cf-ray", "x-forwarded-for", "x-real-ip", "forwarded")
 
 
 def is_local_request(request: Request, allowed_origins) -> bool:
@@ -49,10 +57,47 @@ def is_local_request(request: Request, allowed_origins) -> bool:
     host = request.client.host if request.client else None
     if host not in LOCAL_HOSTS:
         return False
+    if any(h in request.headers for h in PROXY_HEADERS):
+        return False
     origin = request.headers.get("origin")
-    if origin and origin not in allowed_origins and origin not in ("http://127.0.0.1:8010", "http://localhost:8010"):
+    local_pages = tuple(o for o in allowed_origins if o.startswith("http://")) + ("http://127.0.0.1:8010", "http://localhost:8010")
+    if origin and origin not in local_pages:
         return False
     return True
+
+
+class DailyCounter:
+    """Counts public 3D opens per Halifax day, kept in a small file so a restart does not reset it."""
+
+    def __init__(self, path: pathlib.Path | None, limit: int):
+        self.path, self.limit = path, limit
+        self.lock = threading.Lock()
+        self.day, self.count = "", 0
+        if path and path.exists():
+            try:
+                saved = json.loads(path.read_text(encoding="utf-8"))
+                self.day, self.count = str(saved.get("day", "")), int(saved.get("count", 0))
+            except (ValueError, OSError):
+                pass
+
+    def take(self, today: str) -> bool:
+        """Uses one of today's opens. False once today's limit is reached."""
+        with self.lock:
+            if self.day != today:
+                self.day, self.count = today, 0
+            if self.count >= self.limit:
+                return False
+            self.count += 1
+            if self.path:
+                try:
+                    self.path.write_text(json.dumps({"day": self.day, "count": self.count}), encoding="utf-8")
+                except OSError:
+                    log.warning("could not save the 3D count")
+            return True
+
+    def left(self, today: str) -> int:
+        with self.lock:
+            return self.limit if self.day != today else max(0, self.limit - self.count)
 
 
 def create_app(settings: Settings | None = None, database: Database | None = None,
@@ -84,7 +129,9 @@ def create_app(settings: Settings | None = None, database: Database | None = Non
         if private:
             return Response(content=raw, media_type="application/json", headers={"Cache-Control": "private, no-store"})
         etag = f'W/"{hashlib.blake2b(raw, digest_size=8).hexdigest()}"'
-        cc = f"public, max-age={max_age}" if max_age > 0 else "no-cache"
+        # s-maxage is for Cloudflare's edge only (browsers ignore it): even "always fresh" answers such as the
+        # live buses are shared for a few seconds there, so thousands of visitors make a handful of requests here.
+        cc = f"public, max-age={max_age}, s-maxage={max(max_age, 5)}" if max_age > 0 else "public, max-age=0, s-maxage=5"
         headers = {"ETag": etag, "Cache-Control": cc}
         if request.headers.get("if-none-match") == etag:
             return Response(status_code=304, headers=headers)
@@ -141,11 +188,39 @@ def create_app(settings: Settings | None = None, database: Database | None = Non
             max_age=0,
         )
 
+    three_d_count = DailyCounter(settings.three_d_counter_file, settings.three_d_daily_limit)
+
+    def halifax_today() -> str:
+        return dt.datetime.now(HALIFAX).date().isoformat()
+
+    def allowed_public_page(request: Request) -> bool:
+        return request.headers.get("origin") in settings.public_origins
+
+    @app.get("/v1/three-d/token")
+    def three_d_token(request: Request):
+        """The 3D token, asked for each time someone opens 3D. On this computer it is the local token; for a
+        public visitor it is the public token, counted against today's limit."""
+        if is_local_request(request, settings.cors_origins) and settings.cesium_ion_token:
+            token = settings.cesium_ion_token
+        elif settings.public_cesium_ion_token and allowed_public_page(request):
+            if not three_d_count.take(halifax_today()):
+                raise ApiError(429, "three_d_limit", THREE_D_LIMIT_NOTE)
+            token = settings.public_cesium_ion_token
+        else:
+            raise ApiError(403, "three_d_unavailable", "3D is not offered here. The 2D map shows everything.")
+        return respond(request, envelope({"cesium_ion_token": token}, now_iso(), [], None), private=True)
+
     @app.get("/v1/client-config")
     def client_config(request: Request):
-        token = settings.cesium_ion_token if is_local_request(request, settings.cors_origins) else None
-        if token:
+        local = is_local_request(request, settings.cors_origins)
+        token = settings.cesium_ion_token if local else None
+        # public visitors never get a token here; they ask /v1/three-d/token when they open 3D
+        on_request = (not local and bool(settings.public_cesium_ion_token) and allowed_public_page(request)
+                      and three_d_count.left(halifax_today()) > 0)
+        if token or on_request:
             note = None
+        elif not local and settings.public_cesium_ion_token and allowed_public_page(request):
+            note = THREE_D_LIMIT_NOTE
         elif settings.cesium_ion_token:
             note = "3D is available only on the computer that runs the API."
         else:
@@ -154,7 +229,8 @@ def create_app(settings: Settings | None = None, database: Database | None = Non
         return respond(
             request,
             envelope({
-                "three_d_available": bool(token),
+                "three_d_available": bool(token) or on_request,
+                "three_d_on_request": on_request,
                 "three_d_note": note,
                 "cesium_ion_token": token,
                 "cesium_photorealistic_asset_id": settings.cesium_photorealistic_asset_id,

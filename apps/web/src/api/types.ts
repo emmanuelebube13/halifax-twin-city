@@ -196,6 +196,8 @@ export interface Replay {
 
 export interface ClientConfig {
   three_d_available: boolean;
+  /** Public site: 3D is offered, and its token is asked for (and counted) each time 3D opens. */
+  three_d_on_request?: boolean;
   three_d_note?: string | null;
   cesium_ion_token: string | null;
   cesium_photorealistic_asset_id?: number | null;

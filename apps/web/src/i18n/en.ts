@@ -40,6 +40,7 @@ export const en = {
   "view.to3d": "Show 3D view",
   "view.why.no-webgl": "3D needs WebGL, which this browser does not offer. The 2D map shows everything.",
   "view.why.no-token": "3D needs a Cesium ion token on this computer. The 2D map shows everything.",
+  "view.why.limit": "3D has reached today's limit, which keeps it free. It comes back tomorrow. The 2D map shows everything.",
   "view.why.token-refused": "Cesium ion refused the token, so 3D is off. The 2D map shows everything.",
   "view.why.tiles": "The 3D tiles could not load. Showing 2D.",
   "view.why.load": "3D could not start. Showing 2D.",
