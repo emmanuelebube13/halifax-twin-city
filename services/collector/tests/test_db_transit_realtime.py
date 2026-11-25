@@ -74,16 +74,39 @@ def test_repeated_identical_feed_adds_nothing_new(schedule, sql):
     c = make(FakeFetch())
     try:
         c.cycle()
+        event_ts = sql("SELECT event_id, dw_loaded_ts, dw_batch_id FROM silver.event ORDER BY event_id")
+        arrival_ts = sql("SELECT event_id, dw_loaded_ts, dw_batch_id FROM silver.stop_arrival ORDER BY event_id")
         second = c.cycle()
     finally:
         c.close()
-    assert second.startswith("1 buses (0 new positions)")
+    assert second == "1 buses (0 new positions) | 1 trips, 0 arrivals (unchanged) | 1 alerts"
+    assert sql("SELECT event_id, dw_loaded_ts, dw_batch_id FROM silver.event ORDER BY event_id") == event_ts
+    assert sql("SELECT event_id, dw_loaded_ts, dw_batch_id FROM silver.stop_arrival ORDER BY event_id") == arrival_ts
     assert sql("SELECT count(*) FROM silver.vehicle_position") == [(1,)]
     assert sql("SELECT count(*) FROM silver.event") == [(3,)]
     assert sql("SELECT count(*) FROM silver.vehicle_hist") == [(0,)]
     assert sql("SELECT count(*) FROM silver.asset_hist") == [(0,)]
     # Six fetch rows but three raw files: an identical download points at the file already kept.
     assert sql("SELECT count(*), count(DISTINCT file_path) FROM bronze.feed_fetch WHERE source_id <> 'SRC-004'") == [(6, 3)]
+
+
+def test_unchanged_feed_after_restart_does_not_advance_dw_loaded_ts(schedule, sql):
+    """Even without the in-memory SHA cache (fresh Collector), store.py skips unchanged rows."""
+    first = make(FakeFetch())
+    try:
+        first.cycle()
+    finally:
+        first.close()
+    event_ts = sql("SELECT event_id, dw_loaded_ts, dw_batch_id FROM silver.event ORDER BY event_id")
+    arrival_ts = sql("SELECT event_id, dw_loaded_ts, dw_batch_id FROM silver.stop_arrival ORDER BY event_id")
+    second = make(FakeFetch())
+    try:
+        summary = second.cycle()
+    finally:
+        second.close()
+    assert summary == "1 buses (0 new positions) | 1 trips, 1 arrivals | 1 alerts"
+    assert sql("SELECT event_id, dw_loaded_ts, dw_batch_id FROM silver.event ORDER BY event_id") == event_ts
+    assert sql("SELECT event_id, dw_loaded_ts, dw_batch_id FROM silver.stop_arrival ORDER BY event_id") == arrival_ts
 
 
 def test_raw_file_deleted_by_retention_is_saved_again(schedule, sql, tmp_path):

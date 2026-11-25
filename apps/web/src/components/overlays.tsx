@@ -2,6 +2,7 @@ import { ago } from "../lib/ago";
 // List view (equal to the map), the All sectors browser, and Data and sources.
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNow } from "../api/hooks";
 import type { BusStatus, SectorRegister, SourceStatus, VehicleProperties } from "../api/types";
 import { t } from "../i18n";
 import { formatAge, formatCount, formatDate, formatDateTime } from "../lib/format";
@@ -37,15 +38,25 @@ export function ListView({
   layers, now, onSelect, onClose, selectedKey,
 }: {
   layers: LayerView[];
-  now: number;
+  now?: number;
   onSelect: (layer: string, kind: string, id: number) => void;
   onClose: () => void;
   selectedKey: string | null;
 }) {
+  const tick = useNow(1000);
+  const effectiveNow = now ?? tick;
   const ref = useDialog(onClose);
   const [q, setQ] = useState("");
   const query = q.trim().toLowerCase();
-  const total = layers.reduce((n, l) => n + l.features.length, 0);
+  const total = useMemo(() => layers.reduce((n, l) => n + l.features.length, 0), [layers]);
+  const filteredLayers = useMemo(
+    () =>
+      layers.map((l) => ({
+        layer: l,
+        rows: !query ? l.features : l.features.filter((f) => JSON.stringify(f.properties).toLowerCase().includes(query)),
+      })),
+    [layers, query],
+  );
   return (
     <div className="overlay overlay--list" ref={ref} role="region" aria-label={t("list.title")}>
       <header className="overlay-head">
@@ -63,9 +74,8 @@ export function ListView({
         <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("search.placeholderShort")} />
       </label>
       {total === 0 && <p className="panel-footnote">{t("list.empty")}</p>}
-      {layers.map((l, i) => {
+      {filteredLayers.map(({ layer: l, rows }, i) => {
         const look = lookFor(l.name);
-        const rows = l.features.filter((f) => !query || JSON.stringify(f.properties).toLowerCase().includes(query));
         const shown = rows.slice(0, ROW_LIMIT);
         const isBus = l.name === "vehicles";
         return (
@@ -105,7 +115,7 @@ export function ListView({
                           <span>{String(p.closure_type_code ?? p.permit_type_code ?? p.stop_code ?? p.route_long_name ?? p.event_status_code ?? "")}{p.event_start_ts ? `, ${formatDate(p.event_start_ts as string)}` : ""}</span>
                         )}
                       </td>
-                      <td>{p.position_ts ? formatAge(p.position_ts as string, now) : p.event_start_ts ? formatDate(p.event_start_ts as string) : l.asOf ? formatDateTime(l.asOf) : ""}</td>
+                      <td>{p.position_ts ? formatAge(p.position_ts as string, effectiveNow) : p.event_start_ts ? formatDate(p.event_start_ts as string) : l.asOf ? formatDateTime(l.asOf) : ""}</td>
                     </tr>
                   );
                 })}
@@ -217,7 +227,9 @@ export function SectorsBrowser({
 
 const SOURCE_STATUS_KEY = { ok: "sources.status.ok", stale: "sources.status.stale", down: "sources.status.down", unknown: "sources.status.unknown" } as const;
 
-export function SourcesPanel({ rows, error, now, onClose }: { rows: SourceStatus[]; error: boolean; now: number; onClose: () => void }) {
+export function SourcesPanel({ rows, error, now, onClose }: { rows: SourceStatus[]; error: boolean; now?: number; onClose: () => void }) {
+  const tick = useNow(1000);
+  const effectiveNow = now ?? tick;
   const ref = useDialog(onClose);
   return (
     <div className="overlay overlay--sources" ref={ref} role="dialog" aria-labelledby="sources-title">
@@ -244,7 +256,7 @@ export function SourcesPanel({ rows, error, now, onClose }: { rows: SourceStatus
               <div><dt>{t("sources.col.publisher")}</dt><dd>{s.publisher ?? "–"}</dd></div>
               <div><dt>{t("sources.col.licence")}</dt><dd>{s.licence}</dd></div>
               <div><dt>{t("sources.col.tier")}</dt><dd>{s.reliability_tier}</dd></div>
-              <div><dt>{t("sources.col.loaded")}</dt><dd>{s.last_loaded_ts ? `${formatDateTime(s.last_loaded_ts)} (${ago(s.last_loaded_ts, now)})` : t("age.never")}</dd></div>
+              <div><dt>{t("sources.col.loaded")}</dt><dd>{s.last_loaded_ts ? `${formatDateTime(s.last_loaded_ts)} (${ago(s.last_loaded_ts, effectiveNow)})` : t("age.never")}</dd></div>
             </dl>
           </li>
         ))}

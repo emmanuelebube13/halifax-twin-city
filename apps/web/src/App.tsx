@@ -1,4 +1,3 @@
-import { ageLine } from "./lib/ago";
 // The map shell. It reads the story register, sector register and sources from the API, decides which layers
 // to draw (City view: each live story's main layer; a sector: its stories' main layers; a story: its evidence
 // layers), and lays out the rail, map and panel (laptop) or chips, map and sheet (phone).
@@ -10,18 +9,18 @@ import { usePollMany } from "./api/pollMany";
 import type { Feature, FeatureCollection, Lens, NumberData, Sector, Story, StorySummary, VehicleProperties } from "./api/types";
 import { t } from "./i18n";
 import { formatClock } from "./lib/format";
-import { TrackStore, positionAt, type Sample } from "./lib/glide";
+import { RouteShapeIndex, TrackStore, estimatedSpeedMps, snapTrackPosition, type Sample } from "./lib/glide";
 import { layerFreshness, onTimeRuleFrom } from "./lib/status";
 import { sheetOnFollow, storyAsOf, storyNumberIds } from "./lib/story";
 import { usePins, useView } from "./lib/useView";
 import { parseView } from "./lib/url";
-import type { Globe3DHandle } from "./map/Globe3D";
+import type { Globe3DHandle, PinLayer3D } from "./map/Globe3D";
 import type { Place } from "./lib/camera";
-import { hasWebGL, saveProfile, savedProfile, type ProfileName } from "./lib/profileChoice";
+import { hasWebGL, saveProfile, savedProfile, saveStreetTwinMode, savedStreetTwinMode, type ProfileName, type StreetTwinMode } from "./lib/profileChoice";
 import { threeDDecision, type ThreeDFailure } from "./lib/threeD";
 import { MapView, type MapHandle, type MapSelect } from "./map/MapView";
 import { featureName, lookFor, anchorOf } from "./map/registry";
-import { BottomSheet, ChipRow, Credits, LensSwitch, Legend, Rail, ReplayBar, Search, TopBar, ViewSwitch, type LegendEntry, type SearchItem, type SheetHeight } from "./components/chrome";
+import { AgeLine, BottomSheet, ChipRow, Credits, LensSwitch, Legend, Rail, ReplayBar, Search, TopBar, ViewSwitch, type LegendEntry, type SearchItem, type SheetHeight } from "./components/chrome";
 import { Icon } from "./components/icons";
 import { ListView, SectorsBrowser, SourcesPanel } from "./components/overlays";
 import { CityPanel, FeatureCard, FeatureDetailPanel, SectorPanel, busTitle, type SectorCount } from "./components/panels";
@@ -39,6 +38,8 @@ interface Spec {
 const key = (s: { path: string; layer: string }) => `${s.path}:${s.layer}`;
 const SEARCH_KEYS = ["layers:routes", "layers:stops"];
 const naturalSort = (a: string, b: string) => a.localeCompare(b, "en", { numeric: true });
+const EMPTY_FEATURES: LayerView["features"] = [];
+const EMPTY_VEHICLES: Feature<VehicleProperties>[] = [];
 
 const Globe3D = lazy(() => import("./map/Globe3D"));
 /** Developer mode: Cesium's plain globe with no Google tiles, so 3D work spends no ion requests. */
@@ -49,7 +50,7 @@ export function App() {
   const phone = useMediaQuery("(max-width: 767px)");
   const dark = useMediaQuery("(prefers-color-scheme: dark)");
   const reduced = useMediaQuery("(prefers-reduced-motion: reduce)");
-  const now = useNow(1000);
+  const freshnessClock = useNow(15_000);
   const mapRef = useRef<MapHandle>(null);
   const [following, setFollowing] = useState(false);
   const [sheet, setSheet] = useState<SheetHeight>("peek");
@@ -65,6 +66,7 @@ export function App() {
   const [mapFailed, setMapFailed] = useState(false);
   const [autoProfile, setAutoProfile] = useState<ProfileName | null>(null);
   const [profileChoice, setProfileChoice] = useState<ProfileName | null>(() => savedProfile());
+  const [streetTwinMode, setStreetTwinMode] = useState<StreetTwinMode>(() => savedStreetTwinMode());
 
   // ---- registers
   const cfgP = usePoll("cfg", api.clientConfig, null);
@@ -128,41 +130,88 @@ export function App() {
     (k) => (k.startsWith("live:") ? liveEvery : 300_000),
   );
 
-  const layers: LayerView[] = useMemo(
+  // Decouple raw GeoJSON layer data from the 1-second `now` clock so 2D and 3D map layers do not rebuild every second.
+  const rawLayers = useMemo(
     () =>
       specs.map((s) => {
         const slot = layerSlots[key(s)];
         const env = slot?.env;
         const srcIds = env?.source.map((r) => r.source_id) ?? [];
+        const features = ((env?.data?.features as LayerView["features"] | undefined) ?? EMPTY_FEATURES);
         return {
-          name: s.layer,
-          path: s.path,
-          title: s.title,
-          property: s.property,
-          legend: s.legend,
-          features: (env?.data?.features ?? []) as LayerView["features"],
-          asOf: env?.as_of ?? null,
-          freshness: layerFreshness({
-            asOf: env?.as_of ?? null,
-            now,
-            staleAfterSeconds: s.path === "live" ? (cfg?.stale_after_seconds ?? 120) : null,
-            failed: !!slot?.error,
-            sources: sources.filter((r) => srcIds.includes(r.source_id)),
-          }),
-          lastOk: slot?.lastOk ?? null,
-          loading: !slot || slot.loading,
-          sourceIds: srcIds,
-          sources: env?.source ?? [],
-          tier: env?.reliability_tier ?? null,
+          spec: s,
+          slot,
+          env,
+          srcIds,
+          features,
+          fc: (env?.data ?? ({ type: "FeatureCollection", features: EMPTY_FEATURES } as unknown as FeatureCollection)),
         };
       }),
-    [specs, layerSlots, now, cfg, sources],
+    [specs, layerSlots],
   );
-  const vehiclesLayer = layers.find((l) => l.name === "vehicles") ?? null;
-  const liveVehicles = (vehiclesLayer?.features ?? []) as unknown as Feature<VehicleProperties>[];
 
-  // ---- buses glide: keep a short track of reports per bus
+  const layersRef = useRef<LayerView[]>([]);
+  const layerDepsRef = useRef<{ rawLayers: typeof rawLayers; cfg: typeof cfg; sources: typeof sources } | null>(null);
+  const layers: LayerView[] = useMemo(() => {
+    const next = rawLayers.map(({ spec: s, slot, env, srcIds, features }) => ({
+      name: s.layer,
+      path: s.path,
+      title: s.title,
+      property: s.property,
+      legend: s.legend,
+      features,
+      asOf: env?.as_of ?? null,
+      freshness: layerFreshness({
+        asOf: env?.as_of ?? null,
+        now: freshnessClock,
+        staleAfterSeconds: s.path === "live" ? (cfg?.stale_after_seconds ?? 120) : null,
+        failed: !!slot?.error,
+        sources: sources.filter((r) => srcIds.includes(r.source_id)),
+      }),
+      lastOk: slot?.lastOk ?? null,
+      loading: !slot || slot.loading,
+      sourceIds: srcIds,
+      sources: env?.source ?? [],
+      tier: env?.reliability_tier ?? null,
+    }));
+    const prev = layersRef.current;
+    const prevDeps = layerDepsRef.current;
+    if (
+      prevDeps &&
+      prevDeps.rawLayers === rawLayers &&
+      prevDeps.cfg === cfg &&
+      prevDeps.sources === sources &&
+      prev.length === next.length &&
+      next.every((l, i) => l.freshness === prev[i].freshness)
+    ) {
+      return prev;
+    }
+    layerDepsRef.current = { rawLayers, cfg, sources };
+    layersRef.current = next;
+    return next;
+  }, [rawLayers, freshnessClock, cfg, sources]);
+  const vehiclesLayer = layers.find((l) => l.name === "vehicles") ?? null;
+  const rawVehiclesFeatures = rawLayers.find((r) => r.spec.layer === "vehicles")?.features;
+  const liveVehicles = (rawVehiclesFeatures ?? EMPTY_VEHICLES) as unknown as Feature<VehicleProperties>[];
+
+  // ---- buses glide: keep a short track of reports per bus, snapped to route polylines
   const tracks = useRef(new TrackStore());
+  const routeFeatures = useMemo(() => {
+    const r = rawLayers.find((x) => x.spec.layer === "routes");
+    if (r && r.features.length) return r.features as unknown as Feature[];
+    return (layerSlots["layers:routes"]?.env?.data?.features ?? EMPTY_FEATURES) as unknown as Feature[];
+  }, [rawLayers, layerSlots]);
+  const routeIndex = useMemo(() => new RouteShapeIndex(routeFeatures), [routeFeatures]);
+  useEffect(() => {
+    tracks.current.setRoutes(routeIndex);
+  }, [routeIndex]);
+
+  const liveRouteById = useMemo(() => {
+    const m = new Map<number, string | null>();
+    for (const f of liveVehicles) m.set(f.id, f.properties.route_short_name ?? null);
+    return m;
+  }, [liveVehicles]);
+
   const vehEnv = layerSlots["live:vehicles"]?.env;
   useEffect(() => {
     const fs = (vehEnv?.data?.features ?? []) as unknown as Feature<VehicleProperties>[];
@@ -171,7 +220,12 @@ export function App() {
       const c = f.geometry?.coordinates as [number, number] | undefined;
       if (!c) continue;
       ids.add(f.id);
-      tracks.current.add(f.id, { t: Date.parse(f.properties.position_ts) || Date.now(), lon: c[0], lat: c[1] });
+      tracks.current.add(f.id, {
+        t: Date.parse(f.properties.position_ts) || Date.now(),
+        lon: c[0],
+        lat: c[1],
+        speedMps: f.properties.speed_metres_per_second ?? null,
+      });
     }
     tracks.current.retain(ids);
   }, [vehEnv]);
@@ -195,34 +249,63 @@ export function App() {
   const replay = replayP.env?.data ?? null;
   const replayReady = replayPossible && !replayP.error && !!replay;
   const [replayAt, setReplayAt] = useState(0);
+  const replayAtRef = useRef(0);
   const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState(30);
+  const [speed, setSpeed] = useState(5);
   const replayFrom = replay ? Date.parse(replay.from) : 0;
   const replayTo = replay ? Date.parse(replay.to) : 0;
+  const seekReplay = useCallback((t: number) => {
+    replayAtRef.current = t;
+    setReplayAt(t);
+  }, []);
   useEffect(() => {
     if (view.lens === "replay" && replay) {
-      setReplayAt(Date.parse(replay.from));
+      const start = Date.parse(replay.from);
+      replayAtRef.current = start;
+      setReplayAt(start);
       setPlaying(!reduced);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view.lens, replay?.from]);
   useEffect(() => {
     if (!playing || view.lens !== "replay") return;
-    const id = setInterval(() => {
-      setReplayAt((a) => {
-        const next = a + 250 * speed;
-        if (next >= replayTo) {
-          setPlaying(false);
-          return replayTo;
-        }
-        return next;
-      });
-    }, 250);
-    return () => clearInterval(id);
+    let rafId = 0;
+    let lastTs: number | null = null;
+    let lastUiSync = 0;
+    const step = (ts: number) => {
+      if (lastTs === null) {
+        lastTs = ts;
+        lastUiSync = ts;
+        rafId = requestAnimationFrame(step);
+        return;
+      }
+      const dt = Math.min(ts - lastTs, 100);
+      lastTs = ts;
+      const next = replayAtRef.current + dt * speed;
+      if (next >= replayTo) {
+        replayAtRef.current = replayTo;
+        setReplayAt(replayTo);
+        setPlaying(false);
+        return;
+      }
+      replayAtRef.current = next;
+      if (ts - lastUiSync >= 100) {
+        lastUiSync = ts;
+        setReplayAt(next);
+      }
+      rafId = requestAnimationFrame(step);
+    };
+    rafId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafId);
   }, [playing, speed, replayTo, view.lens]);
   const replayTracks = useMemo(() => {
-    const m = new Map<number, Sample[]>();
-    for (const tr of replay?.tracks ?? []) m.set(tr.id, tr.positions.map(([tt, lon, lat]) => ({ t: tt, lon, lat })));
+    const m = new Map<number, { route: string | null; samples: Sample[] }>();
+    for (const tr of replay?.tracks ?? []) {
+      m.set(tr.id, {
+        route: tr.route_short_name ?? null,
+        samples: tr.positions.map(([tt, lon, lat]) => ({ t: tt, lon, lat })),
+      });
+    }
     return m;
   }, [replay]);
   const replayFeatures = useMemo(
@@ -232,29 +315,65 @@ export function App() {
         id: tr.id,
         geometry: { type: "Point", coordinates: tr.positions[0]?.slice(1) ?? [0, 0] },
         properties: {
-          kind: "asset" as const, sector_id: "S04", subsector_id: "TRN-01", id: tr.id, source_key: tr.label, label: tr.label, route_short_name: tr.route_short_name,
-          headsign: null, status: "unknown" as const, delay_seconds: null, next_stop_name: null, bearing: null, position_ts: replay!.to,
+          kind: "asset" as const,
+          sector_id: "S04",
+          subsector_id: "TRN-01",
+          id: tr.id,
+          source_key: tr.label,
+          label: tr.label,
+          route_short_name: tr.route_short_name,
+          headsign: tr.headsign ?? null,
+          status: tr.status ?? ("unknown" as const),
+          delay_seconds: tr.delay_seconds ?? null,
+          next_stop_name: null,
+          bearing: null,
+          position_ts: replay!.to,
         },
       })) as Feature<VehicleProperties>[],
     [replay],
   );
   const inReplay = view.lens === "replay" && replayReady;
-  const replayAtRef = useRef(replayAt);
-  replayAtRef.current = replayAt;
 
   const glide = !reduced && !inReplay;
+  const pausedReplayAt = inReplay && !playing ? replayAt : 0;
+  const hasVehiclesLayer = !!vehiclesLayer;
+  const vehiclesDim = vehiclesLayer ? vehiclesLayer.freshness === "stale" || vehiclesLayer.freshness === "down" : false;
   const vehicleInput = useMemo(() => {
-    if (!vehiclesLayer) return null;
+    if (!hasVehiclesLayer) return null;
     if (inReplay) {
-      return { features: replayFeatures, positionFor: (id: number) => positionAt(replayTracks.get(id) ?? [], replayAtRef.current), dim: false };
+      return {
+        features: replayFeatures,
+        positionFor: (id: number) => {
+          const entry = replayTracks.get(id);
+          if (!entry) return null;
+          return snapTrackPosition(entry.samples, replayAtRef.current, routeIndex.getIndexed(entry.route));
+        },
+        dim: false,
+      };
     }
-    return { features: liveVehicles, positionFor: (id: number, n: number) => tracks.current.displayPosition(id, n, glide), dim: vehiclesLayer.freshness === "stale" || vehiclesLayer.freshness === "down" };
+    return {
+      features: liveVehicles,
+      positionFor: (id: number, n: number) => tracks.current.displayPosition(id, n, glide, liveRouteById.get(id)),
+      dim: vehiclesDim,
+    };
+    // pausedReplayAt refreshes vehicleInput when scrubbing Replay while paused without rebuilding on every playback tick
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vehiclesLayer?.features, vehiclesLayer?.freshness, inReplay, replayFeatures, replayTracks, glide]);
+  }, [hasVehiclesLayer, liveVehicles, liveRouteById, vehiclesDim, inReplay, replayFeatures, replayTracks, routeIndex, glide, pausedReplayAt]);
 
+  const dimSignature = layers
+    .filter((l) => l.name !== "vehicles")
+    .map((l) => `${l.name}:${l.freshness === "stale" || l.freshness === "down" ? 1 : 0}`)
+    .join("|");
   const mapLayers = useMemo(
-    () => layers.filter((l) => l.name !== "vehicles").map((l) => ({ name: l.name, fc: ({ type: "FeatureCollection", features: l.features } as unknown) as FeatureCollection, dim: l.freshness === "stale" || l.freshness === "down" })),
-    [layers],
+    () =>
+      rawLayers
+        .filter((r) => r.spec.layer !== "vehicles")
+        .map((r) => {
+          const l = layers.find((x) => x.name === r.spec.layer);
+          return { name: r.spec.layer, fc: r.fc, dim: l ? l.freshness === "stale" || l.freshness === "down" : false };
+        }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rawLayers, dimSignature],
   );
 
   // ---- numbers for the open story
@@ -274,10 +393,25 @@ export function App() {
     for (const l of layers) pools.push({ layer: l, features: l.features });
     for (const p of pools) {
       const f = p.features.find((x) => x.properties.kind === view.sel!.kind && Number(x.properties.id) === view.sel!.id);
-      if (f && p.layer) return { layer: p.layer, props: f.properties };
+      if (f && p.layer) {
+        let props = f.properties;
+        if (p.layer.name === "vehicles") {
+          const vp = props as unknown as VehicleProperties;
+          if (vp.speed_metres_per_second == null) {
+            const entry = inReplay ? replayTracks.get(vp.id) : null;
+            const est = inReplay
+              ? entry
+                ? estimatedSpeedMps(entry.samples, routeIndex.get(entry.route))
+                : null
+              : tracks.current.speedFor(vp.id, vp.route_short_name);
+            if (est != null) props = { ...props, speed_metres_per_second: est };
+          }
+        }
+        return { layer: p.layer, props };
+      }
     }
     return null;
-  }, [view.sel, layers, inReplay, replayFeatures, vehiclesLayer]);
+  }, [view.sel, layers, inReplay, replayFeatures, replayTracks, routeIndex, vehiclesLayer]);
 
   useEffect(() => setFollowing(false), [selectedKey]);
 
@@ -295,18 +429,19 @@ export function App() {
 
   const selectAndShow = useCallback(
     (layerName: string, kind: string, id: number) => {
-      const l = layers.find((x) => x.name === layerName);
+      const l = layersRef.current.find((x) => x.name === layerName);
       const f = l?.features.find((x) => Number(x.properties.id) === id && x.properties.kind === kind);
       setView({ sel: { kind: kind as never, id }, panel: "none" }, { push: true });
       let at: [number, number] | null = null;
       if (layerName === "vehicles") {
-        const p = tracks.current.displayPosition(id, Date.now(), glide);
+        const routeName = (f?.properties as VehicleProperties | undefined)?.route_short_name ?? liveRouteById.get(id);
+        const p = tracks.current.displayPosition(id, Date.now(), glide, routeName);
         if (p) at = [p.lon, p.lat];
       } else if (f) at = anchorOf((f as unknown as Feature).geometry);
       if (at) setTimeout(() => (show3dRef.current ? globeRef.current : mapRef.current)?.flyTo(at![0], at![1], 15.2), 50);
       if (phone) setSheet("half");
     },
-    [layers, setView, glide, phone],
+    [setView, glide, phone, liveRouteById],
   );
 
   // ---- navigation
@@ -330,39 +465,45 @@ export function App() {
 
   // ---- search
   const vehiclesStory = useMemo(() => stories.find((s) => storyCfgs[s.id]?.env?.data?.evidence.layers.some((l) => l.layer === "vehicles")) ?? null, [stories, storyCfgs]);
+  const searchRouteFeatures = layerSlots["layers:routes"]?.env?.data?.features;
+  const searchStopFeatures = layerSlots["layers:stops"]?.env?.data?.features;
+  const searchVehicleFeatures = layerSlots["live:vehicles"]?.env?.data?.features as unknown as Feature<VehicleProperties>[] | undefined;
+  const searchRefs = useRef({ openStory, openSector, selectAndShow, vehiclesStory, storyId: view.story, specs });
+  searchRefs.current = { openStory, openSector, selectAndShow, vehiclesStory, storyId: view.story, specs };
   const searchList: SearchItem[] = useMemo(() => {
     const items: SearchItem[] = [];
     for (const s of stories) {
-      items.push({ group: "questions", key: `q-${s.id}`, mono: s.id, label: s.question, sub: s.status === "live" ? sectorName(s.sector_id) : statusWord(s.status), run: () => openStory(s.id) });
+      items.push({ group: "questions", key: `q-${s.id}`, mono: s.id, label: s.question, sub: s.status === "live" ? sectorName(s.sector_id) : statusWord(s.status), run: () => searchRefs.current.openStory(s.id) });
     }
     for (const s of register?.sectors ?? []) {
-      items.push({ group: "sectors", key: `s-${s.sector_id}`, label: s.name, sub: s.status === "live" ? t("sectors.questions", { count: s.question_count ?? 0 }) : t("sectors.planned"), run: () => (s.status === "live" ? openSector(s.sector_id) : setView({ panel: "sectors" }, { push: true })) });
+      items.push({ group: "sectors", key: `s-${s.sector_id}`, label: s.name, sub: s.status === "live" ? t("sectors.questions", { count: s.question_count ?? 0 }) : t("sectors.planned"), run: () => (s.status === "live" ? searchRefs.current.openSector(s.sector_id) : setView({ panel: "sectors" }, { push: true })) });
     }
-    for (const f of layerSlots["layers:routes"]?.env?.data?.features ?? []) {
+    for (const f of searchRouteFeatures ?? []) {
       const p = f.properties as Record<string, unknown>;
       const short = String(p.route_short_name ?? "");
       items.push({
         group: "routes", key: `r-${p.id}`, mono: short, label: String(p.route_long_name ?? p.name ?? ""),
-        run: () => vehiclesStory && setView({ story: vehiclesStory.id, sector: null, route: short, sel: null, panel: "none", lens: "live" }, { push: true }),
+        run: () => searchRefs.current.vehiclesStory && setView({ story: searchRefs.current.vehiclesStory.id, sector: null, route: short, sel: null, panel: "none", lens: "live" }, { push: true }),
       });
     }
-    for (const f of layerSlots["layers:stops"]?.env?.data?.features ?? []) {
+    for (const f of searchStopFeatures ?? []) {
       const p = f.properties as Record<string, unknown>;
       const at = anchorOf(f.geometry);
       items.push({ group: "stops", key: `st-${p.id}`, mono: String(p.stop_code ?? ""), label: String(p.stop_name ?? p.name ?? ""), run: () => at && (show3dRef.current ? globeRef.current : mapRef.current)?.flyTo(at[0], at[1], 16.5) });
     }
-    for (const f of (layerSlots["live:vehicles"]?.env?.data?.features ?? []) as unknown as Feature<VehicleProperties>[]) {
+    for (const f of searchVehicleFeatures ?? []) {
       const p = f.properties;
       items.push({
         group: "buses", key: `b-${f.id}`, mono: p.label ?? "", label: busTitle(p),
         run: () => {
-          if (vehiclesStory && view.story !== vehiclesStory.id && !specs.some((s) => s.layer === "vehicles")) setView({ story: vehiclesStory.id, sector: null }, { push: true });
-          selectAndShow("vehicles", "asset", f.id);
+          const { vehiclesStory: vs, storyId, specs: curSpecs, selectAndShow: pick } = searchRefs.current;
+          if (vs && storyId !== vs.id && !curSpecs.some((s) => s.layer === "vehicles")) setView({ story: vs.id, sector: null }, { push: true });
+          pick("vehicles", "asset", f.id);
         },
       });
     }
     return items;
-  }, [stories, register, layerSlots, sectorName, openStory, openSector, setView, vehiclesStory, view.story, specs, selectAndShow]);
+  }, [stories, register, searchRouteFeatures, searchStopFeatures, searchVehicleFeatures, sectorName, setView]);
 
   // ---- city counts
   const counts: SectorCount[] = useMemo(() => {
@@ -380,33 +521,51 @@ export function App() {
   }, [layers, specs, sectorById]);
 
   // ---- legend, trust
+  const replayHasStatus = useMemo(
+    () => replayFeatures.some((f) => f.properties.status !== "unknown"),
+    [replayFeatures],
+  );
   const legendEntries: LegendEntry[] = layers
     .filter((l) => !(lookFor(l.name).kind === "stop"))
     .map((l) => ({
       layer: l.name,
       title: l.title,
-      statusLegend: l.property === "status" ? (inReplay && l.name === "vehicles" ? l.legend.filter((x) => x.value === "unknown") : l.legend) : null,
+      statusLegend:
+        l.property === "status"
+          ? inReplay && l.name === "vehicles" && !replayHasStatus
+            ? l.legend.filter((x) => x.value === "unknown")
+            : l.legend
+          : null,
       freshness: l.freshness,
       asOf: l.asOf,
     }));
   const primary = layers[0] ?? null;
+  const rawPrimary = rawLayers[0] ?? null;
   const pinLayersForThreeD = useMemo(
     () =>
-      layers
-        .filter((l) => lookFor(l.name).kind === "event")
-        .map((l) => {
-          const look = lookFor(l.name);
-          return { name: l.name, glyph: look.glyph, colour: look.colour, dashed: look.dashed, features: l.features as unknown as Feature[] };
+      rawLayers
+        .filter((r) => {
+          const k = lookFor(r.spec.layer).kind;
+          return k === "event" || k === "stop";
+        })
+        .map((r) => {
+          const look = lookFor(r.spec.layer);
+          return {
+            name: r.spec.layer,
+            glyph: (look.kind === "stop" ? "stop" : look.glyph) as PinLayer3D["glyph"],
+            colour: look.colour,
+            dashed: look.dashed,
+            features: r.features as unknown as Feature[],
+          };
         }),
-    [layers],
+    [rawLayers],
   );
   // a story whose evidence is not the buses opens in 3D on that evidence
   const fitForThreeD = useMemo(() => {
-    if (!view.story || !primary || primary.name === "vehicles" || !primary.features.length) return null;
-    const points = (primary.features as unknown as Feature[]).map((f) => anchorOf(f.geometry)).filter((p): p is [number, number] => !!p);
+    if (!view.story || !rawPrimary || rawPrimary.spec.layer === "vehicles" || !rawPrimary.features.length) return null;
+    const points = (rawPrimary.features as unknown as Feature[]).map((f) => anchorOf(f.geometry)).filter((p): p is [number, number] => !!p);
     return points.length ? { key: view.story, points } : null;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view.story, primary?.name, primary?.features.length]);
+  }, [view.story, rawPrimary]);
   // One as-of rule for the panel and the map footer: the story's main evidence layer, or, if it has none yet,
   // the newest of the story's numbers. City view: the newest live layer, else the first layer.
   const numbersAsOf = numIds.map((id) => numberSlots[id]?.env?.as_of).filter(Boolean).sort().pop() ?? null;
@@ -451,36 +610,52 @@ export function App() {
     [setView],
   );
   const routesForThreeD = useMemo(() => {
-    const l = layers.find((x) => x.name === "routes");
-    return l ? (l.features as unknown as Feature[]) : [];
-  }, [layers]);
+    const r = rawLayers.find((x) => x.spec.layer === "routes");
+    return r ? (r.features as unknown as Feature[]) : (EMPTY_FEATURES as unknown as Feature[]);
+  }, [rawLayers]);
+  const vehiclePositionFor = useCallback((id: number, n: number) => vehicleInput?.positionFor(id, n) ?? null, [vehicleInput]);
+  const onThreeDFailed = useCallback(
+    (reason: ThreeDFailure) => {
+      setThreeDFailed(reason);
+      setView({ view: "2d" });
+    },
+    [setView],
+  );
+
+  const threeDControl = useMemo(
+    () => (show3d ? { zoom: (d: 1 | -1) => globeRef.current?.zoom(d), north: () => globeRef.current?.resetNorth() } : null),
+    [show3d],
+  );
+  const onMapFailed = useCallback(() => setMapFailed(true), []);
 
   // ---- route filter options
   const routes = useMemo(() => [...new Set(liveVehicles.map((f) => f.properties.route_short_name).filter((x): x is string => !!x))].sort(naturalSort), [liveVehicles]);
 
   // ---- panels
-  const featureCard =
-    selected && view.panel !== "detail" ? (
-      <FeatureCard
-        layer={selected.layer.name}
-        layerTitle={selected.layer.title}
-        props={selected.props}
-        now={now}
-        phone={phone}
-        following={following}
-        onDetail={() => setView({ panel: "detail" }, { push: true })}
-        onFollow={
-          selected.layer.name === "vehicles" && !inReplay
-            ? () => {
-                const next = !following;
-                setFollowing(next);
-                if (phone) setSheet(sheetOnFollow(sheet, next));
-              }
-            : undefined
-        }
-        onClose={() => setView({ sel: null })}
-      />
-    ) : null;
+  const featureCard = useMemo(
+    () =>
+      selected && view.panel !== "detail" ? (
+        <FeatureCard
+          layer={selected.layer.name}
+          layerTitle={selected.layer.title}
+          props={selected.props}
+          phone={phone}
+          following={following}
+          onDetail={() => setView({ panel: "detail" }, { push: true })}
+          onFollow={
+            selected.layer.name === "vehicles" && !inReplay
+              ? () => {
+                  const next = !following;
+                  setFollowing(next);
+                  if (phone) setSheet((s) => sheetOnFollow(s, next));
+                }
+              : undefined
+          }
+          onClose={() => setView({ sel: null })}
+        />
+      ) : null,
+    [selected, view.panel, phone, following, setView, inReplay],
+  );
 
   const storyBody = () => {
     if (!summary) {
@@ -492,7 +667,7 @@ export function App() {
       <>
         <StoryHeading story={summary} sectorName={sectorName(summary.sector_id)} />
         {phone && view.sel && featureCard}
-        <AnswerPlate foot={live ? <AnswerFoot asOf={newestAsOf} freshness={primary?.freshness} now={now} sources={primary?.sources} /> : undefined} story={story ? { ...story, status: summary.status, status_note: summary.status_note ?? story.status_note } : storySlot?.error ? ({ ...summary, answer: { template: "", numbers: [] }, evidence: { layers: [] }, context: { number_id: "", title: "" }, trust: { source_ids: [] } } as Story) : null} numbers={numbers} loading={numbersLoading} />
+        <AnswerPlate foot={live ? <AnswerFoot asOf={newestAsOf} freshness={primary?.freshness} sources={primary?.sources} /> : undefined} story={story ? { ...story, status: summary.status, status_note: summary.status_note ?? story.status_note } : storySlot?.error ? ({ ...summary, answer: { template: "", numbers: [] }, evidence: { layers: [] }, context: { number_id: "", title: "" }, trust: { source_ids: [] } } as Story) : null} numbers={numbers} loading={numbersLoading} />
         {phone && <LensSwitch lens={view.lens} story={summary} replayReady={replayReady} live={vehiclesLayer?.freshness === "fresh"} onChange={(l) => setView({ lens: l })} />}
         {live && primary && view.lens !== "replay" && <LegendTiles layer={primary} />}
         {live && view.lens === "replay" && (
@@ -511,7 +686,7 @@ export function App() {
         {live && story && view.lens === "analytics" && <NumberCards numbers={numbers} ids={story.answer.numbers.filter((id) => !story.answer.template.includes(`{${id}}`))} />}
         {live && story?.context?.number_id && <ContextChart title={story.context.title} number={numbers[story.context.number_id] ?? null} />}
         {live && story && (
-          <Trust ageSources={primary?.sources} sourceIds={story.trust.source_ids} sources={sources} asOf={newestAsOf} tier={tier} freshness={primary?.freshness ?? "empty"} now={now} onAbout={() => setPanel("sources")} />
+          <Trust ageSources={primary?.sources} sourceIds={story.trust.source_ids} sources={sources} asOf={newestAsOf} tier={tier} freshness={primary?.freshness ?? "empty"} onAbout={() => setPanel("sources")} />
         )}
         {!live && <p className="panel-footnote">{t("trust.licence")}</p>}
       </>
@@ -521,7 +696,7 @@ export function App() {
   const panelBody = () => {
     if (view.panel === "detail" && view.sel) {
       return (
-        <FeatureDetailPanel kind={view.sel.kind} id={view.sel.id} layer={selected?.layer.name ?? ""} layerTitle={selected?.layer.title ?? ""} now={now} live={selected?.props ?? null} onBack={() => setView({ panel: "none" })} />
+        <FeatureDetailPanel kind={view.sel.kind} id={view.sel.id} layer={selected?.layer.name ?? ""} layerTitle={selected?.layer.title ?? ""} live={selected?.props ?? null} onBack={() => setView({ panel: "none" })} />
       );
     }
     if (view.story) return <div className="panel-body">{storyBody()}</div>;
@@ -543,7 +718,7 @@ export function App() {
           sectorName={sectorName}
           onOpenStory={openStory}
           onOpenSector={openSector}
-          foot={<AnswerFoot asOf={mapAsOf} freshness={vehiclesLayer?.freshness} now={now} />}
+          foot={<AnswerFoot asOf={mapAsOf} freshness={vehiclesLayer?.freshness} />}
           afterHead={
             phone ? (
               <div className="sheet-lens">
@@ -559,11 +734,11 @@ export function App() {
 
   const overlays = (
     <>
-      {view.panel === "list" && <ListView layers={layers} now={now} selectedKey={selectedKey} onSelect={selectAndShow} onClose={() => setView({ panel: "none" }, { push: true })} />}
+      {view.panel === "list" && <ListView layers={layers} selectedKey={selectedKey} onSelect={selectAndShow} onClose={() => setView({ panel: "none" }, { push: true })} />}
       {view.panel === "sectors" && (
         <SectorsBrowser register={register} error={!!sectorsP.error} pins={pins} onTogglePin={togglePin} phone={phone} onOpen={(id) => openSector(id)} onClose={() => setView({ panel: "none" }, { push: true })} />
       )}
-      {view.panel === "sources" && <SourcesPanel rows={sources} error={!!sourcesP.error} now={now} onClose={() => setView({ panel: "none" }, { push: true })} />}
+      {view.panel === "sources" && <SourcesPanel rows={sources} error={!!sourcesP.error} onClose={() => setView({ panel: "none" }, { push: true })} />}
     </>
   );
 
@@ -575,27 +750,44 @@ export function App() {
   );
 
   const profileSwitch = show3d ? (
-    <label className="profile-switch">
-      <span>{t("view.detail")}</span>
-      <select
-        value={profileChoice ?? "auto"}
-        onChange={(e) => {
-          const v = e.target.value === "auto" ? null : (e.target.value as ProfileName);
-          setProfileChoice(v);
-          saveProfile(v);
-        }}
-      >
-        <option value="auto">{autoProfile ? t("view.detailAuto", { level: t(`view.detail.${autoProfile}`) }) : t("view.detailAutoShort")}</option>
-        <option value="high">{t("view.detail.high")}</option>
-        <option value="medium">{t("view.detail.medium")}</option>
-        <option value="low">{t("view.detail.low")}</option>
-      </select>
-    </label>
+    <div className="map-3d-switches">
+      <label className="profile-switch">
+        <span>{t("view.detail")}</span>
+        <select
+          value={profileChoice ?? "auto"}
+          onChange={(e) => {
+            const v = e.target.value === "auto" ? null : (e.target.value as ProfileName);
+            setProfileChoice(v);
+            saveProfile(v);
+          }}
+        >
+          <option value="auto">{autoProfile ? t("view.detailAuto", { level: t(`view.detail.${autoProfile}`) }) : t("view.detailAutoShort")}</option>
+          <option value="high">{t("view.detail.high")}</option>
+          <option value="medium">{t("view.detail.medium")}</option>
+          <option value="low">{t("view.detail.low")}</option>
+        </select>
+      </label>
+      <label className="profile-switch">
+        <span>{t("view.streetMode")}</span>
+        <select
+          value={streetTwinMode}
+          onChange={(e) => {
+            const v = e.target.value as StreetTwinMode;
+            setStreetTwinMode(v);
+            saveStreetTwinMode(v);
+          }}
+        >
+          <option value="auto">{t("view.street.auto")}</option>
+          <option value="clean">{t("view.street.clean")}</option>
+          <option value="photo">{t("view.street.photo")}</option>
+        </select>
+      </label>
+    </div>
   ) : null;
 
   const map = (
     <MapView
-      threeD={show3d ? { zoom: (d) => globeRef.current?.zoom(d), north: () => globeRef.current?.resetNorth() } : null}
+      threeD={threeDControl}
       ref={mapRef}
       dark={dark}
       phone={phone}
@@ -605,12 +797,12 @@ export function App() {
       routeFilter={view.route}
       highlightRoute={view.route ?? (selected?.layer.name === "vehicles" ? ((selected.props.route_short_name as string | null) ?? null) : null)}
       follow={following}
-      glide={glide || inReplay}
+      glide={glide || (inReplay && playing)}
       reducedMotion={reduced}
       hidden={view.panel === "list" && !phone}
       onSelect={onMapSelect}
       onBasemap={setBasemapOk}
-      onMapFailed={() => setMapFailed(true)}
+      onMapFailed={onMapFailed}
       popup={!phone && !show3d ? featureCard : null}
     >
       {!phone && (
@@ -620,8 +812,8 @@ export function App() {
       )}
       {!phone && <Legend entries={legendEntries} />}
       {!phone && profileSwitch}
-      {inReplay && <ReplayBar from={replayFrom} to={replayTo} at={replayAt} playing={playing} speed={speed} onSeek={setReplayAt} onPlay={() => setPlaying((p) => !p)} onSpeed={setSpeed} />}
-      <Credits asOf={mapAsOf} now={now} basemapOk={basemapOk} threeD={show3d} sources={mapAgeSources} />
+      {inReplay && <ReplayBar from={replayFrom} to={replayTo} at={replayAt} playing={playing} speed={speed} onSeek={seekReplay} onPlay={() => setPlaying((p) => !p)} onSpeed={setSpeed} />}
+      <Credits asOf={mapAsOf} basemapOk={basemapOk} threeD={show3d} sources={mapAgeSources} />
       {mapFailed && (
         <div className="map-banner" role="alert">
           <Icon name="warning" size={18} /> {t("map.noWebgl")}
@@ -645,25 +837,23 @@ export function App() {
         noIon={NO_ION}
         assetId={cfg?.cesium_photorealistic_asset_id ?? 2275207}
         profileChoice={profileChoice}
+        streetTwinMode={streetTwinMode}
         onAutoProfile={setAutoProfile}
-        vehicles={vehicleInput?.features ?? []}
-        positionFor={(id, n) => vehicleInput?.positionFor(id, n) ?? null}
+        vehicles={vehicleInput?.features ?? EMPTY_VEHICLES}
+        positionFor={vehiclePositionFor}
         routes={routesForThreeD}
         pinLayers={pinLayersForThreeD}
         fit={fitForThreeD}
         highlightRoute={view.route ?? (selected?.layer.name === "vehicles" ? ((selected.props.route_short_name as string | null) ?? null) : null)}
-        glide={glide || inReplay}
+        glide={glide || (inReplay && playing)}
         selectedKey={selectedKey}
         following={following}
         reducedMotion={reduced}
         startPlace={startPlace}
         phone={phone}
         popup={!phone ? featureCard : null}
-        onSelect={(s) => onMapSelect(s)}
-        onFailed={(reason) => {
-          setThreeDFailed(reason);
-          setView({ view: "2d" });
-        }}
+        onSelect={onMapSelect}
+        onFailed={onThreeDFailed}
       />
     </Suspense>
   ) : null;
@@ -707,7 +897,7 @@ export function App() {
         <BottomSheet height={sheet} onHeight={setSheet} reducedMotion={reduced}>
           {panelBody()}
           <p className="sheet-credits">
-            {mapAsOf ? `${ageLine(mapAgeSources, mapAsOf, now)} · ` : ""}
+            {mapAsOf ? <><AgeLine sources={mapAgeSources} asOf={mapAsOf} /> · </> : ""}
             {show3d ? t("credits.3d") : basemapOk === false ? t("map.basemapFallback") : t("credits.short")} · {t("credits.licenceShort")}
           </p>
         </BottomSheet>

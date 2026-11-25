@@ -4,7 +4,7 @@ import { ago } from "../lib/ago";
 
 import { useCallback, useEffect, useRef } from "react";
 import { api } from "../api/client";
-import { usePoll } from "../api/hooks";
+import { useNow, usePoll } from "../api/hooks";
 import type { BusStatus, Kind, Sector, StorySummary, VehicleProperties } from "../api/types";
 import { t } from "../i18n";
 import { displayName, formatCount, formatDate, formatDateTime, formatDelay, formatDuration, formatMoney, NO_VALUE } from "../lib/format";
@@ -214,6 +214,10 @@ export function kindLabel(layer: string, title?: string): string {
   return KIND_KEY[layer] ? t(KIND_KEY[layer]) : (title ?? layer);
 }
 
+export function formatBusSpeed(mps: number): string {
+  return mps < 0.4 ? "Stopped" : `${formatCount(mps * 3.6)} km/h`;
+}
+
 /** The card for one selected thing: a popup on the laptop map, a card in the phone sheet. */
 export function FeatureCard({
   layer, layerTitle, props, now, following, onDetail, onFollow, onClose, phone,
@@ -221,17 +225,23 @@ export function FeatureCard({
   layer: string;
   layerTitle: string;
   props: Record<string, unknown>;
-  now: number;
+  now?: number;
   following: boolean;
   onDetail: () => void;
   onFollow?: () => void;
   onClose: () => void;
   phone: boolean;
 }) {
+  const tick = useNow(1000);
+  const effectiveNow = now ?? tick;
   const isBus = layer === "vehicles";
   const v = props as VehicleProperties;
   const status: BusStatus | null = isBus ? busStatus(v.status, v.delay_seconds) : null;
   const title = isBus ? busTitle(v) : featureName(props);
+  const speedText =
+    isBus && typeof v.speed_metres_per_second === "number" && Number.isFinite(v.speed_metres_per_second)
+      ? formatBusSpeed(v.speed_metres_per_second)
+      : null;
   const ref = useRef<HTMLElement>(null);
   const selKey = `${String(props.kind)}:${String(props.id)}`;
   useEffect(() => {
@@ -264,7 +274,8 @@ export function FeatureCard({
       {isBus ? (
         <dl className="feature-card-facts">
           {v.next_stop_name && (<div><dt className="visually-hidden">{t("bus.nextStop", { stop: "" })}</dt><dd>{t("bus.nextStop", { stop: displayName(v.next_stop_name) })}</dd></div>)}
-          <div><dt className="visually-hidden">{t("list.col.updated")}</dt><dd>{t("bus.updated", { age: ago(v.position_ts, now) })}</dd></div>
+          {speedText && (<div><dt className="visually-hidden">Speed</dt><dd>{speedText}</dd></div>)}
+          <div><dt className="visually-hidden">{t("list.col.updated")}</dt><dd>{t("bus.updated", { age: ago(v.position_ts, effectiveNow) })}</dd></div>
         </dl>
       ) : (
         <ul className="feature-card-facts" role="list">
@@ -303,7 +314,7 @@ function humanValue(k: string, v: unknown): string {
   if (k.endsWith("_date") || k === "event_date") return formatDate(v as string);
   if (k === "delay_seconds") return formatDelay(v as number);
   if (k.endsWith("_amount")) return formatMoney(v as number);
-  if (k === "speed_metres_per_second") return `${formatCount((v as number) * 3.6)} km/h`;
+  if (k === "speed_metres_per_second") return typeof v === "number" && Number.isFinite(v) ? formatBusSpeed(v) : NO_VALUE;
   if (k === "bearing") return `${formatCount(v as number)}°`;
   if (k === "headsign" || k.endsWith("stop_name")) return displayName(String(v));
   if (k === "status" && typeof v === "string" && ["on_time", "late", "early", "unknown"].includes(v)) return t(`status.${v as BusStatus}`);
@@ -313,7 +324,9 @@ function humanValue(k: string, v: unknown): string {
   return String(v);
 }
 
-export function FeatureDetailPanel({ kind, id, layerTitle, layer, now, onBack, live }: { kind: Kind; id: number; layer: string; layerTitle: string; now: number; onBack: () => void; live?: Record<string, unknown> | null }) {
+export function FeatureDetailPanel({ kind, id, layerTitle, layer, now, onBack, live }: { kind: Kind; id: number; layer: string; layerTitle: string; now?: number; onBack: () => void; live?: Record<string, unknown> | null }) {
+  const tick = useNow(1000);
+  const effectiveNow = now ?? tick;
   const fetcher = useCallback((s: AbortSignal) => api.feature(kind, id, s), [kind, id]);
   const p = usePoll(`${kind}:${id}`, fetcher, 30_000);
   const f = p.env?.data;
@@ -366,7 +379,7 @@ export function FeatureDetailPanel({ kind, id, layerTitle, layer, now, onBack, l
             </ol>
           )}
           <p className="panel-footnote">
-            {p.env?.source.map((s) => s.name).join("; ")}. {t("trust.updated", { age: ago(p.env?.as_of ?? null, now) })}
+            {p.env?.source.map((s) => s.name).join("; ")}. {t("trust.updated", { age: ago(p.env?.as_of ?? null, effectiveNow) })}
           </p>
         </>
       )}

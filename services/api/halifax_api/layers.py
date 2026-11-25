@@ -27,7 +27,8 @@ WITH latest AS (
 )
 SELECT l.vehicle_asset_id, a.source_asset_key, a.subsector_id, ss.sector_id, l.source_id,
        coalesce(v.vehicle_label, a.source_asset_key) AS label,
-       l.position_ts, l.position_latitude, l.position_longitude, l.bearing_degrees, l.speed_metres_per_second,
+       l.position_ts, l.position_latitude, l.position_longitude, l.bearing_degrees,
+       coalesce(l.speed_metres_per_second, prev_speed.mps) AS speed_metres_per_second,
        t.event_id AS trip_id, t.route_asset_id, r.route_short_name, r.route_long_name,
        d.reported_delay_seconds, st.trip_headsign, nx.stop_name
   FROM latest l
@@ -37,6 +38,25 @@ SELECT l.vehicle_asset_id, a.source_asset_key, a.subsector_id, ss.sector_id, l.s
   LEFT JOIN silver.trip t       ON t.event_id = l.trip_event_id
   LEFT JOIN silver.event te     ON te.event_id = l.trip_event_id
   LEFT JOIN silver.route r      ON r.asset_id = t.route_asset_id
+  LEFT JOIN LATERAL (
+        SELECT CASE
+                 WHEN dt BETWEEN 5 AND 90 AND dist_m / dt <= 30
+                 THEN round((dist_m / dt)::numeric, 2)
+                 ELSE NULL
+               END AS mps
+          FROM (
+                SELECT extract(epoch FROM l.position_ts - prev.position_ts) AS dt,
+                       ST_Distance(
+                         ST_SetSRID(ST_MakePoint(prev.position_longitude::float8, prev.position_latitude::float8), 4326)::geography,
+                         ST_SetSRID(ST_MakePoint(l.position_longitude::float8, l.position_latitude::float8), 4326)::geography
+                       ) AS dist_m
+                  FROM silver.vehicle_position prev
+                 WHERE prev.vehicle_asset_id = l.vehicle_asset_id
+                   AND prev.position_ts < l.position_ts
+                   AND prev.position_ts >= l.position_ts - interval '90 seconds'
+                 ORDER BY prev.position_ts DESC
+                 LIMIT 1
+               ) p0) prev_speed ON l.speed_metres_per_second IS NULL
   LEFT JOIN LATERAL (
         SELECT sa.reported_delay_seconds, sa.stop_sequence_number
           FROM silver.stop_arrival sa
@@ -112,26 +132,73 @@ def vehicles(db, window_seconds: int, on_time: tuple[int, int], vehicle_id: int 
 
 
 REPLAY_SQL = """
-SELECT p.vehicle_asset_id, coalesce(v.vehicle_label, a.source_asset_key), r.route_short_name,
-       (extract(epoch FROM p.position_ts) * 1000)::bigint, p.position_longitude, p.position_latitude, p.position_ts
-  FROM silver.vehicle_position p
+WITH pos AS (
+    SELECT p.vehicle_asset_id, p.trip_event_id, p.position_ts,
+           p.position_longitude, p.position_latitude
+      FROM silver.vehicle_position p
+     WHERE p.position_ts > %(start)s AND p.position_ts <= %(end)s
+),
+trip_ids AS (
+    SELECT DISTINCT trip_event_id FROM pos WHERE trip_event_id IS NOT NULL
+),
+trip_meta AS (
+    SELECT ti.trip_event_id, r.route_short_name,
+           d.reported_delay_seconds, st.trip_headsign
+      FROM trip_ids ti
+      JOIN silver.trip t       ON t.event_id = ti.trip_event_id
+      JOIN silver.event te     ON te.event_id = ti.trip_event_id
+      LEFT JOIN silver.route r ON r.asset_id = t.route_asset_id
+      LEFT JOIN LATERAL (
+            SELECT sa.reported_delay_seconds
+              FROM silver.stop_arrival sa
+             WHERE sa.trip_event_id = ti.trip_event_id
+             ORDER BY sa.stop_sequence_number DESC
+             LIMIT 1) d ON true
+      LEFT JOIN LATERAL (
+            SELECT s2.trip_headsign
+              FROM silver.scheduled_trip s2
+              JOIN silver.schedule_version sv ON sv.schedule_version_id = s2.schedule_version_id
+             WHERE s2.source_trip_key = split_part(te.source_event_key, '|', 1)
+               AND s2.route_asset_id = t.route_asset_id
+             ORDER BY (te.event_date BETWEEN sv.service_period_start_date AND sv.service_period_end_date) DESC,
+                      sv.feed_published_date DESC, sv.schedule_version_id DESC
+             LIMIT 1) st ON true
+)
+SELECT p.vehicle_asset_id, coalesce(v.vehicle_label, a.source_asset_key),
+       tm.route_short_name,
+       (extract(epoch FROM p.position_ts) * 1000)::bigint,
+       p.position_longitude, p.position_latitude, p.position_ts,
+       tm.trip_headsign, tm.reported_delay_seconds
+  FROM pos p
   JOIN silver.asset a        ON a.asset_id = p.vehicle_asset_id
   LEFT JOIN silver.vehicle v ON v.asset_id = p.vehicle_asset_id
-  LEFT JOIN silver.trip t    ON t.event_id = p.trip_event_id
-  LEFT JOIN silver.route r   ON r.asset_id = t.route_asset_id
- WHERE p.position_ts > %(start)s AND p.position_ts <= %(end)s
+  LEFT JOIN trip_meta tm     ON tm.trip_event_id = p.trip_event_id
  ORDER BY p.vehicle_asset_id, p.position_ts
 """
 
 
-def replay(db, start, end) -> tuple[list[dict], object]:
+def replay(db, start, end, on_time: tuple[int, int] = (-60, 300)) -> tuple[list[dict], object]:
     tracks: dict[int, dict] = {}
     as_of = None
-    for vid, label, route, ms, lon, lat, ts in db.fetch(REPLAY_SQL, {"start": start, "end": end}):
+    for vid, label, route, ms, lon, lat, ts, headsign, delay in db.fetch(
+            REPLAY_SQL, {"start": start, "end": end}):
         as_of = newest(as_of, ts)
-        track = tracks.setdefault(vid, {"id": vid, "label": label, "route_short_name": route, "positions": []})
+        track = tracks.setdefault(vid, {
+            "id": vid,
+            "label": label,
+            "route_short_name": route,
+            "headsign": headsign,
+            "delay_seconds": delay,
+            "status": status_for(delay, on_time),
+            "positions": [],
+        })
         if route:
             track["route_short_name"] = route  # the most recent trip's route wins
+        if headsign:
+            track["headsign"] = headsign
+        if delay is not None:
+            track["delay_seconds"] = delay
+            track["status"] = status_for(delay, on_time)
         track["positions"].append([int(ms), float(lon), float(lat)])
     return list(tracks.values()), as_of
 

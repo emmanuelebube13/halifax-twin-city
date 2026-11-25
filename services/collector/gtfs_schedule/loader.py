@@ -43,36 +43,68 @@ def upsert_locations(conn, rows, batch_id) -> dict[str, int]:
     """rows: (key, type, name, geometry_type, wkt). Returns key -> location_id."""
     if not rows:
         return {}
+    rows = list({r[0]: r for r in rows}.values())
     keys, types, names, gtypes, wkts = map(list, zip(*rows))
     return dict(conn.execute(
-        """INSERT INTO silver.location (location_type_code, location_name, geometry_type_code, location_geometry,
-                                         centroid_latitude, centroid_longitude, source_id, source_location_key, dw_batch_id)
-           SELECT t, n, gt, g, round(ST_Y(ST_Centroid(g))::numeric, 6), round(ST_X(ST_Centroid(g))::numeric, 6), %s, k, %s
-             FROM (SELECT k, t, n, gt, ST_SetSRID(ST_GeomFromText(w), 4326) AS g
-                     FROM unnest(%s::text[], %s::text[], %s::text[], %s::text[], %s::text[]) AS u(k, t, n, gt, w)) s
-           ON CONFLICT ON CONSTRAINT ak1_location DO UPDATE
-              SET location_name = EXCLUDED.location_name, location_geometry = EXCLUDED.location_geometry,
-                  centroid_latitude = EXCLUDED.centroid_latitude, centroid_longitude = EXCLUDED.centroid_longitude,
-                  dw_loaded_ts = now(), dw_batch_id = EXCLUDED.dw_batch_id
-           RETURNING source_location_key, location_id""",
-        (SOURCE_ID, batch_id, keys, types, names, gtypes, wkts)).fetchall())
+        """WITH s AS (
+               SELECT k, t, n, gt, ST_SetSRID(ST_GeomFromText(w), 4326) AS g
+                 FROM unnest(%s::text[], %s::text[], %s::text[], %s::text[], %s::text[]) AS u(k, t, n, gt, w)
+           ),
+           ins AS (
+               INSERT INTO silver.location (location_type_code, location_name, geometry_type_code, location_geometry,
+                                                centroid_latitude, centroid_longitude, source_id, source_location_key, dw_batch_id)
+               SELECT t, n, gt, g, round(ST_Y(ST_Centroid(g))::numeric, 6), round(ST_X(ST_Centroid(g))::numeric, 6), %s, k, %s
+                 FROM s
+               ON CONFLICT ON CONSTRAINT ak1_location DO UPDATE
+                  SET location_name = EXCLUDED.location_name, location_geometry = EXCLUDED.location_geometry,
+                      centroid_latitude = EXCLUDED.centroid_latitude, centroid_longitude = EXCLUDED.centroid_longitude,
+                      dw_loaded_ts = now(), dw_batch_id = EXCLUDED.dw_batch_id
+                WHERE (silver.location.location_name, ST_AsEWKB(silver.location.location_geometry),
+                       silver.location.centroid_latitude, silver.location.centroid_longitude)
+                      IS DISTINCT FROM (EXCLUDED.location_name, ST_AsEWKB(EXCLUDED.location_geometry),
+                                        EXCLUDED.centroid_latitude, EXCLUDED.centroid_longitude)
+               RETURNING source_location_key, location_id
+           )
+           SELECT source_location_key, location_id FROM ins
+           UNION ALL
+           SELECT l.source_location_key, l.location_id
+             FROM s
+             JOIN silver.location l ON l.source_id = %s AND l.source_location_key = s.k
+            WHERE NOT EXISTS (SELECT 1 FROM ins WHERE ins.source_location_key = s.k)""",
+        (keys, types, names, gtypes, wkts, SOURCE_ID, batch_id, SOURCE_ID)).fetchall())
 
 
 def upsert_assets(conn, asset_type, rows, batch_id) -> dict[str, int]:
     """rows: (source_asset_key, name, location_id). Returns key -> asset_id."""
     if not rows:
         return {}
+    rows = list({r[0]: r for r in rows}.values())
     keys, names, locs = map(list, zip(*rows))
     return dict(conn.execute(
-        """INSERT INTO silver.asset (asset_type_code, asset_name, location_id, subsector_id, source_id,
-                                      source_asset_key, asset_status_code, dw_batch_id)
-           SELECT %s, n, l, %s, %s, k, 'Active', %s FROM unnest(%s::text[], %s::text[], %s::bigint[]) AS u(k, n, l)
-           ON CONFLICT ON CONSTRAINT ak1_asset DO UPDATE
-              SET asset_name = EXCLUDED.asset_name, location_id = EXCLUDED.location_id,
-                  asset_status_code = 'Active', out_of_service_date = NULL,
-                  dw_loaded_ts = now(), dw_batch_id = EXCLUDED.dw_batch_id
-           RETURNING source_asset_key, asset_id""",
-        (asset_type, SUBSECTOR, SOURCE_ID, batch_id, keys, names, locs)).fetchall())
+        """WITH u AS (
+               SELECT k, n, l
+                 FROM unnest(%s::text[], %s::text[], %s::bigint[]) AS raw(k, n, l)
+           ),
+           ins AS (
+               INSERT INTO silver.asset (asset_type_code, asset_name, location_id, subsector_id, source_id,
+                                         source_asset_key, asset_status_code, dw_batch_id)
+               SELECT %s, n, l, %s, %s, k, 'Active', %s FROM u
+               ON CONFLICT ON CONSTRAINT ak1_asset DO UPDATE
+                  SET asset_name = EXCLUDED.asset_name, location_id = EXCLUDED.location_id,
+                      asset_status_code = 'Active', out_of_service_date = NULL,
+                      dw_loaded_ts = now(), dw_batch_id = EXCLUDED.dw_batch_id
+                WHERE (silver.asset.asset_name, silver.asset.location_id,
+                       silver.asset.asset_status_code, silver.asset.out_of_service_date)
+                      IS DISTINCT FROM (EXCLUDED.asset_name, EXCLUDED.location_id, 'Active', NULL::date)
+               RETURNING source_asset_key, asset_id
+           )
+           SELECT source_asset_key, asset_id FROM ins
+           UNION ALL
+           SELECT a.source_asset_key, a.asset_id
+             FROM u
+             JOIN silver.asset a ON a.source_id = %s AND a.source_asset_key = u.k
+            WHERE NOT EXISTS (SELECT 1 FROM ins WHERE ins.source_asset_key = u.k)""",
+        (keys, names, locs, asset_type, SUBSECTOR, SOURCE_ID, batch_id, SOURCE_ID)).fetchall())
 
 
 def retire_missing(conn, asset_type, keep_keys, batch_id) -> int:
@@ -113,7 +145,11 @@ def load_stops(conn, feed: gtfs.Feed, batch_id) -> dict[str, int]:
               SET stop_code = EXCLUDED.stop_code, stop_name = EXCLUDED.stop_name, stop_kind_code = EXCLUDED.stop_kind_code,
                   parent_stop_asset_id = EXCLUDED.parent_stop_asset_id,
                   wheelchair_boarding_code = EXCLUDED.wheelchair_boarding_code,
-                  dw_loaded_ts = now(), dw_batch_id = EXCLUDED.dw_batch_id""",
+                  dw_loaded_ts = now(), dw_batch_id = EXCLUDED.dw_batch_id
+            WHERE (silver.stop.stop_code, silver.stop.stop_name, silver.stop.stop_kind_code,
+                   silver.stop.parent_stop_asset_id, silver.stop.wheelchair_boarding_code)
+                  IS DISTINCT FROM (EXCLUDED.stop_code, EXCLUDED.stop_name, EXCLUDED.stop_kind_code,
+                                    EXCLUDED.parent_stop_asset_id, EXCLUDED.wheelchair_boarding_code)""",
         (batch_id, a, c, n, k, p, w))
     retired = retire_missing(conn, "Stop", ids.keys(), batch_id)
     say(f"stops: {len(ids)} loaded, {retired} retired")
@@ -136,7 +172,9 @@ def load_routes(conn, feed: gtfs.Feed, batch_id) -> dict[str, int]:
            SELECT a, s, l, m, %s FROM unnest(%s::bigint[], %s::text[], %s::text[], %s::text[]) AS u(a, s, l, m)
            ON CONFLICT (asset_id) DO UPDATE
               SET route_short_name = EXCLUDED.route_short_name, route_long_name = EXCLUDED.route_long_name,
-                  route_mode_code = EXCLUDED.route_mode_code, dw_loaded_ts = now(), dw_batch_id = EXCLUDED.dw_batch_id""",
+                  route_mode_code = EXCLUDED.route_mode_code, dw_loaded_ts = now(), dw_batch_id = EXCLUDED.dw_batch_id
+            WHERE (silver.route.route_short_name, silver.route.route_long_name, silver.route.route_mode_code)
+                  IS DISTINCT FROM (EXCLUDED.route_short_name, EXCLUDED.route_long_name, EXCLUDED.route_mode_code)""",
         (batch_id, a, s, l, m))
     retired = retire_missing(conn, "Route", ids.keys(), batch_id)
     say(f"routes: {len(ids)} loaded ({len(locs)} with a route line), {retired} retired")
@@ -234,6 +272,7 @@ def run(file: Path | None = None) -> int | None:
                 say(f"schedule {label} is already loaded (version {version_id}); routes and stops refreshed")
             else:
                 version_id = load_schedule(conn, feed, routes, stops, d.fetched_ts.date(), batch_id)
+        with conn.transaction():
             install_gold(conn)
         today = conn.execute(
             "SELECT count(*) FROM gold.planned_stop_time((now() AT TIME ZONE 'America/Halifax')::date)").fetchone()[0]

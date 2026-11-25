@@ -188,12 +188,12 @@ for c, cc, p, pc, label in FKS:
     seen[base] = seen.get(base, 0) + 1
     nm = cname("fk", c, [p], seen[base] if seen[base] > 1 else None)
     s03 += f"-- {label}\nALTER TABLE silver.{c} ADD CONSTRAINT {nm}\n    FOREIGN KEY ({', '.join(cc)}) REFERENCES silver.{p} ({', '.join(pc)});\n"
-s03 += "\n-- Indexes on foreign-key columns ----------------------------------------\n-- Skipped where the primary key already starts with the same columns.\n\n"
+s03 += "\n-- Indexes on foreign-key columns ----------------------------------------\n-- Skipped where the primary key or an alternate key already starts with the same columns.\n\n"
 done = set()
 nidx = 0
 for c, cc, p, pc, label in FKS:
     tpk = TABLES[c]["pk"]
-    if tpk[:len(cc)] == cc:
+    if tpk[:len(cc)] == cc or any(ak[:len(cc)] == cc for ak in TABLES[c]["aks"]):
         continue
     key = (c, tuple(cc))
     if key in done:
@@ -205,9 +205,15 @@ s03 += """
 -- Spatial indexes (GiST) make "what is near / inside" queries fast.
 CREATE INDEX ix_location_location_geometry_gist ON silver.location USING gist (location_geometry);
 
--- Time-based lookups on events.
+-- Time-based lookups on events and incremental watermark queries.
 CREATE INDEX ix_event_event_start_ts ON silver.event (event_start_ts);
 CREATE INDEX ix_event_event_type_code_event_date ON silver.event (event_type_code, event_date);
+CREATE INDEX ix_event_event_type_code_event_start_ts ON silver.event (event_type_code, event_start_ts);
+CREATE INDEX ix_event_event_type_code_dw_loaded_ts ON silver.event (event_type_code, dw_loaded_ts DESC);
+CREATE INDEX ix_event_source_id_dw_loaded_ts ON silver.event (source_id, dw_loaded_ts DESC);
+CREATE INDEX ix_asset_source_id_dw_loaded_ts ON silver.asset (source_id, dw_loaded_ts DESC);
+CREATE INDEX ix_location_source_id_dw_loaded_ts ON silver.location (source_id, dw_loaded_ts DESC);
+CREATE INDEX ix_scheduled_trip_source_trip_key_route_asset_id ON silver.scheduled_trip (source_trip_key, route_asset_id);
 """
 
 # ---------- 04 history ----------
@@ -282,6 +288,7 @@ s05 += """
 -- Indexes declared on the parent are created on every partition automatically.
 -- (The trip_event_id foreign-key index is already made in script 03.)
 CREATE INDEX ix_vehicle_position_position_geom_gist ON silver.vehicle_position USING gist (position_geom);
+CREATE INDEX ix_vehicle_position_position_ts ON silver.vehicle_position (position_ts DESC);
 """
 
 # ---------- 06 bronze ----------

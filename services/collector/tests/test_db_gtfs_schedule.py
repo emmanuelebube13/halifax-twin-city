@@ -63,10 +63,14 @@ def test_planned_stop_times_follow_calendar_and_exceptions(db, sql, tmp_path):
 def test_reload_of_the_same_file_adds_no_history_and_no_schedule(db, sql, tmp_path):
     first = load(tmp_path, gtfs_zip())
     before = counts(sql, ["schedule_version", "scheduled_trip", "scheduled_stop_time", "location", "asset"] + HIST)
+    stop_ts = sql("SELECT asset_id, dw_loaded_ts, dw_batch_id FROM silver.stop ORDER BY asset_id")
+    route_ts = sql("SELECT asset_id, dw_loaded_ts, dw_batch_id FROM silver.route ORDER BY asset_id")
     second = load(tmp_path, gtfs_zip(), name="again.zip")
     after = counts(sql, ["schedule_version", "scheduled_trip", "scheduled_stop_time", "location", "asset"] + HIST)
     assert second == first
     assert after == before and all(after[t] == 0 for t in HIST)
+    assert sql("SELECT asset_id, dw_loaded_ts, dw_batch_id FROM silver.stop ORDER BY asset_id") == stop_ts
+    assert sql("SELECT asset_id, dw_loaded_ts, dw_batch_id FROM silver.route ORDER BY asset_id") == route_ts
     # Two fetch rows, one raw file: the identical download reuses the file already kept.
     assert sql("SELECT count(*), count(DISTINCT file_path) FROM bronze.feed_fetch WHERE source_id = 'SRC-004'") == [(2, 1)]
 

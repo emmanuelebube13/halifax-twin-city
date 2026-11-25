@@ -7,6 +7,8 @@ Start (from services/api):
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
+import json
 import logging
 from contextlib import asynccontextmanager
 from zoneinfo import ZoneInfo
@@ -14,13 +16,14 @@ from zoneinfo import ZoneInfo
 from fastapi import FastAPI, Path, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import features, layers, numbers, sources, stories
 from .config import AppConfig, load_config
 from .db import Database, SourceUnavailable
-from .envelope import LICENCE, SourceRegister, TTLCache, envelope, iso, now_iso
+from .envelope import LICENCE, SourceRegister, TTLCache, envelope, iso, json_value, now_iso
 from .settings import Settings, load_settings
 
 VERSION = "0.1.0"
@@ -69,11 +72,23 @@ def create_app(settings: Settings | None = None, database: Database | None = Non
     app = FastAPI(title="Halifax Digital Twin serving API", version=VERSION, lifespan=lifespan,
                   docs_url="/v1/docs", redoc_url=None, openapi_url="/v1/openapi.json")
     app.state.settings, app.state.config, app.state.db, app.state.cache = settings, cfg, db, cache
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
     app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), allow_methods=["GET"],
                        allow_headers=["*"], allow_credentials=False)
 
     def ok(data, as_of, source_ids):
         return envelope(data, as_of, source_ids, register)
+
+    def respond(request: Request, body: dict, max_age: int = 0, private: bool = False) -> Response:
+        raw = json.dumps(body, default=json_value, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        if private:
+            return Response(content=raw, media_type="application/json", headers={"Cache-Control": "private, no-store"})
+        etag = f'W/"{hashlib.blake2b(raw, digest_size=8).hexdigest()}"'
+        cc = f"public, max-age={max_age}" if max_age > 0 else "no-cache"
+        headers = {"ETag": etag, "Cache-Control": cc}
+        if request.headers.get("if-none-match") == etag:
+            return Response(status_code=304, headers=headers)
+        return Response(content=raw, media_type="application/json", headers=headers)
 
     # ------------------------------------------------------------------ errors, always in the envelope
 
@@ -110,7 +125,7 @@ def create_app(settings: Settings | None = None, database: Database | None = Non
     # ------------------------------------------------------------------ operational
 
     @app.get("/v1/health")
-    def health():
+    def health(request: Request):
         reachable, postgis, gold = False, None, False
         try:
             r = db.fetch_one("""SELECT (SELECT extversion FROM pg_extension WHERE extname = 'postgis'),
@@ -118,9 +133,13 @@ def create_app(settings: Settings | None = None, database: Database | None = Non
             reachable, postgis, gold = True, r[0], bool(r[1])
         except SourceUnavailable:
             pass
-        return envelope({"status": "ok" if reachable else "degraded", "version": VERSION,
-                         "database": {"reachable": reachable, "postgis_version": postgis},
-                         "gold_planned_stop_time": gold}, now_iso(), [], None)
+        return respond(
+            request,
+            envelope({"status": "ok" if reachable else "degraded", "version": VERSION,
+                      "database": {"reachable": reachable, "postgis_version": postgis},
+                      "gold_planned_stop_time": gold}, now_iso(), [], None),
+            max_age=0,
+        )
 
     @app.get("/v1/client-config")
     def client_config(request: Request):
@@ -132,55 +151,66 @@ def create_app(settings: Settings | None = None, database: Database | None = Non
         else:
             note = "3D needs a Cesium ion token on this computer. 2D works without it."
         live = cfg.live
-        return envelope({
-            "three_d_available": bool(token),
-            "three_d_note": note,
-            "cesium_ion_token": token,
-            "cesium_photorealistic_asset_id": settings.cesium_photorealistic_asset_id,
-            "time_zone": cfg.rules.get("display", {}).get("time_zone", "America/Halifax"),
-            "stale_after_seconds": int(live.get("stale_after_seconds", 120)),
-            "live_refresh_seconds": int(live.get("refresh_seconds", 15)),
-            "business_rules": cfg.rules,
-            "attribution": LICENCE,
-        }, now_iso(), [], None)
+        return respond(
+            request,
+            envelope({
+                "three_d_available": bool(token),
+                "three_d_note": note,
+                "cesium_ion_token": token,
+                "cesium_photorealistic_asset_id": settings.cesium_photorealistic_asset_id,
+                "time_zone": cfg.rules.get("display", {}).get("time_zone", "America/Halifax"),
+                "stale_after_seconds": int(live.get("stale_after_seconds", 120)),
+                "live_refresh_seconds": int(live.get("refresh_seconds", 15)),
+                "business_rules": cfg.rules,
+                "attribution": LICENCE,
+            }, now_iso(), [], None),
+            private=True,
+        )
 
     # ------------------------------------------------------------------ register
 
-    def resolved_stories() -> dict[str, dict]:
+    def resolved_stories() -> tuple[dict[str, dict], str]:
         def compute():
-            return {sid: stories.resolve(db, s) for sid, s in cfg.stories.items()}
+            return stories.resolve_all(db, cfg.stories), now_iso()
         return cache.get("stories", 60, compute)
 
     @app.get("/v1/sectors")
-    def sectors():
+    def sectors(request: Request):
+        resolved, as_of = resolved_stories()
         by_sector: dict[str, list[dict]] = {}
-        for s in resolved_stories().values():
+        for s in resolved.values():
             by_sector.setdefault(s["sector_id"], []).append(s)
         out = []
         for sec in cfg.sectors["sectors"]:
             own = by_sector.get(sec["sector_id"], [])
             out.append({**sec, "status": "live" if any(s["status"] == "live" for s in own) else "planned",
                         "story_ids": [s["id"] for s in own]})
-        return envelope({"max_pins": cfg.sectors.get("max_pins", 5), "groups": cfg.sectors["groups"],
-                         "sectors": out}, now_iso(), [], None)
+        return respond(
+            request,
+            envelope({"max_pins": cfg.sectors.get("max_pins", 5), "groups": cfg.sectors["groups"],
+                      "sectors": out}, as_of, [], None),
+            max_age=30,
+        )
 
     @app.get("/v1/stories")
-    def list_stories():
-        data = [stories.summary(s) for s in resolved_stories().values()]
+    def list_stories(request: Request):
+        resolved, as_of = resolved_stories()
+        data = [stories.summary(s) for s in resolved.values()]
         ids = [sid for s in cfg.stories.values() for sid in s.get("trust", {}).get("source_ids", [])]
-        return ok(data, now_iso(), ids)
+        return respond(request, ok(data, as_of, ids), max_age=30)
 
     @app.get("/v1/stories/{story_id}")
-    def get_story(story_id: str = Path(pattern=r"^[A-Z]{3}-Q[0-9]{2}$")):
-        story = resolved_stories().get(story_id)
+    def get_story(request: Request, story_id: str = Path(pattern=r"^[A-Z]{3}-Q[0-9]{2}$")):
+        resolved, as_of = resolved_stories()
+        story = resolved.get(story_id)
         if not story:
             raise not_found(f"There is no story {story_id}.")
-        return ok(story, now_iso(), story.get("trust", {}).get("source_ids", []))
+        return respond(request, ok(story, as_of, story.get("trust", {}).get("source_ids", [])), max_age=30)
 
     # ------------------------------------------------------------------ map layers
 
     @app.get("/v1/live/{layer}")
-    def live(layer: str):
+    def live(request: Request, layer: str):
         conf = cfg.live_layers.get(layer)
         if not conf:
             raise not_found(f"There is no live layer called {layer}.")
@@ -190,7 +220,7 @@ def create_app(settings: Settings | None = None, database: Database | None = Non
                                         lambda: layers.vehicles(db, window, cfg.on_time))
         except SourceUnavailable:
             raise ApiError(503, "source_unavailable", UNAVAILABLE, conf.get("source_ids", []))
-        return ok(fc, as_of, conf.get("source_ids", []) + seen)
+        return respond(request, ok(fc, as_of, conf.get("source_ids", []) + seen), max_age=0)
 
     def parse_bbox(bbox: str | None):
         if not bbox:
@@ -204,7 +234,7 @@ def create_app(settings: Settings | None = None, database: Database | None = Non
         return w, s, e, n
 
     @app.get("/v1/layers/{layer}")
-    def get_layer(layer: str, bbox: str | None = Query(None, max_length=100),
+    def get_layer(request: Request, layer: str, bbox: str | None = Query(None, max_length=100),
                   limit: int = Query(5000, ge=1, le=10000)):
         conf = cfg.layers.get(layer)
         if not conf:
@@ -220,26 +250,35 @@ def create_app(settings: Settings | None = None, database: Database | None = Non
             fc, as_of, seen = cache.get(("layer", layer, box, limit), conf.get("cache_seconds", 60), compute)
         except SourceUnavailable:
             raise ApiError(503, "source_unavailable", UNAVAILABLE, conf.get("source_ids", []))
-        return ok(fc, as_of, conf.get("source_ids", []) + seen)
+        return respond(
+            request,
+            ok(fc, as_of, conf.get("source_ids", []) + seen),
+            max_age=min(int(conf.get("cache_seconds", 60)), 300),
+        )
 
     @app.get("/v1/replay/{layer}")
-    def get_replay(layer: str, minutes: int = Query(30, ge=1, le=60)):
+    def get_replay(request: Request, layer: str, minutes: int = Query(30, ge=1, le=60)):
         conf = cfg.live_layers.get(layer)
         if not conf:
             raise not_found(f"There is no replay for {layer}.")
         end = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
         start = end - dt.timedelta(minutes=minutes)
         try:
-            tracks, as_of = cache.get(("replay", layer, minutes), 10, lambda: layers.replay(db, start, end))
+            tracks, as_of = cache.get(("replay", layer, minutes), 10,
+                                      lambda: layers.replay(db, start, end, cfg.on_time))
         except SourceUnavailable:
             raise ApiError(503, "source_unavailable", UNAVAILABLE, conf.get("source_ids", []))
-        return ok({"layer": layer, "minutes": minutes, "from": iso(start), "to": iso(end), "tracks": tracks},
-                  as_of, conf.get("source_ids", []))
+        return respond(
+            request,
+            ok({"layer": layer, "minutes": minutes, "from": iso(start), "to": iso(end), "tracks": tracks},
+               as_of, conf.get("source_ids", [])),
+            max_age=10,
+        )
 
     # ------------------------------------------------------------------ numbers, features, sources
 
     @app.get("/v1/numbers/{number_id}")
-    def get_number(number_id: str = Path(pattern=r"^[a-z]{3}\.[a-z0-9_]+$")):
+    def get_number(request: Request, number_id: str = Path(pattern=r"^[a-z]{3}\.[a-z0-9_]+$")):
         d = numbers.NUMBERS.get(number_id)
         if not d:
             raise not_found(f"There is no number {number_id}.")
@@ -252,26 +291,32 @@ def create_app(settings: Settings | None = None, database: Database | None = Non
             data["rule"] = d.rule(cfg)
         if series is not None:
             data["series"] = series
-        return ok(data, as_of, d.source_ids)
+        return respond(request, ok(data, as_of, d.source_ids), max_age=min(int(d.cache_seconds), 300))
 
     @app.get("/v1/features/{kind}/{feature_id}")
-    def get_feature(kind: str, feature_id: int = Path(ge=1)):
+    def get_feature(request: Request, kind: str, feature_id: int = Path(ge=1)):
         fn = features.DETAIL.get(kind)
         if not fn:
             raise not_found("kind must be location, asset or event.")
-        if kind == "asset":
-            found = fn(db, feature_id, live=(int(cfg.live.get("vehicle_window_seconds", 180)), cfg.on_time))
-        else:
-            found = fn(db, feature_id)
+        def compute():
+            if kind == "asset":
+                return fn(db, feature_id, live=(int(cfg.live.get("vehicle_window_seconds", 180)), cfg.on_time))
+            return fn(db, feature_id)
+        found = cache.get(("feature", kind, feature_id), 10, compute)
         if not found:
             raise not_found(f"There is no {kind} {feature_id}.")
         feature, as_of, source_ids = found
-        return ok(feature, as_of, source_ids)
+        return respond(request, ok(feature, as_of, source_ids), max_age=10)
 
     @app.get("/v1/sources")
-    def get_sources():
-        data = sources.list_sources(db, int(cfg.live.get("stale_after_seconds", 120)))
-        return envelope(data, now_iso(), [], None)
+    def get_sources(request: Request):
+        stale_after = int(cfg.live.get("stale_after_seconds", 120))
+        data, as_of = cache.get(
+            ("sources", stale_after),
+            15,
+            lambda: (sources.list_sources(db, stale_after), now_iso()),
+        )
+        return respond(request, envelope(data, as_of, [], None), max_age=10)
 
     return app
 

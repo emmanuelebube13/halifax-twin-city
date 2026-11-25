@@ -436,3 +436,30 @@ def test_checked_and_changed_times(client):
     live = client.get("/v1/live/vehicles").json()
     assert all(s["last_changed_ts"] is None for s in live["source"] if s["source_id"] in ("SRC-001", "SRC-002"))
     assert {s["source_id"]: s for s in live["source"]}["SRC-004"]["last_changed_ts"] is not None  # schedule: checked
+
+
+# ---------------------------------------------------------------- HTTP caching and compression
+
+def test_http_caching_etag_and_private_client_config(client):
+    first = client.get("/v1/sectors")
+    assert first.status_code == 200
+    etag = first.headers.get("etag")
+    assert etag and etag.startswith('W/"')
+    assert first.headers.get("cache-control") == "public, max-age=30"
+
+    not_modified = client.get("/v1/sectors", headers={"If-None-Match": etag})
+    assert not_modified.status_code == 304
+    assert not_modified.content == b""
+
+    cfg = client.get("/v1/client-config")
+    assert cfg.status_code == 200
+    assert cfg.headers.get("cache-control") == "private, no-store"
+    assert "etag" not in cfg.headers
+
+
+def test_gzip_compression_for_large_responses(client):
+    r = client.get("/v1/stories", headers={"Accept-Encoding": "gzip"})
+    assert r.status_code == 200
+    assert r.headers.get("content-encoding") == "gzip"
+    assert len(r.content) >= 1000
+    assert errors(r.json(), "StoryListResponse") == []

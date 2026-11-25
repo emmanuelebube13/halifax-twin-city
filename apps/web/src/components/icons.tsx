@@ -133,23 +133,52 @@ export function StatusMark({ status, size = 18 }: { status: BusStatus; size?: nu
 }
 
 /** Legend mark for a non-status layer: its pin glyph or its line. */
-export function LayerMark({ look }: { look: { kind: string; glyph: string; colour: string; dashed: boolean } }) {
+export function LayerMark({ look }: { look: { kind: string; glyph: "triangle" | "house" | "square" | "dot" | "stop" | "station" | "bunching" | "clock" | string; colour: string; dashed: boolean } }) {
   if (look.kind === "route") {
     return (<svg width="22" height="10" viewBox="0 0 22 10" aria-hidden="true"><path d="M1 5h20" stroke={look.colour} strokeWidth="3" strokeLinecap="round" /></svg>);
   }
-  if (look.kind === "stop") {
-    return (<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="4.5" fill="#fff" stroke="var(--ink)" strokeWidth="1.6" /></svg>);
+  if (look.kind === "stop" || look.glyph === "stop") {
+    return (
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+        <circle cx="8" cy="8" r="5.5" fill="#fff" stroke={look.colour} strokeWidth="2" />
+        <circle cx="8" cy="8" r="2" fill={look.colour} />
+      </svg>
+    );
   }
   if (look.kind === "bus") {
     return (<svg width="22" height="14" viewBox="0 0 22 14" aria-hidden="true"><rect x="1" y="1" width="20" height="12" rx="3" fill="#fff" stroke="var(--status-on-time)" strokeWidth="1.5" /><path d="M5 5h12" stroke="var(--status-on-time)" strokeWidth="1.5" /></svg>);
   }
+  const isRound = look.glyph === "bunching" || look.glyph === "clock";
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-      <rect x="1" y="1" width="16" height="16" rx="4" fill="#fff" stroke={look.colour} strokeWidth="1.6" />
+      {isRound ? (
+        <circle cx="9" cy="9" r="7.8" fill="#fff" stroke={look.colour} strokeWidth="1.6" />
+      ) : (
+        <rect x="1" y="1" width="16" height="16" rx="4" fill="#fff" stroke={look.colour} strokeWidth="1.6" />
+      )}
       {look.glyph === "triangle" && <path d="M9 4.5l4.5 8h-9z" fill="none" stroke={look.colour} strokeWidth="1.5" strokeLinejoin="round" />}
       {look.glyph === "house" && <path d="M4.5 9L9 5l4.5 4v4.5h-9z" fill="none" stroke={look.colour} strokeWidth="1.5" strokeLinejoin="round" />}
       {look.glyph === "square" && <rect x="6" y="6" width="6" height="6" fill={look.colour} />}
       {look.glyph === "dot" && <circle cx="9" cy="9" r="3.5" fill={look.colour} />}
+      {look.glyph === "station" && (
+        <>
+          <path d="M4 6.5L9 3.5l5 3" fill="none" stroke={look.colour} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+          <rect x="6" y="7.5" width="6" height="6" rx="1.2" fill={look.colour} />
+          <rect x="7" y="8.6" width="4" height="2" fill="#fff" />
+        </>
+      )}
+      {look.glyph === "bunching" && (
+        <>
+          <rect x="4.2" y="5" width="6" height="5" rx="1.2" fill={look.colour} />
+          <rect x="7.8" y="8" width="6" height="5" rx="1.2" fill={look.colour} stroke="#fff" strokeWidth="0.9" />
+        </>
+      )}
+      {look.glyph === "clock" && (
+        <>
+          <circle cx="9" cy="9" r="4.6" fill="none" stroke={look.colour} strokeWidth="1.4" />
+          <path d="M9 6.2V9h2.6" fill="none" stroke={look.colour} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        </>
+      )}
     </svg>
   );
 }

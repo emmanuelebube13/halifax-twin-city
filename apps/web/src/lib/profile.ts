@@ -43,7 +43,7 @@ const MB = 1024 * 1024;
 export const PROFILES: Record<ProfileName, Profile3D> = {
   high: {
     name: "high",
-    maximumScreenSpaceError: 8,
+    maximumScreenSpaceError: 4,
     maxPixelRatio: 2,
     cacheBytes: 1024 * MB,
     preloadWhenHidden: true,
@@ -60,7 +60,7 @@ export const PROFILES: Record<ProfileName, Profile3D> = {
   },
   medium: {
     name: "medium",
-    maximumScreenSpaceError: 16,
+    maximumScreenSpaceError: 10,
     maxPixelRatio: 1.5,
     cacheBytes: 512 * MB,
     preloadWhenHidden: false,

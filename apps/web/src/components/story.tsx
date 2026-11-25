@@ -1,4 +1,5 @@
 import type React from "react";
+import { useNow } from "../api/hooks";
 import { ageLine, ago } from "../lib/ago";
 // The story panel: question, answer (the hero), evidence counts, context chart, trust. Driven entirely by the
 // story configuration from /v1/stories/{id}; no story-specific code lives here.
@@ -45,16 +46,18 @@ export function StoryHeading({ story, sectorName }: { story: StorySummary; secto
 
 /** The hero: one sentence, numbers in amber mono on the night-harbour plate. */
 /** The plate's footer: how old the answer is; when stale, said plainly in amber so "now" is never claimed falsely. */
-export function AnswerFoot({ asOf, freshness, now, sources }: { asOf: string | null; freshness?: Freshness; now: number; sources?: SourceRef[] }) {
+export function AnswerFoot({ asOf, freshness, now, sources }: { asOf: string | null; freshness?: Freshness; now?: number; sources?: SourceRef[] }) {
+  const tick = useNow(1000);
+  const effectiveNow = now ?? tick;
   if (!asOf) return null;
   if (freshness === "stale" || freshness === "down") {
     return (
       <p className="answer-foot is-stale" role="status">
-        <Icon name="warning" size={16} /> {t("answer.stale", { time: formatClock(asOf), age: ago(asOf, now) })}
+        <Icon name="warning" size={16} /> {t("answer.stale", { time: formatClock(asOf), age: ago(asOf, effectiveNow) })}
       </p>
     );
   }
-  return <p className="answer-foot">{ageLine(sources, asOf, now)}</p>;
+  return <p className="answer-foot">{ageLine(sources, asOf, effectiveNow)}</p>;
 }
 
 export function AnswerPlate({ story, numbers, loading, foot }: { story: Story | null; numbers: Record<string, NumberData | null>; loading: boolean; foot?: React.ReactNode }) {
@@ -302,9 +305,11 @@ export function Trust({
   asOf: string | null;
   tier: string | null;
   freshness: Freshness;
-  now: number;
+  now?: number;
   onAbout: () => void;
 }) {
+  const tick = useNow(1000);
+  const effectiveNow = now ?? tick;
   const names = sourceIds.map((id) => sources.find((s) => s.source_id === id)?.dataset_name ?? id);
   const down = sourceIds.map((id) => sources.find((s) => s.source_id === id)).filter((s) => s && s.status === "down");
   return (
@@ -320,7 +325,7 @@ export function Trust({
       )}
       <p>
         {names.length > 0 && <>{t("trust.source", { sources: names.join("; ") })} </>}
-        {asOf && <>{ageLine(ageSources, asOf, now)}. </>}
+        {asOf && <>{ageLine(ageSources, asOf, effectiveNow)}. </>}
         {tier && <>{t("trust.tier", { tier: tier.replace(/^Tier\s*/i, "") })} </>}
         <button type="button" className="linklike" onClick={onAbout}>
           {t("trust.about")}

@@ -10,7 +10,7 @@
 // billboard. A badge with the status shape and route number floats above the models so status reads by shape
 // and colour over photo buildings. Heights come from one sample per GPS report, never per frame per bus.
 
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type ReactNode } from "react";
+import { forwardRef, memo, useEffect, useImperativeHandle, useRef, useState, type ReactNode } from "react";
 import type * as CesiumNS from "cesium";
 import type { Feature, Kind, VehicleProperties } from "../api/types";
 import { t } from "../i18n";
@@ -19,10 +19,11 @@ import { PROFILES, chooseProfile, readDeviceHints, resolutionScaleFor, type Prof
 import type { ProfileName } from "../lib/profileChoice";
 import { busStatus } from "../lib/status";
 import type { ThreeDFailure } from "../lib/threeD";
-import { COLOURS, PIXEL_RATIO, buildPinImages, drawCluster, drawGlyphPin } from "./pins";
+import { COLOURS, PIXEL_RATIO, buildPinImages, busRenderImage, drawCluster, drawGlyphPin, type Glyph } from "./pins";
 import { anchorOf } from "./registry";
 import { drawBusBadge } from "./badge";
-import { clusterScreenPoints } from "./declutter";
+import { clusterScreenPoints, decimateLine } from "./declutter";
+import { createCleanTwinController, type CleanTwinController, type StreetTwinMode } from "./cleanTwin3D";
 
 type Cesium = typeof CesiumNS;
 
@@ -48,7 +49,7 @@ export interface Globe3DMetrics {
 
 export interface PinLayer3D {
   name: string;
-  glyph: "triangle" | "house" | "square" | "dot";
+  glyph: Glyph;
   colour: string;
   dashed: boolean;
   features: Feature[];
@@ -56,14 +57,19 @@ export interface PinLayer3D {
 
 interface StaticPin {
   layer: string;
+  glyph: PinLayer3D["glyph"];
   colour: string;
   kind: Kind;
   id: number;
   lon: number;
   lat: number;
   height: number | null;
+  triedTiles: number;
   bb: CesiumNS.Billboard;
   imageKey: string;
+  winX: number;
+  winY: number;
+  visible: boolean;
 }
 
 let loading: Promise<Cesium> | null = null;
@@ -107,7 +113,7 @@ interface Props {
   profileChoice: ProfileName | null;
   onAutoProfile?: (p: ProfileName) => void;
   vehicles: Feature<VehicleProperties>[];
-  positionFor: (id: number, now: number) => { lon: number; lat: number } | null;
+  positionFor: (id: number, now: number) => { lon: number; lat: number; bearing?: number } | null;
   /** Buses are moving on the glide clock: keep asking for frames. */
   glide: boolean;
   selectedKey: string | null;
@@ -123,6 +129,8 @@ interface Props {
   pinLayers: PinLayer3D[];
   /** Fit the camera to these points once per key (a story's evidence), when the story opens in 3D. */
   fit: { key: string; points: [number, number][] } | null;
+  /** Street-level procedural 3D twin display mode (defaults to "auto"). */
+  streetTwinMode?: StreetTwinMode;
   popup?: ReactNode;
   onSelect: (sel: { kind: Kind; id: number; layer: string } | null) => void;
   onFailed: (reason: ThreeDFailure) => void;
@@ -132,13 +140,21 @@ interface Props {
 interface BusPrims {
   near: CesiumNS.Model | null;
   mid: CesiumNS.Model | null;
+  modelsLoading: boolean;
   badge: CesiumNS.Billboard;
-  far: CesiumNS.Billboard;
   badgeKey: string;
   height: number | null;
   heightAt: number; // report time the height belongs to
+  triedTiles: number;
   bearing: number;
+  matrixLon: number;
+  matrixLat: number;
+  matrixH: number;
+  matrixBearing: number;
   last: { lon: number; lat: number } | null;
+  winX: number;
+  winY: number;
+  visible: boolean;
 }
 
 const rad = (d: number) => (d * Math.PI) / 180;
@@ -146,7 +162,7 @@ const deg = (r: number) => (r * 180) / Math.PI;
 
 let autoProfile: ProfileName | null = null;
 
-const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref) {
+const Globe3D = memo(forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref) {
   if (!autoProfile) autoProfile = chooseProfile(readDeviceHints());
   const props = { ...rawProps, profile: PROFILES[rawProps.profileChoice ?? autoProfile] as Profile3D };
   const el = useRef<HTMLDivElement>(null);
@@ -158,6 +174,15 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
   const tilesetRef = useRef<CesiumNS.Cesium3DTileset | null>(null);
   const busesRef = useRef(new Map<number, BusPrims>());
   const drawRef = useRef<() => void>(() => undefined);
+  const declutterStaticRef = useRef<() => void>(() => undefined);
+  const pointerDownRef = useRef(false);
+  const cameraMovingRef = useRef(false);
+  const pinHeightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tileLoadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pinImagesCacheRef = useRef(new Map<string, HTMLCanvasElement>());
+  const prevSelectedKeyRef = useRef<string | null>(null);
+  const brightnessStageRef = useRef<CesiumNS.PostProcessStage | null>(null);
+  const cleanTwinRef = useRef<CleanTwinController | null>(null);
   const [status, setStatus] = useState<"loading" | "ready">("loading");
   useEffect(() => {
     if (autoProfile) rawProps.onAutoProfile?.(autoProfile);
@@ -167,6 +192,9 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
   // ---- create the viewer once
   useEffect(() => {
     let viewer: CesiumNS.Viewer | null = null;
+    let handler: CesiumNS.ScreenSpaceEventHandler | null = null;
+    let hoverRaf: number | null = null;
+    let cleanupDomListeners: (() => void) | null = null;
     let cancelled = false;
     let failTimer: ReturnType<typeof setTimeout> | undefined;
     const metrics: Globe3DMetrics = { mode: propsRef.current.noIon ? "plain" : "ion", profile: propsRef.current.profile.name, startedAt: performance.now(), firstFrameMs: null, tilesLoaded: 0, tilesFailed: 0, frames: 0, buses: 0 };
@@ -189,6 +217,9 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
       const prof = p.profile;
       try {
         viewer = new C.Viewer(el.current, {
+          // Disable Cesium's Globe when rendering Google Photorealistic 3D Tiles so ScreenSpaceCameraController
+          // uses its fast 3D-Tiles worldspace pan path instead of stalling or locking on tall building roofs.
+          globe: p.noIon ? undefined : false,
           baseLayer: false,
           baseLayerPicker: false,
           geocoder: false,
@@ -217,21 +248,92 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
       }
       viewerRef.current = viewer;
       const scene = viewer.scene;
+      scene.backgroundColor = C.Color.fromCssColorString(p.noIon ? "#dfe3dd" : "#13232e");
       scene.renderError.addEventListener(() => fail("load"));
       applyProfile(C, viewer, null, prof);
+      const cleanTwin = createCleanTwinController(C, viewer, {
+        noIon: p.noIon,
+        getTileset: () => tilesetRef.current,
+        getExcludeObjects: () => {
+          const objs: object[] = [];
+          for (const b of busesRef.current.values()) {
+            if (b.near) objs.push(b.near);
+            if (b.mid) objs.push(b.mid);
+          }
+          return objs;
+        },
+        onActiveChange: (active) => {
+          if (tilesetRef.current) tilesetRef.current.show = !active;
+          for (const pin of pinsRef.current.values()) {
+            pin.height = null;
+            pin.triedTiles = -1;
+          }
+          for (const b of busesRef.current.values()) {
+            b.height = null;
+            b.heightAt = 0;
+            b.triedTiles = -1;
+          }
+          refreshHeights(true);
+          refreshPinHeights();
+          scene.requestRender();
+        },
+      });
+      cleanTwinRef.current = cleanTwin;
+      cleanTwin.setRoutes(p.routes, p.highlightRoute);
       scene.postRender.addEventListener(() => {
         metrics.frames++;
         placePopup();
       });
 
-      // camera limits: no space, no underground, Halifax only
+      // Track pointer drag state so hover hit-testing, height raycasts and bus ticks never stall camera motion
+      const canvas = scene.canvas;
+      const onPointerDown = () => {
+        pointerDownRef.current = true;
+      };
+      const onPointerUp = () => {
+        pointerDownRef.current = false;
+      };
+      canvas.addEventListener("pointerdown", onPointerDown, { passive: true });
+      window.addEventListener("pointerup", onPointerUp, { passive: true });
+      window.addEventListener("pointercancel", onPointerUp, { passive: true });
+      window.addEventListener("blur", onPointerUp, { passive: true });
+      cleanupDomListeners = () => {
+        canvas.removeEventListener("pointerdown", onPointerDown);
+        window.removeEventListener("pointerup", onPointerUp);
+        window.removeEventListener("pointercancel", onPointerUp);
+        window.removeEventListener("blur", onPointerUp);
+      };
+
+      // camera limits & intuitive mouse controls:
+      // Left-drag pans around the map; scroll wheel / pinch zooms; right-drag / middle-drag / Ctrl+drag orbits and tilts.
       const sscc = scene.screenSpaceCameraController;
       sscc.minimumZoomDistance = CAMERA_LIMITS.minRange;
       sscc.maximumZoomDistance = CAMERA_LIMITS.maxRange;
       sscc.enableCollisionDetection = true;
+      sscc.zoomEventTypes = [C.CameraEventType.WHEEL, C.CameraEventType.PINCH];
+      sscc.tiltEventTypes = [
+        C.CameraEventType.RIGHT_DRAG,
+        C.CameraEventType.MIDDLE_DRAG,
+        C.CameraEventType.PINCH,
+        { eventType: C.CameraEventType.LEFT_DRAG, modifier: C.KeyboardEventModifier.CTRL },
+        { eventType: C.CameraEventType.RIGHT_DRAG, modifier: C.KeyboardEventModifier.CTRL },
+      ];
       scene.camera.percentageChanged = 0.05;
-      scene.camera.changed.addEventListener(() => keepCameraInside(C, viewer!));
+      scene.camera.moveStart.addEventListener(() => {
+        cameraMovingRef.current = true;
+      });
+      scene.camera.changed.addEventListener(() => keepCameraInside(C, viewer!, false));
       scene.camera.moveEnd.addEventListener(() => {
+        cameraMovingRef.current = false;
+        keepCameraInside(C, viewer!, true);
+        cleanTwinRef.current?.syncCamera(
+          currentOrbit(C, viewer!),
+          propsRef.current.streetTwinMode ?? "auto",
+          propsRef.current.profile.name,
+          propsRef.current.noIon,
+        );
+        refreshPinHeights();
+        refreshHeights(false);
         const pl = currentPlace(C, viewer!);
         if (pl) propsRef.current.onPlace?.(pl);
       });
@@ -244,12 +346,14 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
 
       if (p.noIon) {
         // developer globe: plain fog-coloured ground, no tiles, no ion requests
-        scene.globe.show = true;
-        scene.globe.baseColor = C.Color.fromCssColorString("#dfe3dd");
-        scene.globe.showGroundAtmosphere = false;
+        if (scene.globe) {
+          scene.globe.show = true;
+          scene.globe.baseColor = C.Color.fromCssColorString("#dfe3dd");
+          scene.globe.showGroundAtmosphere = false;
+        }
         metrics.firstFrameMs = performance.now() - metrics.startedAt;
+        cleanTwin.syncCamera(currentOrbit(C, viewer), p.streetTwinMode ?? "auto", prof.name, p.noIon);
       } else {
-        scene.globe.show = false;
         C.Ion.defaultAccessToken = p.token ?? "";
         try {
           const tileset = await C.Cesium3DTileset.fromIonAssetId(p.assetId, {
@@ -269,6 +373,15 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
           scene.primitives.add(tileset);
           tileset.tileLoad.addEventListener(() => {
             metrics.tilesLoaded++;
+            if (metrics.firstFrameMs !== null && !tileLoadTimerRef.current) {
+              tileLoadTimerRef.current = setTimeout(() => {
+                tileLoadTimerRef.current = null;
+                if (!pointerDownRef.current && !cameraMovingRef.current) {
+                  refreshPinHeights();
+                  refreshHeights(false);
+                }
+              }, 300);
+            }
           });
           tileset.tileFailed.addEventListener(() => {
             metrics.tilesFailed++;
@@ -277,6 +390,12 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
           tileset.initialTilesLoaded.addEventListener(() => {
             if (metrics.firstFrameMs === null) metrics.firstFrameMs = performance.now() - metrics.startedAt;
             if (failTimer) clearTimeout(failTimer);
+            cleanTwinRef.current?.syncCamera(
+              currentOrbit(C, viewer!),
+              propsRef.current.streetTwinMode ?? "auto",
+              propsRef.current.profile.name,
+              propsRef.current.noIon,
+            );
             refreshHeights(true);
             refreshPinHeights();
             scene.requestRender();
@@ -294,8 +413,8 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
       await buildPinImages();
       if (cancelled) return;
       const billboards = scene.primitives.add(new C.BillboardCollection({ scene })) as CesiumNS.BillboardCollection;
-      setupBuses(C, viewer, billboards);
-      const handler = new C.ScreenSpaceEventHandler(scene.canvas);
+      const isOverInteractive = setupBuses(C, viewer, billboards);
+      handler = new C.ScreenSpaceEventHandler(scene.canvas);
       handler.setInputAction((e: { position: CesiumNS.Cartesian2 }) => {
         const picked = scene.pick(e.position) as { id?: { kind?: string; id?: number } } | undefined;
         const id = picked?.id as { kind?: string; id?: number; at?: CesiumNS.Cartesian3; layer?: string } | undefined;
@@ -312,10 +431,23 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
           scene.camera.lookAtTransform(C.Matrix4.IDENTITY);
         } else propsRef.current.onSelect(null);
       }, C.ScreenSpaceEventType.LEFT_CLICK);
+
+      // Pure screen-space cursor check on hover: never calls WebGL scene.pick() (gl.readPixels) on mousemove,
+      // and skips completely while dragging or moving the camera.
+      let pendingMouse: { x: number; y: number } | null = null;
       handler.setInputAction((e: { endPosition: CesiumNS.Cartesian2 }) => {
-        const picked = scene.pick(e.endPosition) as { id?: { kind?: string } } | undefined;
-        scene.canvas.style.cursor = picked?.id?.kind ? "pointer" : "";
+        if (pointerDownRef.current || cameraMovingRef.current) return;
+        pendingMouse = { x: e.endPosition.x, y: e.endPosition.y };
+        if (hoverRaf !== null) return;
+        hoverRaf = requestAnimationFrame(() => {
+          hoverRaf = null;
+          if (!pendingMouse || pointerDownRef.current || cameraMovingRef.current || cancelled) return;
+          const hit = isOverInteractive(pendingMouse.x, pendingMouse.y);
+          const nextCursor = hit ? "pointer" : "";
+          if (scene.canvas.style.cursor !== nextCursor) scene.canvas.style.cursor = nextCursor;
+        });
       }, C.ScreenSpaceEventType.MOUSE_MOVE);
+
       setStatus("ready");
       scene.requestRender();
     })();
@@ -323,7 +455,26 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
     return () => {
       cancelled = true;
       if (failTimer) clearTimeout(failTimer);
+      if (hoverRaf !== null) cancelAnimationFrame(hoverRaf);
+      if (pinHeightTimerRef.current) {
+        clearTimeout(pinHeightTimerRef.current);
+        pinHeightTimerRef.current = null;
+      }
+      if (tileLoadTimerRef.current) {
+        clearTimeout(tileLoadTimerRef.current);
+        tileLoadTimerRef.current = null;
+      }
+      cleanupDomListeners?.();
+      try {
+        handler?.destroy();
+      } catch {
+        // already gone
+      }
       busesRef.current.clear();
+      pinsRef.current.clear();
+      cleanTwinRef.current?.destroy();
+      cleanTwinRef.current = null;
+      brightnessStageRef.current = null;
       tilesetRef.current = null;
       viewerRef.current = null;
       try {
@@ -345,17 +496,58 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
     v.scene.requestRender();
   }, [props.profile]);
 
+  // ---- sync clean 3D street twin when mode, profile or readiness changes
+  useEffect(() => {
+    const C = window.Cesium;
+    const v = viewerRef.current;
+    if (!C || !v || status !== "ready") return;
+    cleanTwinRef.current?.syncCamera(
+      currentOrbit(C, v),
+      props.streetTwinMode ?? "auto",
+      props.profile.name,
+      props.noIon,
+    );
+  }, [props.streetTwinMode, props.profile, props.noIon, status]);
+
+  // ---- keep clean 3D street twin route ribbons aligned with active transit routes
+  useEffect(() => {
+    if (status !== "ready") return;
+    cleanTwinRef.current?.setRoutes(props.routes, props.highlightRoute);
+  }, [props.routes, props.highlightRoute, status]);
+
   // ---- buses: on new data, and on a clock while they glide or the camera follows
   useEffect(() => {
-    refreshHeights(false);
-    drawRef.current();
+    if (typeof document === "undefined" || !document.hidden) {
+      refreshHeights(false);
+      drawRef.current();
+    }
+    const onVis = () => {
+      if (!document.hidden) {
+        refreshHeights(false);
+        drawRef.current();
+        viewerRef.current?.scene.requestRender();
+      }
+    };
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVis);
     const fast = props.following && !props.reducedMotion;
-    if (!props.glide && !fast) return;
+    if (!props.glide && !fast) {
+      return () => {
+        if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVis);
+      };
+    }
     const every = fast ? (props.profile.name === "low" ? 50 : 33) : 100;
-    const id = setInterval(() => drawRef.current(), every);
-    return () => clearInterval(id);
+    const id = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      // Yield 100% of frame budget to smooth camera dragging unless actively locked onto a bus
+      if (pointerDownRef.current && !propsRef.current.following) return;
+      drawRef.current();
+    }, every);
+    return () => {
+      clearInterval(id);
+      if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVis);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.vehicles, props.glide, props.selectedKey, props.following, props.reducedMotion, props.profile]);
+  }, [props.vehicles, props.positionFor, props.glide, props.selectedKey, props.following, props.reducedMotion, props.profile]);
 
   // follow: lock the camera to the bus while following; release on stop
   useEffect(() => {
@@ -375,7 +567,20 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
   const pinsRef = useRef(new Map<string, StaticPin>());
   const staticBillboards = useRef<CesiumNS.BillboardCollection | null>(null);
 
-  // ---- the other evidence: dashed ground lines (closures) and pins (closures, permits), clustered like buses
+  function updateStaticPinImage(pin: StaticPin, selected: boolean): void {
+    const imageKey = `${pin.glyph}|${pin.colour}|${selected}`;
+    if (pin.imageKey === imageKey) return;
+    let img = pinImagesCacheRef.current.get(imageKey);
+    if (!img) {
+      img = drawGlyphPin(pin.glyph, pin.colour, selected);
+      pinImagesCacheRef.current.set(imageKey, img);
+    }
+    pin.bb.setImage(`pin|${imageKey}`, img);
+    pin.bb.scale = (selected ? 1.25 : 1) / PIXEL_RATIO;
+    pin.imageKey = imageKey;
+  }
+
+  // ---- the other evidence: dashed ground lines (closures) and pins (closures, permits, stops), rebuilt only when data changes
   useEffect(() => {
     const C = window.Cesium;
     const v = viewerRef.current;
@@ -385,35 +590,51 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
     if (!staticBillboards.current) staticBillboards.current = v.scene.primitives.add(new C.BillboardCollection({ scene: v.scene })) as CesiumNS.BillboardCollection;
     const coll = staticBillboards.current;
     const wanted = new Set<string>();
-    const images = new Map<string, HTMLCanvasElement>();
+    const classType = props.noIon ? C.ClassificationType.BOTH : C.ClassificationType.CESIUM_3D_TILE;
+    const selKey = propsRef.current.selectedKey;
     for (const layer of props.pinLayers) {
       const lineInstances: CesiumNS.GeometryInstance[] = [];
       for (const f of layer.features) {
         const g = f.geometry;
         if (g && (g.type === "LineString" || g.type === "MultiLineString")) {
           const lines = g.type === "LineString" ? [g.coordinates as number[][]] : (g.coordinates as number[][][]);
-          for (const line of lines) {
+          for (const rawLine of lines) {
+            const line = decimateLine(rawLine, 0.00006);
             if (line.length < 2) continue;
             lineInstances.push(new C.GeometryInstance({ geometry: new C.GroundPolylineGeometry({ positions: C.Cartesian3.fromDegreesArray(line.flat()), width: 6 }) }));
           }
         }
         const at = anchorOf(g);
         if (!at) continue;
+        let glyph = layer.glyph;
+        let colour = layer.colour;
+        if (layer.name === "stops") {
+          const fp = f.properties as Record<string, unknown>;
+          const isStation =
+            fp.stop_kind_code === "Station" ||
+            fp.shelter_flag === true ||
+            /terminal|station/i.test(String(fp.stop_name ?? fp.name ?? ""));
+          glyph = isStation ? "station" : "stop";
+          colour = COLOURS.route;
+        }
         const key = `${f.properties.kind}:${f.properties.id}`;
         wanted.add(key);
-        const sel = props.selectedKey === key;
-        const imageKey = `${layer.glyph}|${layer.colour}|${sel}`;
         let pin = pinsRef.current.get(key);
         if (!pin) {
           pin = {
             layer: layer.name,
-            colour: layer.colour,
+            glyph,
+            colour,
             kind: f.properties.kind,
             id: Number(f.properties.id),
             lon: at[0],
             lat: at[1],
             height: null,
+            triedTiles: -1,
             imageKey: "",
+            winX: Number.NaN,
+            winY: Number.NaN,
+            visible: false,
             bb: coll.add({
               position: C.Cartesian3.fromDegrees(at[0], at[1], props.noIon ? 0 : -18),
               verticalOrigin: C.VerticalOrigin.BOTTOM,
@@ -423,17 +644,12 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
             }),
           };
           pinsRef.current.set(key, pin);
+        } else {
+          pin.layer = layer.name;
+          pin.glyph = glyph;
+          pin.colour = colour;
         }
-        if (pin.imageKey !== imageKey) {
-          let img = images.get(imageKey);
-          if (!img) {
-            img = drawGlyphPin(layer.glyph, layer.colour, sel);
-            images.set(imageKey, img);
-          }
-          pin.bb.setImage(`pin|${imageKey}`, img);
-          pin.bb.scale = (sel ? 1.25 : 1) / PIXEL_RATIO;
-          pin.imageKey = imageKey;
-        }
+        updateStaticPinImage(pin, selKey === key);
       }
       if (lineInstances.length) {
         linesPrim.current.push(
@@ -441,7 +657,7 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
             new C.GroundPolylinePrimitive({
               geometryInstances: lineInstances,
               appearance: new C.PolylineMaterialAppearance({ material: C.Material.fromType("PolylineDash", { color: C.Color.fromCssColorString(layer.colour), gapColor: C.Color.fromCssColorString("#f4f3ee").withAlpha(0.9), dashLength: 18 }) }),
-              classificationType: C.ClassificationType.BOTH,
+              classificationType: classType,
               asynchronous: true,
             }),
           ),
@@ -453,26 +669,106 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
       coll.remove(pin.bb);
       pinsRef.current.delete(key);
     }
+    prevSelectedKeyRef.current = selKey;
     refreshPinHeights();
-    drawRef.current();
+    declutterStaticRef.current();
     v.scene.requestRender();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.pinLayers, props.selectedKey, status]);
+  }, [props.pinLayers, status]);
 
-  /** Static pins get one height sample each, once the tiles under them have loaded. */
+  // ---- O(1) static pin selection update: never rebuilds GroundPolylinePrimitives when clicking features
+  useEffect(() => {
+    const v = viewerRef.current;
+    if (!v || status !== "ready") return;
+    const prev = prevSelectedKeyRef.current;
+    const next = props.selectedKey;
+    if (prev === next) return;
+    prevSelectedKeyRef.current = next;
+    let changed = false;
+    if (prev) {
+      const oldPin = pinsRef.current.get(prev);
+      if (oldPin) {
+        updateStaticPinImage(oldPin, false);
+        changed = true;
+      }
+    }
+    if (next) {
+      const newPin = pinsRef.current.get(next);
+      if (newPin) {
+        updateStaticPinImage(newPin, true);
+        changed = true;
+      }
+    }
+    if (changed) {
+      declutterStaticRef.current();
+      v.scene.requestRender();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.selectedKey, status]);
+
+  /**
+   * Static pins get one height sample each, once the tiles under them have loaded.
+   * Only samples viewport-visible pins whose `triedTiles` lags `tilesLoaded`, preventing infinite retry loops
+   * on off-screen pins where 3D tiles have not been streamed in.
+   */
   function refreshPinHeights(): void {
+    if (pinHeightTimerRef.current) {
+      clearTimeout(pinHeightTimerRef.current);
+      pinHeightTimerRef.current = null;
+    }
     const C = window.Cesium;
     const v = viewerRef.current;
-    if (!C || !v || props.noIon || !tilesetRef.current || window.__globe3d?.firstFrameMs === null) return;
-    let budget = 600;
+    const metrics = window.__globe3d;
+    const twinActive = Boolean(cleanTwinRef.current?.isActive());
+    if (!C || !v || (!twinActive && (propsRef.current.noIon || !tilesetRef.current || !metrics || metrics.firstFrameMs === null))) return;
+    if (pointerDownRef.current || cameraMovingRef.current) return;
+
+    const currentTiles = metrics?.tilesLoaded ?? 0;
+    const w = v.scene.canvas.clientWidth;
+    const h = v.scene.canvas.clientHeight;
+    let budget = 48;
+    let hasMoreVisible = false;
+    let updated = false;
+    const scratchCarto = new C.Cartographic();
+
     for (const pin of pinsRef.current.values()) {
-      if (pin.height !== null) continue;
-      if (budget-- <= 0) break;
-      const h = v.scene.sampleHeight(C.Cartographic.fromDegrees(pin.lon, pin.lat));
-      if (typeof h === "number" && Number.isFinite(h)) {
-        pin.height = h;
-        pin.bb.position = C.Cartesian3.fromDegrees(pin.lon, pin.lat, h);
+      if (twinActive) {
+        const twinH = cleanTwinRef.current!.groundHeightAt(pin.lon, pin.lat);
+        if (twinH !== null) {
+          const nextH = twinH + 0.12;
+          if (pin.height !== nextH) {
+            pin.height = nextH;
+            pin.bb.position = C.Cartesian3.fromDegrees(pin.lon, pin.lat, nextH);
+            updated = true;
+          }
+          continue;
+        }
       }
+      if (pin.height !== null || pin.triedTiles === currentTiles) continue;
+      const win = C.SceneTransforms.worldToWindowCoordinates(v.scene, pin.bb.position);
+      if (!win || win.x < -120 || win.x > w + 120 || win.y < -120 || win.y > h + 120) continue;
+      if (budget-- <= 0) {
+        hasMoreVisible = true;
+        break;
+      }
+      pin.triedTiles = currentTiles;
+      C.Cartographic.fromDegrees(pin.lon, pin.lat, 0, scratchCarto);
+      const sampled = v.scene.sampleHeight(scratchCarto);
+      if (typeof sampled === "number" && Number.isFinite(sampled)) {
+        pin.height = sampled;
+        pin.bb.position = C.Cartesian3.fromDegrees(pin.lon, pin.lat, sampled);
+        updated = true;
+      }
+    }
+    if (updated) {
+      declutterStaticRef.current();
+      v.scene.requestRender();
+    }
+    if (hasMoreVisible) {
+      pinHeightTimerRef.current = setTimeout(() => {
+        pinHeightTimerRef.current = null;
+        refreshPinHeights();
+      }, 80);
     }
   }
 
@@ -499,6 +795,8 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
     else v.scene.camera.flyToBoundingSphere(sphere, { offset, duration: 1.0 });
     v.scene.camera.lookAtTransform(C.Matrix4.IDENTITY);
   }, [props.fit, status]);
+
+  // ---- base transit network routes: built once when routes data arrives, decimated to reduce 3D tile stencil volume load
   useEffect(() => {
     const C = window.Cesium;
     const v = viewerRef.current;
@@ -508,51 +806,81 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
       routesPrim.current = null;
     }
     if (!props.routes.length) return;
-    if (casingPrim.current) {
-      v.scene.groundPrimitives.remove(casingPrim.current);
-      casingPrim.current = null;
-    }
-    // a fog casing under each route keeps the harbour blue readable over dark roofs, trees and water
-    const casing: CesiumNS.GeometryInstance[] = [];
     const instances: CesiumNS.GeometryInstance[] = [];
-    const hr = props.highlightRoute;
+    const routeAttr = C.ColorGeometryInstanceAttribute.fromColor(C.Color.fromCssColorString(COLOURS.route).withAlpha(0.75));
     for (const f of props.routes) {
       const g = f.geometry;
       if (!g || !g.coordinates) continue;
       const lines = g.type === "LineString" ? [g.coordinates as number[][]] : g.type === "MultiLineString" ? (g.coordinates as number[][][]) : [];
-      const on = hr !== null && f.properties.route_short_name === hr;
-      for (const line of lines) {
+      for (const rawLine of lines) {
+        const line = decimateLine(rawLine, 0.00012);
         if (line.length < 2) continue;
-        const positions = C.Cartesian3.fromDegreesArray(line.flat());
-        if (on) {
-          // only the selected route gets a fog casing, so it stands out; the others stay a single line
-          casing.push(
-            new C.GeometryInstance({
-              geometry: new C.GroundPolylineGeometry({ positions, width: 11 }),
-              attributes: { color: C.ColorGeometryInstanceAttribute.fromColor(C.Color.fromCssColorString("#f4f3ee").withAlpha(0.9)) },
-            }),
-          );
-        }
         instances.push(
           new C.GeometryInstance({
-            geometry: new C.GroundPolylineGeometry({ positions, width: on ? 7 : 3 }),
-            attributes: { color: C.ColorGeometryInstanceAttribute.fromColor(C.Color.fromCssColorString(COLOURS.route).withAlpha(on ? 1 : hr ? 0.4 : 0.8)) },
+            geometry: new C.GroundPolylineGeometry({ positions: C.Cartesian3.fromDegreesArray(line.flat()), width: 3 }),
+            attributes: { color: routeAttr },
           }),
         );
       }
     }
     if (!instances.length) return;
-    if (casing.length) {
-      casingPrim.current = v.scene.groundPrimitives.add(
-        new C.GroundPolylinePrimitive({ geometryInstances: casing, appearance: new C.PolylineColorAppearance(), classificationType: C.ClassificationType.BOTH, asynchronous: true }),
-      );
-    }
+    const classType = props.noIon ? C.ClassificationType.BOTH : C.ClassificationType.CESIUM_3D_TILE;
     routesPrim.current = v.scene.groundPrimitives.add(
-      new C.GroundPolylinePrimitive({ geometryInstances: instances, appearance: new C.PolylineColorAppearance(), classificationType: C.ClassificationType.BOTH, asynchronous: true }),
+      new C.GroundPolylinePrimitive({ geometryInstances: instances, appearance: new C.PolylineColorAppearance(), classificationType: classType, asynchronous: true }),
     );
     v.scene.requestRender();
     const timer = setTimeout(() => v.scene.requestRender(), 800);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.routes, status]);
+
+  // ---- highlighted single route casing + bold overline: fast incremental update without rebuilding all city routes
+  useEffect(() => {
+    const C = window.Cesium;
+    const v = viewerRef.current;
+    if (!C || !v || status !== "ready") return;
+    if (casingPrim.current) {
+      v.scene.groundPrimitives.remove(casingPrim.current);
+      casingPrim.current = null;
+    }
+    const hr = props.highlightRoute;
+    if (!hr || !props.routes.length) {
+      v.scene.requestRender();
+      return;
+    }
+    const casing: CesiumNS.GeometryInstance[] = [];
+    const casingColor = C.ColorGeometryInstanceAttribute.fromColor(C.Color.fromCssColorString("#f4f3ee").withAlpha(0.92));
+    const boldColor = C.ColorGeometryInstanceAttribute.fromColor(C.Color.fromCssColorString(COLOURS.route));
+    for (const f of props.routes) {
+      if (f.properties.route_short_name !== hr) continue;
+      const g = f.geometry;
+      if (!g || !g.coordinates) continue;
+      const lines = g.type === "LineString" ? [g.coordinates as number[][]] : g.type === "MultiLineString" ? (g.coordinates as number[][][]) : [];
+      for (const rawLine of lines) {
+        const line = decimateLine(rawLine, 0.00006);
+        if (line.length < 2) continue;
+        const positions = C.Cartesian3.fromDegreesArray(line.flat());
+        casing.push(
+          new C.GeometryInstance({
+            geometry: new C.GroundPolylineGeometry({ positions, width: 11 }),
+            attributes: { color: casingColor },
+          }),
+          new C.GeometryInstance({
+            geometry: new C.GroundPolylineGeometry({ positions, width: 7 }),
+            attributes: { color: boldColor },
+          }),
+        );
+      }
+    }
+    if (!casing.length) return;
+    const classType = props.noIon ? C.ClassificationType.BOTH : C.ClassificationType.CESIUM_3D_TILE;
+    casingPrim.current = v.scene.groundPrimitives.add(
+      new C.GroundPolylinePrimitive({ geometryInstances: casing, appearance: new C.PolylineColorAppearance(), classificationType: classType, asynchronous: true }),
+    );
+    v.scene.requestRender();
+    const timer = setTimeout(() => v.scene.requestRender(), 500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.routes, props.highlightRoute, status]);
 
   // ---- a newly selected bus is brought into view, so its popup is never clipped by the map's edges
@@ -587,9 +915,28 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
     scene.postProcessStages.fxaa.enabled = prof.fxaa;
     scene.fog.enabled = prof.fog;
     scene.fog.density = 0.00022;
-    scene.globe.enableLighting = prof.lighting;
+    if (scene.globe) scene.globe.enableLighting = prof.lighting;
     scene.highDynamicRange = false;
     v.shadows = prof.shadows;
+    try {
+      const liftShadows = !propsRef.current.noIon && (prof.name === "high" || prof.name === "medium");
+      if (liftShadows) {
+        if (!brightnessStageRef.current && C.PostProcessStageLibrary?.createBrightnessStage) {
+          const stage = C.PostProcessStageLibrary.createBrightnessStage();
+          stage.uniforms.brightness = 1.08;
+          scene.postProcessStages.add(stage);
+          brightnessStageRef.current = stage;
+        }
+        if (brightnessStageRef.current) {
+          brightnessStageRef.current.uniforms.brightness = 1.08;
+          brightnessStageRef.current.enabled = true;
+        }
+      } else if (brightnessStageRef.current) {
+        brightnessStageRef.current.enabled = false;
+      }
+    } catch {
+      // brightness stage is optional visual polish
+    }
     if (ts) {
       ts.maximumScreenSpaceError = prof.maximumScreenSpaceError;
       ts.cacheBytes = prof.cacheBytes;
@@ -635,20 +982,26 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
     return o ? orbitToPlace(o, v.scene.canvas.clientHeight || 800) : null;
   }
 
-  function keepCameraInside(C: Cesium, v: CesiumNS.Viewer): void {
-    const carto = v.scene.camera.positionCartographic;
-    const fixed = clampCameraPosition({ lon: deg(carto.longitude), lat: deg(carto.latitude), height: carto.height });
-    if (!fixed) return;
+  function keepCameraInside(C: Cesium, v: CesiumNS.Viewer, strict: boolean): void {
     const cam = v.scene.camera;
-    cam.setView({
-      destination: C.Cartesian3.fromDegrees(fixed.lon, fixed.lat, fixed.height),
-      orientation: { heading: cam.heading, pitch: cam.pitch, roll: 0 },
-    });
+    const carto = cam.positionCartographic;
+    const lon = deg(carto.longitude);
+    const lat = deg(carto.latitude);
+    const height = carto.height;
+    // While actively dragging/zooming, allow slight slack above the underground floor (-14 m, still above -18 m harbour)
+    // so clamping never fights active pointer gestures; snap strictly to CAMERA_LIMITS on moveEnd.
+    if (!strict && pointerDownRef.current && height >= -14 && height <= CAMERA_LIMITS.maxHeight && lon >= CAMERA_LIMITS.west && lon <= CAMERA_LIMITS.east && lat >= CAMERA_LIMITS.south && lat <= CAMERA_LIMITS.north) {
+      return;
+    }
+    const fixed = clampCameraPosition({ lon, lat, height });
+    if (!fixed) return;
+    // Mutate camera.position in place rather than cam.setView() so active ScreenSpaceCameraController inertia/drag state stays intact
+    C.Cartesian3.fromDegrees(fixed.lon, fixed.lat, fixed.height, C.Ellipsoid.WGS84, cam.position);
   }
 
   // ---- buses
 
-  function setupBuses(C: Cesium, v: CesiumNS.Viewer, billboards: CesiumNS.BillboardCollection): void {
+  function setupBuses(C: Cesium, v: CesiumNS.Viewer, billboards: CesiumNS.BillboardCollection): (mx: number, my: number) => boolean {
     const scene = v.scene;
     const images = new Map<string, HTMLCanvasElement>();
     const image = (key: string, make: () => HTMLCanvasElement) => {
@@ -662,6 +1015,12 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
     const nearUrl = `${import.meta.env.BASE_URL}models/bus-near.glb`;
     const midUrl = `${import.meta.env.BASE_URL}models/bus-mid.glb`;
     let failedModels = false;
+    let activeModelLoads = 0;
+
+    const silhouetteColour = C.Color.fromCssColorString("#f5b544");
+    const selectedEyeOffset = new C.Cartesian3(0, 0, -200);
+    const badgeScaleByDistance = new C.NearFarScalar(400, 1, 9000, 0.72);
+    const scratchHpr = new C.HeadingPitchRoll();
 
     const makeModel = async (url: string, id: number, min: number, max: number): Promise<CesiumNS.Model | null> => {
       if (failedModels) return null;
@@ -675,6 +1034,10 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
           shadows: propsRef.current.profile.shadows ? C.ShadowMode.ENABLED : C.ShadowMode.DISABLED,
           incrementallyLoadTextures: false,
         });
+        if (!busesRef.current.has(id)) {
+          m.destroy();
+          return null;
+        }
         scene.primitives.add(m);
         m.readyEvent.addEventListener(() => scene.requestRender());
         return m;
@@ -684,72 +1047,223 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
       }
     };
 
-    // crowds become counts, as in 2D: pins that overlap on screen beyond the near-model distance merge into one
-    const clusters: CesiumNS.Billboard[] = [];
-    const declutter = () => {
+    const loadBusModelsIfNear = (id: number, b: BusPrims) => {
+      if (failedModels || b.modelsLoading || b.near || b.mid || activeModelLoads >= 4) return;
+      b.modelsLoading = true;
+      activeModelLoads += 2;
+      const prof = propsRef.current.profile;
+      void Promise.all([
+        makeModel(nearUrl, id, 0, prof.nearModelMetres),
+        makeModel(midUrl, id, prof.nearModelMetres, prof.midModelMetres),
+      ]).then(([near, mid]) => {
+        activeModelLoads = Math.max(0, activeModelLoads - 2);
+        if (!busesRef.current.has(id)) return;
+        b.near = near;
+        b.mid = mid;
+        b.matrixLon = Number.NaN; // force initial matrix placement on next draw
+        drawRef.current();
+      });
+    };
+
+    // crowds become counts, as in 2D: pins that overlap on screen beyond the near-model distance merge into one.
+    // Separated into buses and static pins so the 100ms bus glide interval only declutters ~100 buses,
+    // not 4,800+ static pins every frame.
+    const busClusters: { bb: CesiumNS.Billboard; winX: number; winY: number; visible: boolean }[] = [];
+    const staticClusters: { bb: CesiumNS.Billboard; winX: number; winY: number; visible: boolean }[] = [];
+
+    const declutterBuses = () => {
       const prof = propsRef.current.profile;
       const cam = scene.camera;
       const selKey = propsRef.current.selectedKey;
-      // every pin, bus or not, grouped per layer so a count disc keeps its layer's colour
-      const layers = new Map<string, { colour: string; items: { id: number; x: number; y: number; world: CesiumNS.Cartesian3; bb: CesiumNS.Billboard }[] }>();
-      const consider = (layer: string, colour: string, n: number, key: string, bb: CesiumNS.Billboard, world: CesiumNS.Cartesian3) => {
-        if (key === selKey || C.Cartesian3.distance(cam.positionWC, world) < prof.nearModelMetres) {
-          bb.show = true;
-          return;
+      const w = scene.canvas.clientWidth;
+      const h = scene.canvas.clientHeight;
+      const items: { id: number; x: number; y: number; world: CesiumNS.Cartesian3; bus: BusPrims }[] = [];
+
+      for (const [id, b] of busesRef.current) {
+        if (!b.last) {
+          b.visible = false;
+          continue;
+        }
+        const world = b.badge.position;
+        const win = C.SceneTransforms.worldToWindowCoordinates(scene, world);
+        if (`asset:${id}` === selKey || C.Cartesian3.distance(cam.positionWC, world) < prof.nearModelMetres) {
+          b.badge.show = true;
+          b.visible = Boolean(win && win.x >= -60 && win.x <= w + 60 && win.y >= -60 && win.y <= h + 60);
+          b.winX = win ? win.x : Number.NaN;
+          b.winY = win ? win.y : Number.NaN;
+          continue;
+        }
+        if (!win || win.x < -60 || win.x > w + 60 || win.y < -60 || win.y > h + 60) {
+          b.badge.show = false;
+          b.visible = false;
+          b.winX = Number.NaN;
+          b.winY = Number.NaN;
+          continue;
+        }
+        b.winX = win.x;
+        b.winY = win.y;
+        items.push({ id, x: win.x, y: win.y, world, bus: b });
+      }
+
+      const byId = new Map(items.map((it) => [it.id, it]));
+      let used = 0;
+      for (const g of clusterScreenPoints(items, 34)) {
+        const members = g.ids.map((id) => byId.get(id)!);
+        if (members.length === 1) {
+          members[0].bus.badge.show = true;
+          members[0].bus.visible = true;
+          continue;
+        }
+        for (const m of members) {
+          m.bus.badge.show = false;
+          m.bus.visible = false;
+        }
+        const centre = new C.Cartesian3();
+        for (const m of members) C.Cartesian3.add(centre, m.world, centre);
+        C.Cartesian3.divideByScalar(centre, members.length, centre);
+        let entry = busClusters[used];
+        if (!entry) {
+          entry = {
+            bb: billboards.add({ position: centre, verticalOrigin: C.VerticalOrigin.CENTER, disableDepthTestDistance: Number.POSITIVE_INFINITY, scale: 1 / PIXEL_RATIO }),
+            winX: Number.NaN,
+            winY: Number.NaN,
+            visible: false,
+          };
+          busClusters.push(entry);
+        }
+        const cb = entry.bb;
+        cb.position = centre;
+        const hex = COLOURS.ink.replace("#", "");
+        cb.setImage(`cluster|bus|${hex}|${members.length}`, image(`cluster|bus|${hex}|${members.length}`, () => drawCluster(members.length, "bus", COLOURS.ink)));
+        cb.id = { kind: "cluster", count: members.length, at: C.Cartesian3.clone(centre) };
+        cb.show = true;
+        const cWin = C.SceneTransforms.worldToWindowCoordinates(scene, centre);
+        entry.winX = cWin ? cWin.x : Number.NaN;
+        entry.winY = cWin ? cWin.y : Number.NaN;
+        entry.visible = Boolean(cWin);
+        used++;
+      }
+      for (let i = used; i < busClusters.length; i++) {
+        busClusters[i].bb.show = false;
+        busClusters[i].visible = false;
+      }
+    };
+
+    const declutterStaticPins = () => {
+      const prof = propsRef.current.profile;
+      const cam = scene.camera;
+      const selKey = propsRef.current.selectedKey;
+      const w = scene.canvas.clientWidth;
+      const h = scene.canvas.clientHeight;
+      const items: { id: number; x: number; y: number; world: CesiumNS.Cartesian3; pin: StaticPin }[] = [];
+
+      let n = 0;
+      for (const [key, pin] of pinsRef.current) {
+        const world = pin.bb.position;
+        const dist = C.Cartesian3.distance(cam.positionWC, world);
+        if (pin.glyph === "stop" && dist > 900 && key !== selKey) {
+          pin.bb.show = false;
+          pin.visible = false;
+          pin.winX = Number.NaN;
+          pin.winY = Number.NaN;
+          continue;
+        }
+        if (pin.glyph === "station" && dist > 2800 && key !== selKey) {
+          pin.bb.show = false;
+          pin.visible = false;
+          pin.winX = Number.NaN;
+          pin.winY = Number.NaN;
+          continue;
         }
         const win = C.SceneTransforms.worldToWindowCoordinates(scene, world);
-        if (!win) {
-          bb.show = true;
-          return;
+        // Frustum / viewport culling: hide pins outside the screen viewport
+        if (!win || win.x < -60 || win.x > w + 60 || win.y < -60 || win.y > h + 60) {
+          pin.bb.show = false;
+          pin.visible = false;
+          pin.winX = Number.NaN;
+          pin.winY = Number.NaN;
+          continue;
         }
-        // Buses group only with buses, so they stay visible as buses among permits and closures; every other
-        // layer shares one ink count disc, so the city view does not turn into confetti. Ids are positions in
-        // the group's list, never feature ids, so a bus id and a pin number can never collide.
-        void colour;
-        void n;
-        const group = layer === "vehicles" ? "vehicles" : "other";
-        let l = layers.get(group);
-        if (!l) {
-          l = { colour: COLOURS.ink, items: [] };
-          layers.set(group, l);
+        pin.winX = win.x;
+        pin.winY = win.y;
+        if (pin.glyph === "stop" || pin.glyph === "station" || key === selKey || dist < prof.nearModelMetres) {
+          pin.bb.show = true;
+          pin.visible = true;
+          continue;
         }
-        l.items.push({ id: l.items.length, x: win.x, y: win.y, world, bb });
-      };
-      for (const [id, b] of busesRef.current) if (b.last) consider("vehicles", COLOURS.ink, id, `asset:${id}`, b.badge, b.badge.position);
-      let n = 0;
-      for (const [key, pin] of pinsRef.current) consider(pin.layer, pin.colour, n++, key, pin.bb, pin.bb.position);
-      let used = 0;
-      for (const l of layers.values()) {
-        const byId = new Map(l.items.map((it) => [it.id, it]));
-        // buses merge only when their badges would truly overlap
-        const radius = l === layers.get("vehicles") ? 34 : 60;
-        for (const g of clusterScreenPoints(l.items, radius)) {
-          const members = g.ids.map((id) => byId.get(id)!);
-          if (members.length === 1) {
-            members[0].bb.show = true;
-            continue;
-          }
-          for (const m of members) m.bb.show = false;
-          const centre = new C.Cartesian3();
-          for (const m of members) C.Cartesian3.add(centre, m.world, centre);
-          C.Cartesian3.divideByScalar(centre, members.length, centre);
-          let cb = clusters[used];
-          if (!cb) {
-            cb = billboards.add({ position: centre, verticalOrigin: C.VerticalOrigin.CENTER, disableDepthTestDistance: Number.POSITIVE_INFINITY, scale: 1 / PIXEL_RATIO });
-            clusters.push(cb);
-          }
-          cb.position = centre;
-          const hex = l.colour.replace("#", "");
-          cb.setImage(`cluster|${hex}|${members.length}`, image(`cluster|${hex}|${members.length}`, () => drawCluster(members.length, "", l.colour)));
-          cb.id = { kind: "cluster", count: members.length, at: C.Cartesian3.clone(centre) };
-          cb.show = true;
-          used++;
-        }
+        items.push({ id: n++, x: win.x, y: win.y, world, pin });
       }
-      for (let i = used; i < clusters.length; i++) clusters[i].show = false;
+
+      const byId = new Map(items.map((it) => [it.id, it]));
+      let used = 0;
+      for (const g of clusterScreenPoints(items, 60)) {
+        const members = g.ids.map((id) => byId.get(id)!);
+        if (members.length === 1) {
+          members[0].pin.bb.show = true;
+          members[0].pin.visible = true;
+          continue;
+        }
+        for (const m of members) {
+          m.pin.bb.show = false;
+          m.pin.visible = false;
+        }
+        const centre = new C.Cartesian3();
+        for (const m of members) C.Cartesian3.add(centre, m.world, centre);
+        C.Cartesian3.divideByScalar(centre, members.length, centre);
+        let entry = staticClusters[used];
+        if (!entry) {
+          entry = {
+            bb: billboards.add({ position: centre, verticalOrigin: C.VerticalOrigin.CENTER, disableDepthTestDistance: Number.POSITIVE_INFINITY, scale: 1 / PIXEL_RATIO }),
+            winX: Number.NaN,
+            winY: Number.NaN,
+            visible: false,
+          };
+          staticClusters.push(entry);
+        }
+        const cb = entry.bb;
+        cb.position = centre;
+        const clusterColour = members[0]?.pin.colour ?? COLOURS.ink;
+        const hex = clusterColour.replace("#", "").toLowerCase();
+        cb.setImage(`cluster|${hex}|${members.length}`, image(`cluster|${hex}|${members.length}`, () => drawCluster(members.length, "", clusterColour)));
+        cb.id = { kind: "cluster", count: members.length, at: C.Cartesian3.clone(centre) };
+        cb.show = true;
+        const cWin = C.SceneTransforms.worldToWindowCoordinates(scene, centre);
+        entry.winX = cWin ? cWin.x : Number.NaN;
+        entry.winY = cWin ? cWin.y : Number.NaN;
+        entry.visible = Boolean(cWin);
+        used++;
+      }
+      for (let i = used; i < staticClusters.length; i++) {
+        staticClusters[i].bb.show = false;
+        staticClusters[i].visible = false;
+      }
     };
-    scene.camera.changed.addEventListener(() => {
-      declutter();
+
+    declutterStaticRef.current = declutterStaticPins;
+
+    let cameraTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleDeclutter = () => {
+      if (!cameraTimer) {
+        cameraTimer = setTimeout(() => {
+          cameraTimer = null;
+          if (pointerDownRef.current) {
+            declutterBuses();
+          } else {
+            declutterStaticPins();
+            declutterBuses();
+          }
+          scene.requestRender();
+        }, 160);
+      }
+    };
+    scene.camera.changed.addEventListener(scheduleDeclutter);
+    scene.camera.moveEnd.addEventListener(() => {
+      if (cameraTimer) {
+        clearTimeout(cameraTimer);
+        cameraTimer = null;
+      }
+      declutterStaticPins();
+      declutterBuses();
       scene.requestRender();
     });
 
@@ -759,7 +1273,10 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
       const now = Date.now();
       const seen = new Set<number>();
       const sel = p.selectedKey;
+      const camPos = scene.camera.positionWC;
+      const modelLoadRadius = prof.midModelMetres * 1.25;
       let selectedPos: CesiumNS.Cartesian3 | null = null;
+
       for (const f of p.vehicles) {
         const pos = p.positionFor(f.id, now);
         if (!pos) continue;
@@ -769,57 +1286,84 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
           b = {
             near: null,
             mid: null,
+            modelsLoading: false,
             badge: billboards.add({ show: false, position: C.Cartesian3.ZERO, id: { kind: "asset", id: f.id } }),
-            far: billboards.add({ show: false, position: C.Cartesian3.ZERO, id: { kind: "asset", id: f.id } }),
             badgeKey: "",
             height: null,
             heightAt: 0,
+            triedTiles: -1,
             bearing: f.properties.bearing ?? 90,
+            matrixLon: Number.NaN,
+            matrixLat: Number.NaN,
+            matrixH: Number.NaN,
+            matrixBearing: Number.NaN,
             last: null,
+            winX: Number.NaN,
+            winY: Number.NaN,
+            visible: false,
           };
           busesRef.current.set(f.id, b);
-          const bb = b;
-          void makeModel(nearUrl, f.id, 0, prof.nearModelMetres).then((m) => (bb.near = m));
-          void makeModel(midUrl, f.id, prof.nearModelMetres, prof.midModelMetres).then((m) => (bb.mid = m));
           // one pin vocabulary in 3D: the badge at every distance, a little smaller far away
-          b.badge.scaleByDistance = new C.NearFarScalar(400, 1, 9000, 0.72);
-          b.far.show = false;
+          b.badge.scaleByDistance = badgeScaleByDistance;
         }
-        // heading from movement, else the reported bearing
-        if (b.last && (Math.abs(b.last.lon - pos.lon) > 1e-7 || Math.abs(b.last.lat - pos.lat) > 1e-7)) {
+        // heading from route-snapped bearing if given, else movement delta, else the reported bearing
+        if (typeof pos.bearing === "number" && Number.isFinite(pos.bearing)) {
+          b.bearing = ((pos.bearing % 360) + 360) % 360;
+        } else if (b.last && (Math.abs(b.last.lon - pos.lon) > 1e-7 || Math.abs(b.last.lat - pos.lat) > 1e-7)) {
           const dLon = (pos.lon - b.last.lon) * Math.cos(rad(pos.lat));
           b.bearing = (deg(Math.atan2(dLon, pos.lat - b.last.lat)) + 360) % 360;
         } else if (!b.last && typeof f.properties.bearing === "number") b.bearing = f.properties.bearing;
         b.last = pos;
-        const h = b.height ?? 0;
-        const position = C.Cartesian3.fromDegrees(pos.lon, pos.lat, h);
-        const hpr = new C.HeadingPitchRoll(rad(b.bearing - 90), 0, 0);
-        const frame = C.Transforms.headingPitchRollToFixedFrame(position, hpr);
+        const twinH = cleanTwinRef.current?.isActive() ? cleanTwinRef.current.groundHeightAt(pos.lon, pos.lat) : null;
+        const busH = twinH !== null ? twinH + 0.12 : (p.noIon ? 0 : (b.height ?? -18));
+        const position = C.Cartesian3.fromDegrees(pos.lon, pos.lat, busH);
+        const camDist = C.Cartesian3.distance(camPos, position);
         const isSel = sel === `asset:${f.id}`;
-        if (b.near) {
-          b.near.modelMatrix = frame;
-          b.near.silhouetteColor = C.Color.fromCssColorString("#f5b544");
-          b.near.silhouetteSize = isSel ? 3 : 0;
+
+        // Lazily instantiate glTF 3D models only for buses near enough to display them
+        if (camDist <= modelLoadRadius || isSel) {
+          loadBusModelsIfNear(f.id, b);
         }
-        if (b.mid) {
-          b.mid.modelMatrix = frame;
-          b.mid.silhouetteColor = C.Color.fromCssColorString("#f5b544");
-          b.mid.silhouetteSize = isSel ? 3 : 0;
+
+        if ((b.near || b.mid) && (camDist <= modelLoadRadius || isSel)) {
+          if (pos.lon !== b.matrixLon || pos.lat !== b.matrixLat || busH !== b.matrixH || b.bearing !== b.matrixBearing) {
+            scratchHpr.heading = rad(b.bearing - 90);
+            scratchHpr.pitch = 0;
+            scratchHpr.roll = 0;
+            const frame = C.Transforms.headingPitchRollToFixedFrame(position, scratchHpr);
+            if (b.near) b.near.modelMatrix = frame;
+            if (b.mid) b.mid.modelMatrix = frame;
+            b.matrixLon = pos.lon;
+            b.matrixLat = pos.lat;
+            b.matrixH = busH;
+            b.matrixBearing = b.bearing;
+          }
+          if (b.near) {
+            b.near.silhouetteColor = silhouetteColour;
+            b.near.silhouetteSize = isSel ? 3 : 0;
+          }
+          if (b.mid) {
+            b.mid.silhouetteColor = silhouetteColour;
+            b.mid.silhouetteSize = isSel ? 3 : 0;
+          }
         }
+
         const status = busStatus(f.properties.status, f.properties.delay_seconds);
         const route = f.properties.route_short_name;
-        const badgeKey = `${status}|${route}|${isSel}`;
+        const facingWest = b.bearing > 180;
+        const compact = Boolean(b.near) && camDist <= prof.nearModelMetres;
+        const badgeKey = `${status}|${route}|${isSel}|${facingWest ? "w" : "e"}|${compact ? "c" : "f"}`;
         if (b.badgeKey !== badgeKey) {
-          b.badge.setImage(`badge|${badgeKey}`, image(`badge|${badgeKey}`, () => drawBusBadge(status, route, isSel)));
+          b.badge.setImage(`badge|${badgeKey}`, image(`badge|${badgeKey}`, () => drawBusBadge(status, route, isSel, facingWest, compact, busRenderImage())));
           b.badge.scale = 1 / PIXEL_RATIO;
           b.badge.verticalOrigin = C.VerticalOrigin.BOTTOM;
           b.badge.disableDepthTestDistance = Number.POSITIVE_INFINITY;
           b.badgeKey = badgeKey;
         }
-        b.badge.position = C.Cartesian3.fromDegrees(pos.lon, pos.lat, h + 4.2);
+        b.badge.position = C.Cartesian3.fromDegrees(pos.lon, pos.lat, busH + 4.2);
         b.badge.show = true;
         // the selected bus is drawn in front of its neighbours and a quarter larger, as in 2D
-        b.badge.eyeOffset = isSel ? new C.Cartesian3(0, 0, -200) : C.Cartesian3.ZERO;
+        b.badge.eyeOffset = isSel ? selectedEyeOffset : C.Cartesian3.ZERO;
         b.badge.scale = (isSel ? 1.25 : 1) / PIXEL_RATIO;
         if (isSel) selectedPos = position;
       }
@@ -828,11 +1372,10 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
         if (b.near) scene.primitives.remove(b.near);
         if (b.mid) scene.primitives.remove(b.mid);
         billboards.remove(b.badge);
-        billboards.remove(b.far);
         busesRef.current.delete(id);
       }
       if (window.__globe3d) window.__globe3d.buses = busesRef.current.size;
-      declutter();
+      declutterBuses();
       // follow: keep the camera's angle and distance, move with the bus
       if (p.following && selectedPos) {
         const cam = scene.camera;
@@ -842,34 +1385,84 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
       }
       scene.requestRender();
     };
+
+    const nearScreen = (visible: boolean, x: number, y: number, mx: number, my: number, radiusPx: number, yOffsetPx: number): boolean => {
+      if (!visible || !Number.isFinite(x) || !Number.isFinite(y)) return false;
+      const dx = x - mx;
+      const dy = y + yOffsetPx - my;
+      return dx * dx + dy * dy <= radiusPx * radiusPx;
+    };
+
+    return (mx: number, my: number): boolean => {
+      for (const b of busesRef.current.values()) {
+        if (nearScreen(b.visible, b.winX, b.winY, mx, my, 24, -15)) return true;
+      }
+      for (const cb of busClusters) {
+        if (nearScreen(cb.visible, cb.winX, cb.winY, mx, my, 20, 0)) return true;
+      }
+      for (const pin of pinsRef.current.values()) {
+        if (nearScreen(pin.visible, pin.winX, pin.winY, mx, my, 20, -18)) return true;
+      }
+      for (const cb of staticClusters) {
+        if (nearScreen(cb.visible, cb.winX, cb.winY, mx, my, 20, 0)) return true;
+      }
+      return false;
+    };
   }
 
   /**
    * One height sample per GPS report: when a bus's newest report is newer than its height, ask the tiles once
-   * where the ground is there. Buses between reports reuse that height. On the plain globe the ground is 0 m.
+   * where the ground is there. Off-screen buses wait until tiles load or the camera moves over them.
    */
   function refreshHeights(all: boolean): void {
     const C = window.Cesium;
     const v = viewerRef.current;
     if (!C || !v) return;
     const p = propsRef.current;
-    if (p.noIon) {
+    const twinActive = Boolean(cleanTwinRef.current?.isActive());
+    if (p.noIon && !twinActive) {
       for (const b of busesRef.current.values()) b.height = 0;
       return;
     }
-    if (!tilesetRef.current || window.__globe3d?.firstFrameMs === null) return;
-    let budget = all ? 400 : 120;
+    const metrics = window.__globe3d;
+    if (!twinActive && (!tilesetRef.current || !metrics || metrics.firstFrameMs === null)) return;
+    if (!all && (pointerDownRef.current || cameraMovingRef.current)) return;
+
+    const currentTiles = metrics?.tilesLoaded ?? 0;
+    const w = v.scene.canvas.clientWidth;
+    const h = v.scene.canvas.clientHeight;
+    let budget = all ? 120 : 40;
+    const scratchCarto = new C.Cartographic();
+
     for (const f of p.vehicles) {
       const b = busesRef.current.get(f.id);
       const c = f.geometry?.coordinates as [number, number] | undefined;
       if (!b || !c) continue;
       const reportAt = Date.parse(f.properties.position_ts) || 0;
+      if (twinActive) {
+        const twinH = cleanTwinRef.current!.groundHeightAt(c[0], c[1]);
+        if (twinH !== null) {
+          b.height = twinH + 0.12;
+          b.heightAt = reportAt;
+          continue;
+        }
+      }
       if (b.height !== null && b.heightAt >= reportAt) continue;
+      if (b.triedTiles === currentTiles && b.heightAt === 0 && b.height !== null) continue;
+      if (!all && b.badge.position) {
+        const win = C.SceneTransforms.worldToWindowCoordinates(v.scene, b.badge.position);
+        if (!win || win.x < -120 || win.x > w + 120 || win.y < -120 || win.y > h + 120) {
+          if (b.height === null) b.height = -18;
+          continue;
+        }
+      }
       if (budget-- <= 0) break;
+      b.triedTiles = currentTiles;
       const objects = [b.near, b.mid].filter(Boolean) as object[];
-      const h = v.scene.sampleHeight(C.Cartographic.fromDegrees(c[0], c[1]), objects);
-      if (typeof h === "number" && Number.isFinite(h)) {
-        b.height = h;
+      C.Cartographic.fromDegrees(c[0], c[1], 0, scratchCarto);
+      const sampled = v.scene.sampleHeight(scratchCarto, objects);
+      if (typeof sampled === "number" && Number.isFinite(sampled)) {
+        b.height = sampled;
         b.heightAt = reportAt;
       } else if (b.height === null) {
         b.height = -18; // Halifax's geoid lies about 18 m below the ellipsoid: close enough until tiles arrive
@@ -887,8 +1480,11 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
     const b = id !== null ? busesRef.current.get(id) : undefined;
     const pin = key ? pinsRef.current.get(key) : undefined;
     let world: CesiumNS.Cartesian3 | null = null;
-    if (b && b.last) world = C.Cartesian3.fromDegrees(b.last.lon, b.last.lat, (b.height ?? 0) + 4.2);
-    else if (pin) world = pin.bb.position;
+    if (b && b.last) {
+      const twinH = cleanTwinRef.current?.isActive() ? cleanTwinRef.current.groundHeightAt(b.last.lon, b.last.lat) : null;
+      const popupH = twinH !== null ? twinH + 0.12 : (propsRef.current.noIon ? 0 : (b.height ?? -18));
+      world = C.Cartesian3.fromDegrees(b.last.lon, b.last.lat, popupH + 4.2);
+    } else if (pin) world = pin.bb.position;
     if (!world) {
       elp.style.visibility = "hidden";
       return;
@@ -949,7 +1545,7 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
 
   return (
     <div className="globe" aria-label={t("map.label3d")}>
-      <div ref={el} className="globe-canvas" />
+      <div ref={el} className="globe-canvas" onContextMenu={(e) => e.preventDefault()} />
       <div ref={creditsEl} className="globe-credits" />
       {props.popup ? (
         <div ref={popupEl} className="map-popup-anchor" style={{ visibility: "hidden" }}>
@@ -965,6 +1561,6 @@ const Globe3D = forwardRef<Globe3DHandle, Props>(function Globe3D(rawProps, ref)
       )}
     </div>
   );
-});
+}));
 
 export default Globe3D;

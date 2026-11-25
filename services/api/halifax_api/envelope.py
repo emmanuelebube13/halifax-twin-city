@@ -46,24 +46,66 @@ def newest(*times: dt.datetime | None) -> dt.datetime | None:
 class TTLCache:
     """Keeps computed answers for a few seconds so a burst of map requests costs one query."""
 
-    def __init__(self):
+    def __init__(self, maxsize: int = 256):
+        self._maxsize = maxsize
         self._data: dict[Any, tuple[float, Any]] = {}
+        self._expires: dict[Any, float] = {}
         self._lock = threading.Lock()
+        self._inflight: dict[Any, threading.Lock] = {}
+        self._inflight_refs: dict[Any, int] = {}
+
+    def _store(self, key, value, seconds: float) -> None:
+        now = time.monotonic()
+        with self._lock:
+            expired = [k for k, exp in self._expires.items() if now >= exp]
+            for k in expired:
+                self._expires.pop(k, None)
+                self._data.pop(k, None)
+            if self._maxsize > 0 and key not in self._data and len(self._data) >= self._maxsize:
+                oldest = min(self._data, key=lambda k: self._data[k][0])
+                self._data.pop(oldest, None)
+                self._expires.pop(oldest, None)
+            if self._maxsize > 0:
+                self._data[key] = (now, value)
+                if seconds > 0:
+                    self._expires[key] = now + seconds
+                else:
+                    self._expires.pop(key, None)
 
     def get(self, key, seconds: float, compute: Callable[[], Any]):
-        if seconds > 0:
-            with self._lock:
-                hit = self._data.get(key)
+        if seconds <= 0:
+            value = compute()
+            self._store(key, value, seconds)
+            return value
+        with self._lock:
+            hit = self._data.get(key)
             if hit and time.monotonic() - hit[0] < seconds:
                 return hit[1]
-        value = compute()
-        with self._lock:
-            self._data[key] = (time.monotonic(), value)
-        return value
+            key_lock = self._inflight.setdefault(key, threading.Lock())
+            self._inflight_refs[key] = self._inflight_refs.get(key, 0) + 1
+        try:
+            with key_lock:
+                with self._lock:
+                    hit = self._data.get(key)
+                    if hit and time.monotonic() - hit[0] < seconds:
+                        return hit[1]
+                value = compute()
+                self._store(key, value, seconds)
+                return value
+        finally:
+            with self._lock:
+                refs = self._inflight_refs.get(key, 0) - 1
+                if refs <= 0:
+                    self._inflight_refs.pop(key, None)
+                    if self._inflight.get(key) is key_lock:
+                        self._inflight.pop(key, None)
+                else:
+                    self._inflight_refs[key] = refs
 
     def clear(self):
         with self._lock:
             self._data.clear()
+            self._expires.clear()
 
 
 TIER_ORDER = {"Tier 1": 1, "Tier 2": 2, "Tier 3": 3}

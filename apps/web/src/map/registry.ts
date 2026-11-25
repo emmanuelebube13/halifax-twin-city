@@ -2,12 +2,12 @@
 // a layer with no entry still draws, with the generic square pin.
 
 import type { Feature, FeatureCollection, Geometry } from "../api/types";
-import { COLOURS } from "./pins";
+import { COLOURS, type Glyph } from "./pins";
 
 export interface LayerLook {
   /** bus: the live vehicles; route and stop: transit context; event: any event or location pin layer. */
   kind: "bus" | "route" | "stop" | "event";
-  glyph: "triangle" | "house" | "square" | "dot";
+  glyph: Glyph;
   colour: string;
   /** Context layers are drawn for a story but not counted as "live events" in City view. */
   context: boolean;
@@ -21,11 +21,15 @@ const DEFAULT_LOOK: LayerLook = { kind: "event", glyph: "dot", colour: COLOURS.g
 export const REGISTRY: Record<string, Partial<LayerLook>> = {
   vehicles: { kind: "bus", cluster: true },
   routes: { kind: "route", colour: COLOURS.route, context: true, cluster: false },
-  stops: { kind: "stop", colour: COLOURS.ink, context: true, cluster: false, minzoom: 14 },
+  stops: { kind: "stop", glyph: "stop", colour: COLOURS.route, context: true, cluster: false, minzoom: 14 },
+  "bunching-stops": { kind: "event", glyph: "bunching", colour: COLOURS.late, cluster: true, minzoom: 11 },
+  "stop-wait": { kind: "event", glyph: "clock", colour: COLOURS.route, cluster: true, minzoom: 11 },
   "road-closures": { kind: "event", glyph: "triangle", colour: COLOURS.closure, cluster: true, dashed: true },
+  "road-closures-all": { kind: "event", glyph: "triangle", colour: COLOURS.closure, cluster: true, dashed: true },
   "road-closures-upcoming": { kind: "event", glyph: "triangle", colour: COLOURS.closure, cluster: true, dashed: true },
   "building-permits": { kind: "event", glyph: "house", colour: COLOURS.permit, cluster: true },
   "new-units": { kind: "event", glyph: "house", colour: COLOURS.permit, cluster: true },
+  "completed-permits": { kind: "event", glyph: "house", colour: COLOURS.permit, cluster: true },
 };
 
 export function lookFor(layer: string): LayerLook {
@@ -71,16 +75,31 @@ export function anchorOf(g: Geometry | null): [number, number] | null {
 /** Pins for a layer: one point per feature, carrying what the map needs to draw and select it. */
 export function pinCollection(fc: FeatureCollection | null, layer: string, selectedKey: string | null) {
   const look = lookFor(layer);
+  const colourHex = look.colour.replace("#", "").toLowerCase();
   const features = [];
   for (const f of fc?.features ?? []) {
     const at = anchorOf(f.geometry);
     if (!at) continue;
     const key = `${f.properties.kind}:${f.properties.id}`;
     const sel = key === selectedKey;
+    const isStation =
+      layer === "stops" &&
+      (f.properties.stop_kind_code === "Station" ||
+        f.properties.shelter_flag === true ||
+        /terminal|station/i.test(String(f.properties.stop_name ?? f.properties.name ?? "")));
+    const glyph: Glyph = layer === "stops" ? (isStation ? "station" : "stop") : look.glyph;
     features.push({
       type: "Feature" as const,
       geometry: { type: "Point" as const, coordinates: at },
-      properties: { key, kind: f.properties.kind, id: f.properties.id, layer, icon: `glyph-${look.glyph}${sel ? "-sel" : ""}`, sel: sel ? 1 : 0 },
+      properties: {
+        key,
+        kind: f.properties.kind,
+        id: f.properties.id,
+        layer,
+        glyph,
+        icon: `glyph-${glyph}-${colourHex}${sel ? "-sel" : ""}`,
+        sel: sel ? 1 : 0,
+      },
     });
   }
   return { type: "FeatureCollection" as const, features };

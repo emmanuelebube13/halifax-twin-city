@@ -3,8 +3,9 @@
 --
 -- A segment is two consecutive stops of a route (stop sequence n to n + 1) in one direction. Its recorded
 -- travel time is the arrival at the second stop minus the departure from the first (the arrival when no
--- departure was reported); its planned time comes from the schedule. Distance is the straight line between
--- the two stops (route shapes are not cut into segments yet), so speeds are straight-line speeds.
+-- departure was reported); its planned time comes from the schedule. Speed uses the route-path distance
+-- along the route shape when available as a single LineString with both stops within 80 m in the forward
+-- direction, falling back to the straight-line distance between the two stops otherwise.
 --
 -- gold.segment_speed(from, to, slow ratio): per segment over service days from..to. A day counts as slow
 -- when that day's median recorded time is above p_slow_ratio x the median planned time (default 1.2, an
@@ -78,21 +79,52 @@ days AS (
 )
 SELECT o.route_asset_id, o.route_short_name, o.direction_code,
        o.from_stop_asset_id, o.from_stop_name, o.to_stop_asset_id, o.to_stop_name,
-       round(ST_Distance(lf.location_geometry::geography, lt.location_geometry::geography)::numeric, 1),
+       round(dist.straight_m::numeric, 1),
        d.days_observed,
        o.observation_count,
        round(o.median_actual::numeric, 1),
        round(o.median_scheduled::numeric, 1),
-       round((ST_Distance(lf.location_geometry::geography, lt.location_geometry::geography) / o.median_actual * 3.6)::numeric, 1),
+       round((dist.route_m / o.median_actual * 3.6)::numeric, 1),
        d.slow_days,
        round(d.slow_days::numeric / d.days_observed, 4)
   FROM overall o
   JOIN days d USING (route_asset_id, direction_code, from_stop_asset_id, to_stop_asset_id)
-  JOIN silver.asset af    ON af.asset_id = o.from_stop_asset_id
-  JOIN silver.location lf ON lf.location_id = af.location_id
-  JOIN silver.asset at    ON at.asset_id = o.to_stop_asset_id
-  JOIN silver.location lt ON lt.location_id = at.location_id
+  JOIN silver.asset af       ON af.asset_id = o.from_stop_asset_id
+  JOIN silver.location lf    ON lf.location_id = af.location_id
+  JOIN silver.asset at       ON at.asset_id = o.to_stop_asset_id
+  JOIN silver.location lt    ON lt.location_id = at.location_id
+  LEFT JOIN silver.route rt  ON rt.asset_id = o.route_asset_id
+  LEFT JOIN silver.asset ar  ON ar.asset_id = rt.asset_id
+  LEFT JOIN silver.location rl ON rl.location_id = ar.location_id
+ CROSS JOIN LATERAL (
+       SELECT ST_Distance(lf.location_geometry::geography, lt.location_geometry::geography) AS straight_m,
+              CASE
+                WHEN rl.location_geometry IS NOT NULL
+                 AND ST_GeometryType(rl.location_geometry) = 'ST_LineString'
+                THEN CASE
+                  WHEN ST_Distance(rl.location_geometry::geography, lf.location_geometry::geography) <= 80
+                   AND ST_Distance(rl.location_geometry::geography, lt.location_geometry::geography) <= 80
+                   AND ST_LineLocatePoint(rl.location_geometry, lf.location_geometry)
+                       < ST_LineLocatePoint(rl.location_geometry, lt.location_geometry)
+                  THEN coalesce(
+                         nullif(
+                           ST_Length(
+                             ST_LineSubstring(
+                               rl.location_geometry,
+                               ST_LineLocatePoint(rl.location_geometry, lf.location_geometry),
+                               ST_LineLocatePoint(rl.location_geometry, lt.location_geometry)
+                             )::geography
+                           ),
+                           0
+                         ),
+                         ST_Distance(lf.location_geometry::geography, lt.location_geometry::geography)
+                       )
+                  ELSE ST_Distance(lf.location_geometry::geography, lt.location_geometry::geography)
+                END
+                ELSE ST_Distance(lf.location_geometry::geography, lt.location_geometry::geography)
+              END AS route_m
+ ) dist
 $$;
 
 COMMENT ON FUNCTION gold.segment_speed(date, date, numeric) IS
-  'TRN-Q11: recorded and planned travel time, straight-line speed and share of slow days for each stop-to-stop segment of a route. Read-only.';
+  'TRN-Q11: recorded and planned travel time, route-path speed (with straight-line fallback) and share of slow days for each stop-to-stop segment of a route. Read-only.';

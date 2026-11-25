@@ -180,6 +180,9 @@ export interface ReplayTrack {
   id: number;
   label: string | null;
   route_short_name: string | null;
+  headsign?: string | null;
+  status?: BusStatus;
+  delay_seconds?: number | null;
   positions: [number, number, number][];
 }
 
