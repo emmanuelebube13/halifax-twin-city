@@ -1,10 +1,14 @@
 // Tests for the 3D view's pure parts: device profiles, camera limits, 2D and 3D place conversion, the view in
 // the URL, and the fallback decision.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CAMERA_LIMITS, clampCameraPosition, clampOrbit, orbitHeight, orbitToPlace, placeToOrbit, rangeForZoom, zoomForRange } from "./camera";
 import { PROFILES, chooseProfile, resolutionScaleFor, type DeviceHints } from "./profile";
 import { threeDDecision } from "./threeD";
 import { DEFAULT_VIEW, parseView, serializeView } from "./url";
+import { decimateLine } from "../map/declutter";
+import { lookFor } from "../map/registry";
 
 const desk: DeviceHints = { renderer: "ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 Direct3D11 vs_5_0 ps_5_0, D3D11)", deviceMemory: 8, hardwareConcurrency: 24, screenWidth: 2560, screenHeight: 1440, coarsePointer: false, devicePixelRatio: 1 };
 
@@ -94,5 +98,48 @@ describe("3D fallback", () => {
   });
   it("lets the developer globe (no ion) run without a token", () => {
     expect(threeDDecision({ ...ok, three_d_available: false, cesium_ion_token: null, noIon: true }).available).toBe(true);
+  });
+});
+
+describe("3D transportation sector (S04) performance and mouse controls", () => {
+  it("registers all transportation and permit layers with explicit look and clustering", () => {
+    expect(lookFor("road-closures-all")).toMatchObject({ kind: "event", glyph: "triangle", dashed: true, cluster: true });
+    expect(lookFor("bunching-stops")).toMatchObject({ kind: "event", cluster: true, minzoom: 11 });
+    expect(lookFor("stop-wait")).toMatchObject({ kind: "event", cluster: true, minzoom: 11 });
+    expect(lookFor("completed-permits")).toMatchObject({ kind: "event", glyph: "house", cluster: true });
+  });
+
+  it("decimates dense polyline vertices while preserving endpoints", () => {
+    const dense = [
+      [-63.5800, 44.6500],
+      [-63.58002, 44.65001],
+      [-63.58004, 44.65002],
+      [-63.5810, 44.6510],
+      [-63.58101, 44.65101],
+      [-63.5825, 44.6520],
+    ];
+    const simplified = decimateLine(dense, 0.0005);
+    expect(simplified[0]).toEqual(dense[0]);
+    expect(simplified[simplified.length - 1]).toEqual(dense[dense.length - 1]);
+    expect(simplified.length).toBeLessThan(dense.length);
+    expect(decimateLine([[-63.58, 44.65], [-63.58001, 44.65001]], 0.001)).toHaveLength(2);
+  });
+
+  it("allows street-level zoom in downtown Halifax without clamping upward prematurely", () => {
+    // Downtown Halifax geoid is ~-18 m ellipsoid height; 10 m ellipsoid height (~28 m above street) must not be clamped up
+    expect(clampCameraPosition({ lon: -63.58, lat: 44.65, height: 10 })).toBeNull();
+    expect(CAMERA_LIMITS.minRange).toBeLessThanOrEqual(30);
+  });
+
+  it("configures Cesium 3D Tiles camera panning without globe, avoids mousemove scene.pick stalls, and decouples 1s clock", () => {
+    const globe = readFileSync(join(__dirname, "..", "map", "Globe3D.tsx"), "utf8");
+    expect(globe).toContain("globe: p.noIon ? undefined : false");
+    expect(globe).toContain("C.CameraEventType.RIGHT_DRAG");
+    // MOUSE_MOVE must never call synchronous WebGL scene.pick
+    const mouseMoveBlock = globe.slice(globe.indexOf("isOverInteractive(") - 400, globe.indexOf("C.ScreenSpaceEventType.MOUSE_MOVE"));
+    expect(mouseMoveBlock).not.toContain("scene.pick(");
+
+    const app = readFileSync(join(__dirname, "..", "App.tsx"), "utf8");
+    expect(app).toContain("const rawLayers = useMemo(");
   });
 });

@@ -3,7 +3,7 @@
 // story-specific code. Buses are redrawn on a 10 Hz clock so they glide; with reduced motion they are drawn
 // only when new reports arrive.
 
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type ReactNode } from "react";
+import { forwardRef, memo, useEffect, useImperativeHandle, useRef, useState, type ReactNode } from "react";
 import maplibregl, { type GeoJSONSource, type Map as MLMap, type MapGeoJSONFeature } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Protocol } from "pmtiles";
@@ -12,7 +12,7 @@ import type { Place } from "../lib/camera";
 import { t } from "../i18n";
 import { busStatus } from "../lib/status";
 import { basemapAvailable, fallbackStyle, harbourStyle } from "./basemap";
-import { COLOURS, PIXEL_RATIO, buildPinImages, busImageId, busRenderImage, drawBusPin, drawCluster, parseBusImageId, type PinImage } from "./pins";
+import { COLOURS, PIXEL_RATIO, buildPinImages, busImageId, busRenderImage, drawBusPin, drawCluster, drawGlyphPin, parseBusImageId, type Glyph, type PinImage } from "./pins";
 import { lookFor, pinCollection } from "./registry";
 
 let protocolAdded = false;
@@ -35,7 +35,7 @@ export interface MapLayerInput {
 
 export interface VehicleInput {
   features: Feature<VehicleProperties>[];
-  positionFor: (id: number, now: number) => { lon: number; lat: number } | null;
+  positionFor: (id: number, now: number) => { lon: number; lat: number; bearing?: number } | null;
   dim: boolean;
 }
 
@@ -79,7 +79,7 @@ interface Props {
 
 const VEH_SRC = "veh";
 
-export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref) {
+export const MapView = memo(forwardRef<MapHandle, Props>(function MapView(props, ref) {
   const container = useRef<HTMLDivElement>(null);
   const popupEl = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
@@ -87,6 +87,10 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
   const propsRef = useRef(props);
   propsRef.current = props;
   const pinPoints = useRef(new Map<string, [number, number]>());
+  const pinLayerRef = useRef(new Map<string, string>());
+  const lastFcRef = useRef(new Map<string, FeatureCollection | null>());
+  const lastPinSelRef = useRef(new Map<string, string | null>());
+  const prevSelectedKeyRef = useRef<string | null>(null);
   const pinImages = useRef<PinImage[] | null>(null);
   const installed = useRef(new Set<string>());
 
@@ -95,6 +99,8 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
     ensureProtocol();
     let cancelled = false;
     let map: MLMap | null = null;
+    let hoverRaf: number | null = null;
+    let pendingPoint: { x: number; y: number } | null = null;
     (async () => {
       const ok = await basemapAvailable();
       if (cancelled || !container.current) return;
@@ -135,29 +141,58 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
           map.addImage(e.id, g.getImageData(0, 0, c.width, c.height), { pixelRatio: PIXEL_RATIO });
           return;
         }
-        const m = /^cluster-([0-9a-f]{6})-(\d+)$/.exec(e.id);
-        if (!m) return;
-        const c = drawCluster(Number(m[2]), "", `#${m[1]}`);
-        const g = c.getContext("2d") as CanvasRenderingContext2D;
-        map.addImage(e.id, g.getImageData(0, 0, c.width, c.height), { pixelRatio: PIXEL_RATIO });
+        const m = /^cluster-(?:(bus)-)?([0-9a-f]{6})-(\d+)$/.exec(e.id);
+        if (m) {
+          const c = drawCluster(Number(m[3]), m[1] ?? "", `#${m[2]}`);
+          const g = c.getContext("2d") as CanvasRenderingContext2D;
+          map.addImage(e.id, g.getImageData(0, 0, c.width, c.height), { pixelRatio: PIXEL_RATIO });
+          return;
+        }
+        const gm = /^glyph-(triangle|house|square|dot|stop|station|bunching|clock)(?:-([0-9a-f]{6}))?(-sel)?$/.exec(e.id);
+        if (gm) {
+          const glyph = gm[1] as Glyph;
+          const fallbackColour =
+            glyph === "triangle"
+              ? COLOURS.closure
+              : glyph === "house"
+                ? COLOURS.permit
+                : glyph === "bunching"
+                  ? COLOURS.late
+                  : glyph === "clock" || glyph === "stop" || glyph === "station"
+                    ? COLOURS.route
+                    : COLOURS.generic;
+          const c = drawGlyphPin(glyph, gm[2] ? `#${gm[2]}` : fallbackColour, !!gm[3]);
+          const g = c.getContext("2d") as CanvasRenderingContext2D;
+          map.addImage(e.id, g.getImageData(0, 0, c.width, c.height), { pixelRatio: PIXEL_RATIO });
+        }
       });
       map.on("style.load", async () => {
         if (!map) return;
         if (!pinImages.current) pinImages.current = await buildPinImages();
         for (const p of pinImages.current) if (!map.hasImage(p.id)) map.addImage(p.id, p.data, { pixelRatio: PIXEL_RATIO });
         installed.current.clear();
+        lastFcRef.current.clear();
+        lastPinSelRef.current.clear();
         setStyleReady((n) => n + 1);
       });
       map.on("click", (e) => handleClick(e.point));
       map.on("mousemove", (e) => {
-        if (!map) return;
-        const hit = queryHit(map, e.point);
-        map.getCanvas().style.cursor = hit ? "pointer" : "";
+        if (!map || map.isMoving() || map.isEasing()) return;
+        pendingPoint = { x: e.point.x, y: e.point.y };
+        if (hoverRaf !== null) return;
+        hoverRaf = requestAnimationFrame(() => {
+          hoverRaf = null;
+          if (cancelled || !map || !pendingPoint || map.isMoving() || map.isEasing()) return;
+          const hit = queryHit(map, pendingPoint);
+          const nextCursor = hit ? "pointer" : "";
+          if (map.getCanvas().style.cursor !== nextCursor) map.getCanvas().style.cursor = nextCursor;
+        });
       });
       map.on("move", () => placePopup());
     })();
     return () => {
       cancelled = true;
+      if (hoverRaf !== null) cancelAnimationFrame(hoverRaf);
       map?.remove();
       mapRef.current = null;
     };
@@ -186,7 +221,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
     if (!map.style) return [];
     const ids = ["veh-pin", "veh-cluster"];
     for (const name of installed.current) {
-      ids.push(`p-${name}-pin`, `p-${name}-cluster`, `d-${name}-line`, `d-${name}-fill`, `d-${name}-circle`);
+      ids.push(`p-${name}-pin`, `p-${name}-station`, `p-${name}-cluster`, `d-${name}-line`, `d-${name}-fill`, `d-${name}-circle`);
     }
     return ids.filter((id) => map.getLayer(id));
   }
@@ -223,59 +258,161 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
     propsRef.current.onSelect({ kind: p.kind as Kind, id: Number(p.id), layer });
   }
 
-  // ---- install and update data layers
+  // ---- install and update data layers (only rebuild sources when FeatureCollection ref changes)
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !styleReady || !map.style) return;
+    if (!map || !styleReady || !map.style || props.threeD || props.hidden) return;
     const wanted = new Set(props.layers.map((l) => l.name));
+    const selKey = propsRef.current.selectedKey;
+    const clearLayerPins = (layerName: string) => {
+      for (const [k, owner] of pinLayerRef.current) {
+        if (owner === layerName) {
+          pinLayerRef.current.delete(k);
+          pinPoints.current.delete(k);
+        }
+      }
+    };
+    const recordLayerPins = (layerName: string, pins: ReturnType<typeof pinCollection>) => {
+      clearLayerPins(layerName);
+      for (const f of pins.features) {
+        pinPoints.current.set(f.properties.key, f.geometry.coordinates as [number, number]);
+        pinLayerRef.current.set(f.properties.key, layerName);
+      }
+    };
     // remove layers no longer drawn
     for (const name of [...installed.current]) {
       if (!wanted.has(name)) {
-        for (const id of [`p-${name}-pin`, `p-${name}-cluster`, `d-${name}-line`, `d-${name}-fill`, `d-${name}-circle`]) {
+        for (const id of [`p-${name}-pin`, `p-${name}-station`, `p-${name}-cluster`, `d-${name}-line`, `d-${name}-fill`, `d-${name}-circle`]) {
           if (map.getLayer(id)) map.removeLayer(id);
         }
         for (const id of [`p-${name}`, `d-${name}`]) if (map.getSource(id)) map.removeSource(id);
         installed.current.delete(name);
+        lastFcRef.current.delete(name);
+        lastPinSelRef.current.delete(name);
+        clearLayerPins(name);
       }
     }
     for (const l of props.layers) {
       const look = lookFor(l.name);
-      const raw = (l.fc ?? { type: "FeatureCollection", features: [] }) as unknown as GeoJSON.FeatureCollection;
-      if (!installed.current.has(l.name)) {
+      const isNew = !installed.current.has(l.name);
+      const fcChanged = lastFcRef.current.get(l.name) !== l.fc;
+      if (isNew) {
+        const raw = (l.fc ?? { type: "FeatureCollection", features: [] }) as unknown as GeoJSON.FeatureCollection;
         map.addSource(`d-${l.name}`, { type: "geojson", data: raw, promoteId: "id" });
         const before = map.getLayer("veh-cluster") ? "veh-cluster" : undefined;
         if (look.kind === "route") {
           map.addLayer({ id: `d-${l.name}-line`, type: "line", source: `d-${l.name}`, layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": look.colour, "line-width": ["interpolate", ["linear"], ["zoom"], 11, 1, 14, 2, 17, 4] } }, firstDataLayer(map) ?? before);
         } else if (look.kind === "stop") {
-          map.addLayer({ id: `d-${l.name}-circle`, type: "circle", source: `d-${l.name}`, minzoom: look.minzoom, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 14, 3, 17, 6], "circle-color": "#ffffff", "circle-stroke-color": COLOURS.ink, "circle-stroke-width": 1.5 } }, before);
+          const pins = pinCollection(l.fc, l.name, selKey);
+          map.addSource(`p-${l.name}`, { type: "geojson", data: pins, cluster: false });
+          map.addLayer(
+            {
+              id: `p-${l.name}-station`,
+              type: "symbol",
+              source: `p-${l.name}`,
+              filter: ["==", ["get", "glyph"], "station"],
+              minzoom: 12,
+              layout: {
+                "icon-image": ["get", "icon"],
+                "icon-anchor": "bottom",
+                "icon-allow-overlap": true,
+                "symbol-sort-key": ["get", "sel"],
+                "icon-size": ["case", ["==", ["get", "sel"], 1], 1.2, 1],
+              },
+            },
+            before,
+          );
+          map.addLayer(
+            {
+              id: `p-${l.name}-pin`,
+              type: "symbol",
+              source: `p-${l.name}`,
+              filter: ["!=", ["get", "glyph"], "station"],
+              minzoom: look.minzoom,
+              layout: {
+                "icon-image": ["get", "icon"],
+                "icon-anchor": "bottom",
+                "icon-allow-overlap": true,
+                "symbol-sort-key": ["get", "sel"],
+                "icon-size": ["case", ["==", ["get", "sel"], 1], 1.2, 1],
+              },
+            },
+            before,
+          );
+          recordLayerPins(l.name, pins);
+          lastPinSelRef.current.set(l.name, selKey);
         } else {
           map.addLayer({ id: `d-${l.name}-fill`, type: "fill", source: `d-${l.name}`, filter: ["==", ["geometry-type"], "Polygon"], paint: { "fill-color": look.colour, "fill-opacity": 0.18 } }, before);
           map.addLayer({ id: `d-${l.name}-line`, type: "line", source: `d-${l.name}`, filter: ["in", ["geometry-type"], ["literal", ["LineString", "MultiLineString"]]], layout: { "line-cap": "round" }, paint: { "line-color": look.colour, "line-width": ["interpolate", ["linear"], ["zoom"], 11, 2.5, 16, 6], ...(look.dashed ? { "line-dasharray": [1.5, 1] } : {}) } }, before);
-          map.addSource(`p-${l.name}`, { type: "geojson", data: pinCollection(l.fc, l.name, props.selectedKey), cluster: look.cluster, clusterMaxZoom: 14, clusterRadius: 40 });
+          const pins = pinCollection(l.fc, l.name, selKey);
+          map.addSource(`p-${l.name}`, { type: "geojson", data: pins, cluster: look.cluster, clusterMaxZoom: 14, clusterRadius: 40 });
           const hex = look.colour.replace("#", "").toLowerCase();
           map.addLayer({ id: `p-${l.name}-cluster`, type: "symbol", source: `p-${l.name}`, filter: ["has", "point_count"], layout: { "icon-image": ["concat", `cluster-${hex}-`, ["to-string", ["get", "point_count"]]], "icon-allow-overlap": true } }, before);
           map.addLayer({ id: `p-${l.name}-pin`, type: "symbol", source: `p-${l.name}`, filter: ["!", ["has", "point_count"]], minzoom: look.minzoom, layout: { "icon-image": ["get", "icon"], "icon-anchor": "bottom", "icon-allow-overlap": true, "symbol-sort-key": ["get", "sel"], "icon-size": ["case", ["==", ["get", "sel"], 1], 1.2, 1] } }, before);
+          recordLayerPins(l.name, pins);
+          lastPinSelRef.current.set(l.name, selKey);
         }
         installed.current.add(l.name);
-      } else {
+        lastFcRef.current.set(l.name, l.fc);
+      } else if (fcChanged) {
+        const raw = (l.fc ?? { type: "FeatureCollection", features: [] }) as unknown as GeoJSON.FeatureCollection;
         (map.getSource(`d-${l.name}`) as GeoJSONSource | undefined)?.setData(raw);
-        (map.getSource(`p-${l.name}`) as GeoJSONSource | undefined)?.setData(pinCollection(l.fc, l.name, props.selectedKey));
-      }
-      // remember pin positions for the popup
-      for (const f of pinCollection(l.fc, l.name, null).features) pinPoints.current.set(f.properties.key, f.geometry.coordinates as [number, number]);
-      const op = l.dim ? 0.4 : 1;
-      for (const id of [`p-${l.name}-pin`, `p-${l.name}-cluster`]) if (map.getLayer(id)) map.setPaintProperty(id, "icon-opacity", op);
-      if (map.getLayer(`d-${l.name}-line`)) {
-        const hr = props.highlightRoute;
-        const routeOp = look.kind === "route" ? (hr ? ["case", ["==", ["get", "route_short_name"], hr], 1, props.routeFilter ? 0.15 : 0.35] : 0.55) : 0.9;
-        map.setPaintProperty(`d-${l.name}-line`, "line-opacity", l.dim ? 0.35 : (routeOp as never));
-        if (look.kind === "route") {
-          const w = (n: number) => (hr ? ["case", ["==", ["get", "route_short_name"], hr], n * 2.4, n] : n);
-          map.setPaintProperty(`d-${l.name}-line`, "line-width", ["interpolate", ["linear"], ["zoom"], 11, w(1) as never, 14, w(1.8) as never, 17, w(3.5) as never] as never);
+        if (look.kind !== "route") {
+          const pins = pinCollection(l.fc, l.name, selKey);
+          (map.getSource(`p-${l.name}`) as GeoJSONSource | undefined)?.setData(pins);
+          recordLayerPins(l.name, pins);
+          lastPinSelRef.current.set(l.name, selKey);
         }
+        lastFcRef.current.set(l.name, l.fc);
+      }
+      const op = l.dim ? 0.4 : 1;
+      for (const id of [`p-${l.name}-pin`, `p-${l.name}-station`, `p-${l.name}-cluster`]) if (map.getLayer(id)) map.setPaintProperty(id, "icon-opacity", op);
+    }
+    prevSelectedKeyRef.current = selKey;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.layers, !!props.threeD, props.hidden, styleReady]);
+
+  // ---- pin selection updates only the previous and newly selected pin's layer
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !styleReady || !map.style || props.threeD || props.hidden) return;
+    const prev = prevSelectedKeyRef.current;
+    const next = props.selectedKey;
+    if (prev === next) return;
+    prevSelectedKeyRef.current = next;
+    const affected = new Set<string>();
+    const prevLayer = prev ? pinLayerRef.current.get(prev) : undefined;
+    const nextLayer = next ? pinLayerRef.current.get(next) : undefined;
+    if (prevLayer) affected.add(prevLayer);
+    if (nextLayer) affected.add(nextLayer);
+    for (const name of affected) {
+      if (!installed.current.has(name) || lookFor(name).kind === "route") continue;
+      if (lastPinSelRef.current.get(name) === next) continue;
+      const l = propsRef.current.layers.find((x) => x.name === name);
+      if (!l) continue;
+      (map.getSource(`p-${name}`) as GeoJSONSource | undefined)?.setData(pinCollection(l.fc, l.name, next));
+      lastPinSelRef.current.set(name, next);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.selectedKey, !!props.threeD, props.hidden, styleReady]);
+
+  // ---- route highlight and dim paint properties
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !styleReady || !map.style || props.threeD || props.hidden) return;
+    const hr = props.highlightRoute;
+    for (const l of props.layers) {
+      if (!map.getLayer(`d-${l.name}-line`)) continue;
+      const look = lookFor(l.name);
+      const routeOp = look.kind === "route" ? (hr ? ["case", ["==", ["get", "route_short_name"], hr], 1, props.routeFilter ? 0.15 : 0.35] : 0.55) : 0.9;
+      map.setPaintProperty(`d-${l.name}-line`, "line-opacity", l.dim ? 0.35 : (routeOp as never));
+      if (look.kind === "route") {
+        const w = (n: number) => (hr ? ["case", ["==", ["get", "route_short_name"], hr], n * 2.4, n] : n);
+        map.setPaintProperty(`d-${l.name}-line`, "line-width", ["interpolate", ["linear"], ["zoom"], 11, w(1) as never, 14, w(1.8) as never, 17, w(3.5) as never] as never);
       }
     }
-  }, [props.layers, props.selectedKey, props.routeFilter, props.highlightRoute, styleReady]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.layers, props.routeFilter, props.highlightRoute, !!props.threeD, props.hidden, styleReady]);
 
   // ---- vehicles
   useEffect(() => {
@@ -288,7 +425,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
     }
     if (!map.getSource(VEH_SRC)) {
       map.addSource(VEH_SRC, { type: "geojson", data: { type: "FeatureCollection", features: [] }, cluster: true, clusterMaxZoom: 13, clusterRadius: 44 });
-      map.addLayer({ id: "veh-cluster", type: "symbol", source: VEH_SRC, filter: ["has", "point_count"], layout: { "icon-image": ["concat", "cluster-13232e-", ["to-string", ["get", "point_count"]]], "icon-allow-overlap": true } });
+      map.addLayer({ id: "veh-cluster", type: "symbol", source: VEH_SRC, filter: ["has", "point_count"], layout: { "icon-image": ["concat", "cluster-bus-13232e-", ["to-string", ["get", "point_count"]]], "icon-allow-overlap": true } });
       map.addLayer({
         id: "veh-pin",
         type: "symbol",
@@ -305,12 +442,27 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
     }
     map.setPaintProperty("veh-pin", "icon-opacity", props.vehicles.dim ? 0.4 : 1);
     map.setPaintProperty("veh-cluster", "icon-opacity", props.vehicles.dim ? 0.4 : 1);
-    drawVehicles();
-    if (!props.glide) return;
-    const id = setInterval(drawVehicles, 100);
-    return () => clearInterval(id);
+    if (props.threeD || props.hidden) return;
+    if (typeof document === "undefined" || !document.hidden) drawVehicles();
+    const onVis = () => {
+      if (!document.hidden) drawVehicles();
+    };
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVis);
+    if (!props.glide) {
+      return () => {
+        if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVis);
+      };
+    }
+    const id = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      drawVehicles();
+    }, 100);
+    return () => {
+      clearInterval(id);
+      if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVis);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.vehicles, props.selectedKey, props.routeFilter, props.glide, styleReady]);
+  }, [props.vehicles, props.selectedKey, props.routeFilter, props.glide, !!props.threeD, props.hidden, styleReady]);
 
   const lastBearing = useRef(new Map<number, number>());
   const lastPos = useRef(new Map<number, { lon: number; lat: number }>());
@@ -329,10 +481,12 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
       if (rf && p.route_short_name !== rf) continue;
       const pos = v.positionFor(f.id, now);
       if (!pos) continue;
-      // face the way the bus is moving; fall back to the reported bearing
+      // face the way the bus is moving; prefer route-snapped bearing, then movement delta, then reported bearing
       const prev = lastPos.current.get(f.id);
       let bearing = lastBearing.current.get(f.id) ?? p.bearing ?? 90;
-      if (prev && (Math.abs(prev.lon - pos.lon) > 1e-6 || Math.abs(prev.lat - pos.lat) > 1e-6)) {
+      if (typeof pos.bearing === "number" && Number.isFinite(pos.bearing)) {
+        bearing = ((pos.bearing % 360) + 360) % 360;
+      } else if (prev && (Math.abs(prev.lon - pos.lon) > 1e-6 || Math.abs(prev.lat - pos.lat) > 1e-6)) {
         bearing = (Math.atan2(pos.lon - prev.lon, pos.lat - prev.lat) * 180) / Math.PI;
         bearing = (bearing + 360) % 360;
       } else if (!prev && typeof p.bearing === "number") bearing = p.bearing;
@@ -460,7 +614,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
       {props.children}
     </div>
   );
-});
+}));
 
 function firstDataLayer(map: MLMap): string | undefined {
   const layers = map.getStyle().layers ?? [];

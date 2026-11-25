@@ -40,30 +40,67 @@ export function usePoll<T>(
     const ctrl = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     let alive = true;
+    let inFlight = false;
+    let lastRunAt = 0;
+
+    const scheduleNext = () => {
+      if (!alive || !intervalMs || document.hidden) return;
+      if (timer) clearTimeout(timer);
+      const elapsed = lastRunAt ? Date.now() - lastRunAt : intervalMs;
+      const delay = Math.max(0, intervalMs - elapsed);
+      timer = setTimeout(run, delay);
+    };
+
     const run = async () => {
-      if (document.hidden && intervalMs) {
-        timer = setTimeout(run, 2000);
-        return;
+      if (!alive || inFlight) return;
+      if (intervalMs && document.hidden) return;
+      if (timer) {
+        clearTimeout(timer);
+        timer = undefined;
       }
+      inFlight = true;
       try {
         const e = await fetcherRef.current(ctrl.signal);
         if (!alive) return;
-        setEnv(e);
+        setEnv((prev) => (prev === e ? prev : e));
         setError(null);
         setLastOk(Date.now());
       } catch (err) {
         if (!alive || (err as Error).name === "AbortError") return;
         setError(err instanceof ApiError ? err : new ApiError(0, "internal_error", "The request failed.", null));
       } finally {
+        inFlight = false;
+        lastRunAt = Date.now();
         if (alive) setLoading(false);
       }
-      if (alive && intervalMs) timer = setTimeout(run, intervalMs);
+      if (alive && intervalMs && !document.hidden) {
+        timer = setTimeout(run, intervalMs);
+      }
     };
+
+    const onVisibilityChange = () => {
+      if (!alive || !intervalMs) return;
+      if (document.visibilityState === "visible") {
+        if (inFlight) return;
+        const elapsed = lastRunAt ? Date.now() - lastRunAt : intervalMs;
+        if (elapsed >= intervalMs) {
+          run();
+        } else {
+          scheduleNext();
+        }
+      } else if (timer) {
+        clearTimeout(timer);
+        timer = undefined;
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
     run();
     return () => {
       alive = false;
       ctrl.abort();
       if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [key, intervalMs, tick]);
 
@@ -72,11 +109,27 @@ export function usePoll<T>(
 }
 
 /** Re-renders every `ms` so ages ("12 s ago") stay true. */
-export function useNow(ms = 1000): number {
+export function useNow(ms: number | null = 1000): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), ms);
-    return () => clearInterval(id);
+    if (ms === null || ms <= 0) return;
+    const tick = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      setNow(Date.now());
+    };
+    const id = setInterval(tick, ms);
+    const onVis = () => {
+      if (typeof document !== "undefined" && !document.hidden) setNow(Date.now());
+    };
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onVis);
+    }
+    return () => {
+      clearInterval(id);
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onVis);
+      }
+    };
   }, [ms]);
   return now;
 }

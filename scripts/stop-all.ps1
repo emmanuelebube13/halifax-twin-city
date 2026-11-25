@@ -32,7 +32,7 @@ function Stop-Tree([int]$Id) {
 function Stop-Port([string]$Name, [int]$Port, [string]$PidFile) {
   $ids = @()
   if (Test-Path $PidFile) { $ids += [int](Get-Content $PidFile -Raw).Trim() }
-  $lines = & netstat.exe -ano | Select-String -Pattern ("127\.0\.0\.1:" + $Port + "\s+\S+\s+LISTENING\s+(\d+)")
+  $lines = & netstat.exe -ano | Select-String -Pattern ("(?:127\.0\.0\.1|0\.0\.0\.0|\[::\]):" + $Port + "\s+\S+\s+LISTENING\s+(\d+)")
   foreach ($l in $lines) { $ids += [int]$l.Matches[0].Groups[1].Value }
   $ids = @($ids | Where-Object { $_ -gt 0 } | Sort-Object -Unique)
   foreach ($id in $ids) { Stop-Tree $id }

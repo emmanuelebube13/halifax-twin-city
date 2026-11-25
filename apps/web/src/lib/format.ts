@@ -14,8 +14,17 @@ function isNum(v: Num): v is number {
   return typeof v === "number" && Number.isFinite(v);
 }
 
+const NF_CACHE = new Map<string, Intl.NumberFormat>();
+
 function nf(options: Intl.NumberFormatOptions): Intl.NumberFormat {
-  return new Intl.NumberFormat(getLocale().numberLocale, options);
+  const locale = getLocale().numberLocale;
+  const key = `${locale}|${JSON.stringify(options)}`;
+  let fmt = NF_CACHE.get(key);
+  if (!fmt) {
+    fmt = new Intl.NumberFormat(locale, options);
+    NF_CACHE.set(key, fmt);
+  }
+  return fmt;
 }
 
 /** 1,240 */
@@ -84,17 +93,19 @@ function toDate(v: string | number | Date | null | undefined): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+const HALIFAX_DTF = new Intl.DateTimeFormat("en-CA", {
+  timeZone: TIME_ZONE,
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+});
+
 function halifaxParts(d: Date): Record<string, string> {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: TIME_ZONE,
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(d);
+  const parts = HALIFAX_DTF.formatToParts(d);
   const out: Record<string, string> = {};
   for (const p of parts) out[p.type] = p.value;
   return out;

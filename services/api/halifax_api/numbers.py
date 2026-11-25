@@ -15,9 +15,21 @@ from zoneinfo import ZoneInfo
 from typing import Callable
 
 from .config import AppConfig
-from .envelope import iso, json_value, newest
+from .envelope import TTLCache, iso, json_value, newest
 
 HALIFAX_TODAY = "(now() AT TIME ZONE 'America/Halifax')::date"
+
+_SHARED: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
+_SHARED_LOCK = threading.Lock()
+
+
+def _shared_get(db, key, seconds: float, compute):
+    with _SHARED_LOCK:
+        c = _SHARED.get(db)
+        if c is None:
+            c = TTLCache(maxsize=128)
+            _SHARED[db] = c
+    return c.get(key, seconds, compute)
 
 
 @dataclass
@@ -71,8 +83,13 @@ SELECT count(sa.reported_delay_seconds),
 
 def _arrivals(db, cfg):
     early, late = cfg.on_time
-    return db.fetch_one(ARRIVALS_SQL, {"early": early, "late": late,
-                                       "minutes": int(cfg.live.get("arrival_window_minutes", 30))})
+    minutes = int(cfg.live.get("arrival_window_minutes", 30))
+    return _shared_get(
+        db,
+        ("arrivals", early, late, minutes),
+        15,
+        lambda: db.fetch_one(ARRIVALS_SQL, {"early": early, "late": late, "minutes": minutes}),
+    )
 
 
 def _arrival_number(index):
@@ -125,7 +142,12 @@ UTILITY = "e.subsector_id = 'PWK-03'"
 
 def _type_loaded(db, type_code):
     """Newest load time of any event of this type, or None when the type has no rows at all."""
-    return db.fetch_one("""SELECT max(dw_loaded_ts) FROM silver.event WHERE event_type_code = %s""", (type_code,))[0]
+    return _shared_get(
+        db,
+        ("type_loaded", type_code),
+        15,
+        lambda: db.fetch_one("""SELECT max(dw_loaded_ts) FROM silver.event WHERE event_type_code = %s""", (type_code,))[0],
+    )
 
 
 def closures_active(db, cfg):
@@ -267,33 +289,48 @@ def _gold(db, signature):
 
 
 def _feed_as_of(db):
-    return db.fetch_one("""SELECT max(fetched_ts) FROM bronze.feed_fetch
-                            WHERE source_id = 'SRC-002' AND http_status BETWEEN 200 AND 299""")[0]
+    return _shared_get(
+        db,
+        "feed_as_of",
+        15,
+        lambda: db.fetch_one("""SELECT max(fetched_ts) FROM bronze.feed_fetch
+                                WHERE source_id = 'SRC-002' AND http_status BETWEEN 200 AND 299""")[0],
+    )
 
 
 LATENESS = "gold.route_lateness_by_hour(date,date,integer,integer)"
 
 
-def _lateness_rows(db, cfg, group):
+def _lateness_matrix(db, cfg):
     w = _window(cfg)
     early, late = cfg.on_time
-    return db.fetch(f"""SELECT {group}, sum(arrival_count), sum(late_count)
-                          FROM gold.route_lateness_by_hour({w['from_expr']}, {w['to_expr']}, %s::int, %s::int)
-                         GROUP BY 1""", (early, late))
+    return _shared_get(
+        db,
+        ("lateness", w["days"], early, late),
+        600,
+        lambda: db.fetch(f"""SELECT route_short_name, hour_of_day, sum(arrival_count), sum(late_count)
+                               FROM gold.route_lateness_by_hour({w['from_expr']}, {w['to_expr']}, %s::int, %s::int)
+                              GROUP BY 1, 2""", (early, late)),
+    )
 
 
 def late_share_7d(db, cfg):
     if not _gold(db, LATENESS):
         return None, None, None
-    rows = _lateness_rows(db, cfg, "true")
-    n, late = (rows[0][1], rows[0][2]) if rows else (0, 0)
+    rows = _lateness_matrix(db, cfg)
+    n, late = sum(r[2] for r in rows), sum(r[3] for r in rows)
     return (_share(late, n) if n else None), None, _feed_as_of(db)
 
 
 def late_share_by_route(db, cfg):
     if not _gold(db, LATENESS):
         return None, [], None
-    rows = [r for r in _lateness_rows(db, cfg, "route_short_name") if r[1] >= 50]
+    by_route: dict[str, list] = {}
+    for route, _, cnt, late_cnt in _lateness_matrix(db, cfg):
+        acc = by_route.setdefault(route, [0, 0])
+        acc[0] += cnt
+        acc[1] += late_cnt
+    rows = [(route, acc[0], acc[1]) for route, acc in by_route.items() if acc[0] >= 50]
     rows.sort(key=lambda r: -float(r[2]) / float(r[1]))
     series = [{"t": r[0], "value": _share(r[2], r[1])} for r in rows[:15]]
     n, late = sum(r[1] for r in rows), sum(r[2] for r in rows)
@@ -303,7 +340,12 @@ def late_share_by_route(db, cfg):
 def late_share_by_hour(db, cfg):
     if not _gold(db, LATENESS):
         return None, [], None
-    rows = sorted(_lateness_rows(db, cfg, "hour_of_day"))
+    by_hour: dict[int, list] = {}
+    for _, hour, cnt, late_cnt in _lateness_matrix(db, cfg):
+        acc = by_hour.setdefault(hour, [0, 0])
+        acc[0] += cnt
+        acc[1] += late_cnt
+    rows = sorted((hour, acc[0], acc[1]) for hour, acc in by_hour.items())
     series = [{"t": f"{int(h):02d}", "value": _share(late, n)} for h, n, late in rows]
     n, late = sum(r[1] for r in rows), sum(r[2] for r in rows)
     return (_share(late, n) if n else None), series, _feed_as_of(db)
@@ -312,26 +354,33 @@ def late_share_by_hour(db, cfg):
 BUNCHING = "gold.bunching_by_route_hour(date,date,numeric,numeric)"
 
 
-def _bunching(db, cfg, group):
+def _bunching_by_hour_rows(db, cfg):
     w = _window(cfg)
     m = _measures(cfg)
-    return db.fetch(f"""SELECT {group}, sum(headways_judged), sum(bunched_count)
-                          FROM gold.bunching_by_route_hour({w['from_expr']}, {w['to_expr']}, %s::numeric, %s::numeric)
-                         GROUP BY 1""", (m.get("bunched_ratio", 0.25), m.get("long_gap_ratio", 1.5)))
+    bunched_ratio = m.get("bunched_ratio", 0.25)
+    long_gap_ratio = m.get("long_gap_ratio", 1.5)
+    return _shared_get(
+        db,
+        ("bunching", w["days"], bunched_ratio, long_gap_ratio),
+        600,
+        lambda: db.fetch(f"""SELECT hour_of_day, sum(headways_judged), sum(bunched_count)
+                               FROM gold.bunching_by_route_hour({w['from_expr']}, {w['to_expr']}, %s::numeric, %s::numeric)
+                              GROUP BY 1""", (bunched_ratio, long_gap_ratio)),
+    )
 
 
 def bunched_share_7d(db, cfg):
     if not _gold(db, BUNCHING):
         return None, None, None
-    rows = _bunching(db, cfg, "true")
-    n, b = (rows[0][1], rows[0][2]) if rows else (0, 0)
+    rows = _bunching_by_hour_rows(db, cfg)
+    n, b = sum(r[1] for r in rows), sum(r[2] for r in rows)
     return (_share(b, n) if n else None), None, _feed_as_of(db)
 
 
 def bunched_by_hour(db, cfg):
     if not _gold(db, BUNCHING):
         return None, [], None
-    rows = sorted(_bunching(db, cfg, "hour_of_day"))
+    rows = sorted(_bunching_by_hour_rows(db, cfg))
     series = [{"t": f"{int(h):02d}", "value": _share(b, n)} for h, n, b in rows]
     n, b = sum(r[1] for r in rows), sum(r[2] for r in rows)
     return (_share(b, n) if n else None), series, _feed_as_of(db)
@@ -340,31 +389,39 @@ def bunched_by_hour(db, cfg):
 STOP_WAIT = "gold.stop_wait_comparison(date,date)"
 
 
-def _stop_wait(db, cfg, group):
+def _stop_wait_by_route_rows(db, cfg):
     w = _window(cfg)
-    return db.fetch(f"""SELECT {group},
-                               sum(excess_wait_seconds * headways_observed) / nullif(sum(headways_observed), 0),
-                               sum(headways_observed)
-                          FROM gold.stop_wait_comparison({w['from_expr']}, {w['to_expr']})
-                         GROUP BY 1""")
+    return _shared_get(
+        db,
+        ("stop_wait", w["days"]),
+        600,
+        lambda: db.fetch(f"""SELECT route_short_name,
+                                    sum(excess_wait_seconds * headways_observed),
+                                    sum(headways_observed)
+                               FROM gold.stop_wait_comparison({w['from_expr']}, {w['to_expr']})
+                              GROUP BY 1"""),
+    )
 
 
 def excess_wait_7d(db, cfg):
     if not _gold(db, STOP_WAIT):
         return None, None, None
-    rows = _stop_wait(db, cfg, "true")
-    v = rows[0][1] if rows else None
-    return (round(float(v)) if v is not None else None), None, _feed_as_of(db)
+    rows = _stop_wait_by_route_rows(db, cfg)
+    weighted = [float(r[1]) for r in rows if r[1] is not None]
+    total = sum(float(r[2]) for r in rows if r[2] is not None)
+    v = (sum(weighted) / total) if (weighted and total) else None
+    return (round(v) if v is not None else None), None, _feed_as_of(db)
 
 
 def excess_wait_by_route(db, cfg):
     if not _gold(db, STOP_WAIT):
         return None, [], None
-    rows = [r for r in _stop_wait(db, cfg, "route_short_name") if r[1] is not None and r[2] >= 20]
-    rows.sort(key=lambda r: -float(r[1]))
-    series = [{"t": r[0], "value": round(float(r[1]))} for r in rows[:15]]
-    total = sum(r[2] for r in rows)
-    value = round(sum(float(r[1]) * float(r[2]) for r in rows) / float(total)) if total else None
+    rows = [(r[0], float(r[1]) / float(r[2]), r[2]) for r in _stop_wait_by_route_rows(db, cfg)
+            if r[1] is not None and r[2] is not None and r[2] >= 20]
+    rows.sort(key=lambda r: -r[1])
+    series = [{"t": r[0], "value": round(r[1])} for r in rows[:15]]
+    total = sum(float(r[2]) for r in rows)
+    value = round(sum(r[1] * float(r[2]) for r in rows) / total) if total else None
     return value, series, _feed_as_of(db)
 
 
@@ -452,10 +509,16 @@ SEGMENTS = "gold.segment_speed(date,date,numeric)"
 def _segments(db, cfg):
     w = _window(cfg, "segment_window_days", 28)
     m = _measures(cfg)
-    return db.fetch(f"""SELECT route_short_name, from_stop_name, to_stop_name, median_speed_km_per_hour,
-                               slow_day_share, days_observed
-                          FROM gold.segment_speed({w['from_expr']}, {w['to_expr']}, %s::numeric)""",
-                    (m.get("slow_ratio", 1.2),))
+    slow_ratio = m.get("slow_ratio", 1.2)
+    return _shared_get(
+        db,
+        ("segments", w["days"], slow_ratio),
+        600,
+        lambda: db.fetch(f"""SELECT route_short_name, from_stop_name, to_stop_name, median_speed_km_per_hour,
+                                    slow_day_share, days_observed
+                               FROM gold.segment_speed({w['from_expr']}, {w['to_expr']}, %s::numeric)""",
+                         (slow_ratio,)),
+    )
 
 
 def _consistently_slow(rows, cfg):
@@ -588,33 +651,42 @@ everywhere AS (
       FROM silver.event e JOIN silver.stop_arrival sa ON sa.event_id = e.event_id
      WHERE e.event_start_ts > now() - make_interval(days => %(days)s)
 )
-SELECT {group}, avg(near.reported_delay_seconds), count(*), (SELECT delay FROM everywhere), (SELECT n FROM everywhere)
+SELECT closure_reason_code, sum(near.reported_delay_seconds), count(*), (SELECT delay FROM everywhere), (SELECT n FROM everywhere)
   FROM near GROUP BY 1
 """
 MIN_NEAR_ARRIVALS = 30
 
 
-def _closure_delay(db, cfg, group):
+def _closure_delay_by_reason_rows(db, cfg):
     c, m = _closure_rules(cfg), _measures(cfg)
-    return db.fetch(CLOSURE_DELAY_SQL.format(group=group),
-                    {"near": float(c.get("stop_buffer_metres", 30)), "days": int(m.get("window_days", 7))})
+    near_m = float(c.get("stop_buffer_metres", 30))
+    days = int(m.get("window_days", 7))
+    return _shared_get(
+        db,
+        ("closure_delay", near_m, days),
+        600,
+        lambda: db.fetch(CLOSURE_DELAY_SQL, {"near": near_m, "days": days}),
+    )
 
 
 def closure_delay_gap(db, cfg):
-    rows = _closure_delay(db, cfg, "true")
-    if not rows or rows[0][2] < MIN_NEAR_ARRIVALS or rows[0][3] is None:
+    rows = _closure_delay_by_reason_rows(db, cfg)
+    total_n = sum(r[2] for r in rows)
+    if not rows or total_n < MIN_NEAR_ARRIVALS or rows[0][3] is None:
         return None, None, None
-    _, near, n, everywhere, _ = rows[0]
-    return round(float(near) - float(everywhere)), None, _feed_as_of(db)
+    near = sum(float(r[1]) for r in rows) / float(total_n)
+    everywhere = float(rows[0][3])
+    return round(near - everywhere), None, _feed_as_of(db)
 
 
 def delay_near_closures_by_reason(db, cfg):
-    rows = [r for r in _closure_delay(db, cfg, "closure_reason_code") if r[2] >= MIN_NEAR_ARRIVALS]
+    rows = [r for r in _closure_delay_by_reason_rows(db, cfg) if r[2] >= MIN_NEAR_ARRIVALS and r[3] is not None]
     if not rows:
         return None, [], None
     everywhere = float(rows[0][3])
-    rows.sort(key=lambda r: -float(r[1]))
-    series = [{"t": r[0], "value": round(float(r[1]) - everywhere)} for r in rows]
+    items = [(r[0], float(r[1]) / float(r[2])) for r in rows]
+    items.sort(key=lambda item: -item[1])
+    series = [{"t": reason, "value": round(avg_near - everywhere)} for reason, avg_near in items]
     return series[0]["value"], series, _feed_as_of(db)
 
 

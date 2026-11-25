@@ -23,15 +23,69 @@ export class ApiError extends Error {
   }
 }
 
-async function get<T>(path: string, signal?: AbortSignal): Promise<Envelope<T>> {
-  if (USE_MOCKS) return mockFetch<T>(path);
+const MAX_ETAG_CACHE = 128;
+
+interface EtagEntry {
+  etag: string;
+  env: Envelope<unknown>;
+}
+
+const etagCache = new Map<string, EtagEntry>();
+const inflight = new Map<string, Promise<Envelope<unknown>>>();
+
+function getCached(path: string): EtagEntry | undefined {
+  const hit = etagCache.get(path);
+  if (!hit) return undefined;
+  etagCache.delete(path);
+  etagCache.set(path, hit);
+  return hit;
+}
+
+function setCached(path: string, entry: EtagEntry): void {
+  if (etagCache.has(path)) {
+    etagCache.delete(path);
+  } else if (etagCache.size >= MAX_ETAG_CACHE) {
+    const oldest = etagCache.keys().next().value;
+    if (oldest !== undefined) etagCache.delete(oldest);
+  }
+  etagCache.set(path, entry);
+}
+
+function withAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(new DOMException("Aborted", "AbortError"));
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(new DOMException("Aborted", "AbortError"));
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (err) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(err);
+      },
+    );
+  });
+}
+
+async function fetchEnvelope<T>(path: string): Promise<Envelope<T>> {
+  const cached = getCached(path);
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (cached) headers["If-None-Match"] = cached.etag;
+
   let res: Response;
   try {
-    res = await fetch(API_BASE + path, { signal, headers: { Accept: "application/json" } });
-  } catch (e) {
-    if ((e as Error).name === "AbortError") throw e;
+    res = await fetch(API_BASE + path, { headers });
+  } catch {
     throw new ApiError(0, "network", "The data service is not answering.", null);
   }
+
+  if (res.status === 304 && cached) {
+    return cached.env as Envelope<T>;
+  }
+
   let body: Envelope<T> | null = null;
   try {
     body = (await res.json()) as Envelope<T>;
@@ -42,7 +96,25 @@ async function get<T>(path: string, signal?: AbortSignal): Promise<Envelope<T>> 
     const env = body as unknown as Envelope<null> | null;
     throw new ApiError(res.status, env?.error?.code ?? "http_" + res.status, env?.error?.message ?? "The request failed.", env);
   }
+
+  const etag = res.headers.get("ETag");
+  if (etag) {
+    setCached(path, { etag, env: body as Envelope<unknown> });
+  }
   return body;
+}
+
+async function get<T>(path: string, signal?: AbortSignal): Promise<Envelope<T>> {
+  if (USE_MOCKS) return mockFetch<T>(path);
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+  let req = inflight.get(path) as Promise<Envelope<T>> | undefined;
+  if (!req) {
+    req = fetchEnvelope<T>(path).finally(() => {
+      inflight.delete(path);
+    });
+    inflight.set(path, req as Promise<Envelope<unknown>>);
+  }
+  return withAbort(req, signal);
 }
 
 export const api = {

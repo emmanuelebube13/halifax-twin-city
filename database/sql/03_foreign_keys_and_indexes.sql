@@ -335,11 +335,10 @@ ALTER TABLE silver.vehicle_position ADD CONSTRAINT fk_vehicle_position_source
     FOREIGN KEY (source_id) REFERENCES silver.source (source_id);
 
 -- Indexes on foreign-key columns ----------------------------------------
--- Skipped where the primary key already starts with the same columns.
+-- Skipped where the primary key or an alternate key already starts with the same columns.
 
 CREATE INDEX ix_subsector_sector_id ON silver.subsector (sector_id);
 CREATE INDEX ix_source_publisher_party_id ON silver.source (publisher_party_id);
-CREATE INDEX ix_location_source_id ON silver.location (source_id);
 CREATE INDEX ix_street_segment_street_location_id ON silver.street_segment (street_location_id);
 CREATE INDEX ix_street_segment_from_intersection_location_id ON silver.street_segment (from_intersection_location_id);
 CREATE INDEX ix_street_segment_to_intersection_location_id ON silver.street_segment (to_intersection_location_id);
@@ -347,16 +346,13 @@ CREATE INDEX ix_area_parent_area_location_id ON silver.area (parent_area_locatio
 CREATE INDEX ix_civic_address_street_location_id ON silver.civic_address (street_location_id);
 CREATE INDEX ix_civic_address_parcel_location_id ON silver.civic_address (parcel_location_id);
 CREATE INDEX ix_location_containment_contained_location_id ON silver.location_containment (contained_location_id);
-CREATE INDEX ix_party_source_id ON silver.party (source_id);
 CREATE INDEX ix_party_sector_classification_subsector_id ON silver.party_sector_classification (subsector_id);
 CREATE INDEX ix_asset_location_id ON silver.asset (location_id);
 CREATE INDEX ix_asset_subsector_id ON silver.asset (subsector_id);
-CREATE INDEX ix_asset_source_id ON silver.asset (source_id);
 CREATE INDEX ix_party_asset_role_asset_id ON silver.party_asset_role (asset_id);
 CREATE INDEX ix_event_event_date ON silver.event (event_date);
 CREATE INDEX ix_event_location_id ON silver.event (location_id);
 CREATE INDEX ix_event_subsector_id ON silver.event (subsector_id);
-CREATE INDEX ix_event_source_id ON silver.event (source_id);
 CREATE INDEX ix_event_asset_involvement_asset_id ON silver.event_asset_involvement (asset_id);
 CREATE INDEX ix_event_party_involvement_party_id ON silver.event_party_involvement (party_id);
 CREATE INDEX ix_event_coverage_location_id ON silver.event_coverage (location_id);
@@ -365,7 +361,6 @@ CREATE INDEX ix_economic_indicator_measure_code ON silver.economic_indicator (me
 CREATE INDEX ix_schedule_version_source_id ON silver.schedule_version (source_id);
 CREATE INDEX ix_service_calendar_exception_exception_date ON silver.service_calendar_exception (exception_date);
 CREATE INDEX ix_stop_parent_stop_asset_id ON silver.stop (parent_stop_asset_id);
-CREATE INDEX ix_route_segment_from_stop_asset_id ON silver.route_segment (from_stop_asset_id);
 CREATE INDEX ix_route_segment_to_stop_asset_id ON silver.route_segment (to_stop_asset_id);
 CREATE INDEX ix_route_segment_sequence_route_asset_id ON silver.route_segment_sequence (route_asset_id);
 CREATE INDEX ix_route_segment_sequence_route_segment_asset_id ON silver.route_segment_sequence (route_segment_asset_id);
@@ -373,10 +368,8 @@ CREATE INDEX ix_route_segment_street_segment_street_segment_location_id ON silve
 CREATE INDEX ix_scheduled_trip_schedule_version_id_service_code ON silver.scheduled_trip (schedule_version_id, service_code);
 CREATE INDEX ix_scheduled_trip_route_asset_id ON silver.scheduled_trip (route_asset_id);
 CREATE INDEX ix_scheduled_stop_time_stop_asset_id ON silver.scheduled_stop_time (stop_asset_id);
-CREATE INDEX ix_trip_scheduled_trip_id ON silver.trip (scheduled_trip_id);
 CREATE INDEX ix_trip_route_asset_id ON silver.trip (route_asset_id);
 CREATE INDEX ix_trip_vehicle_asset_id ON silver.trip (vehicle_asset_id);
-CREATE INDEX ix_stop_arrival_trip_event_id ON silver.stop_arrival (trip_event_id);
 CREATE INDEX ix_stop_arrival_stop_asset_id ON silver.stop_arrival (stop_asset_id);
 CREATE INDEX ix_vehicle_position_trip_event_id ON silver.vehicle_position (trip_event_id);
 CREATE INDEX ix_work_order_service_request_event_id ON silver.work_order (service_request_event_id);
@@ -397,6 +390,12 @@ CREATE INDEX ix_vehicle_position_source_id ON silver.vehicle_position (source_id
 -- Spatial indexes (GiST) make "what is near / inside" queries fast.
 CREATE INDEX ix_location_location_geometry_gist ON silver.location USING gist (location_geometry);
 
--- Time-based lookups on events.
+-- Time-based lookups on events and incremental watermark queries.
 CREATE INDEX ix_event_event_start_ts ON silver.event (event_start_ts);
 CREATE INDEX ix_event_event_type_code_event_date ON silver.event (event_type_code, event_date);
+CREATE INDEX ix_event_event_type_code_event_start_ts ON silver.event (event_type_code, event_start_ts);
+CREATE INDEX ix_event_event_type_code_dw_loaded_ts ON silver.event (event_type_code, dw_loaded_ts DESC);
+CREATE INDEX ix_event_source_id_dw_loaded_ts ON silver.event (source_id, dw_loaded_ts DESC);
+CREATE INDEX ix_asset_source_id_dw_loaded_ts ON silver.asset (source_id, dw_loaded_ts DESC);
+CREATE INDEX ix_location_source_id_dw_loaded_ts ON silver.location (source_id, dw_loaded_ts DESC);
+CREATE INDEX ix_scheduled_trip_source_trip_key_route_asset_id ON silver.scheduled_trip (source_trip_key, route_asset_id);

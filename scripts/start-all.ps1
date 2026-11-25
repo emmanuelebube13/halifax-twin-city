@@ -51,7 +51,7 @@ function Wait-Url([string]$Url, [int]$Seconds) {
 & (Join-Path $pgBin "pg_isready.exe") -h localhost -p 5433 | Out-Null
 if ($LASTEXITCODE -ne 0) {
   Write-Host "Starting the database"
-  & (Join-Path $pgBin "pg_ctl.exe") -D (Join-Path $dataDir "pgdata") -l (Join-Path $logs "postgres.log") -w start | Out-Null
+  Start-Process -FilePath (Join-Path $pgBin "pg_ctl.exe") -ArgumentList @("-D", (Join-Path $dataDir "pgdata"), "-l", (Join-Path $logs "postgres.log"), "-w", "start") -WindowStyle Hidden -Wait
   & (Join-Path $pgBin "pg_isready.exe") -h localhost -p 5433 | Out-Null
   if ($LASTEXITCODE -ne 0) { Write-Host "The database did not start. See $logs\postgres.log."; exit 1 }
 }
@@ -104,9 +104,11 @@ if (Test-Port 5173) {
     try { & npm.cmd install --no-fund --no-audit; if ($LASTEXITCODE -ne 0) { throw "npm install failed." } }
     finally { Pop-Location }
   }
-  $script = if ($Mock) { "dev:mock" } else { "dev" }
-  $p = Start-Process -FilePath "cmd.exe" `
-    -ArgumentList @("/c", "npm.cmd", "run", $script, "--", "--host", "127.0.0.1", "--port", "5173", "--strictPort") `
+  $node = (Get-Command node).Source
+  $viteJs = Join-Path $webDir "node_modules\vite\bin\vite.js"
+  $viteArgs = if ($Mock) { @($viteJs, "--mode", "mock", "--host", "0.0.0.0", "--port", "5173", "--strictPort") } else { @($viteJs, "--host", "0.0.0.0", "--port", "5173", "--strictPort") }
+  $p = Start-Process -FilePath $node `
+    -ArgumentList $viteArgs `
     -WorkingDirectory $webDir -WindowStyle Hidden `
     -RedirectStandardOutput (Join-Path $logs "web.console.log") `
     -RedirectStandardError (Join-Path $logs "web.error.log") -PassThru
@@ -116,5 +118,7 @@ if (Test-Port 5173) {
 }
 
 Write-Host "Open http://127.0.0.1:5173/ . Stop with scripts\stop-all.ps1."
+$tsIp = (Get-NetIPAddress -InterfaceAlias 'Tailscale' -AddressFamily IPv4 -ErrorAction SilentlyContinue).IPAddress
+if ($tsIp) { Write-Host "Remote access via Tailscale: http://${tsIp}:5173/ (Database: ${tsIp}:5433)" }
 if (-not $NoBrowser) { Start-Process "http://127.0.0.1:5173/" }
 exit 0

@@ -2,8 +2,10 @@
 // Everything else (the profile table, the automatic choice) lives in the lazily loaded 3D chunk.
 
 export type ProfileName = "high" | "medium" | "low";
+export type StreetTwinMode = "auto" | "clean" | "photo";
 
 const PROFILE_KEY = "halifax-twin.profile3d";
+const STREET_TWIN_KEY = "halifax-twin.street3d";
 
 /** The user's own choice, if they made one in this browser. */
 export function savedProfile(): ProfileName | null {
@@ -19,6 +21,24 @@ export function saveProfile(p: ProfileName | null): void {
   try {
     if (p) localStorage.setItem(PROFILE_KEY, p);
     else localStorage.removeItem(PROFILE_KEY);
+  } catch {
+    // storage blocked: the choice lasts for this visit only
+  }
+}
+
+/** The user's close-up 3D twin mode choice, defaulting to automatic. */
+export function savedStreetTwinMode(): StreetTwinMode {
+  try {
+    const v = localStorage.getItem(STREET_TWIN_KEY);
+    return v === "auto" || v === "clean" || v === "photo" ? v : "auto";
+  } catch {
+    return "auto";
+  }
+}
+
+export function saveStreetTwinMode(m: StreetTwinMode): void {
+  try {
+    localStorage.setItem(STREET_TWIN_KEY, m);
   } catch {
     // storage blocked: the choice lasts for this visit only
   }

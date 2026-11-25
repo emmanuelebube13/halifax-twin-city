@@ -3,6 +3,7 @@ import { ageLine } from "../lib/ago";
 // replay controls and the phone's three-height bottom sheet.
 
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useNow } from "../api/hooks";
 import type { BusStatus, Lens, Sector, SourceRef, StorySummary } from "../api/types";
 import { t } from "../i18n";
 import { formatClock } from "../lib/format";
@@ -332,10 +333,18 @@ export function Legend({ entries, compact }: { entries: LegendEntry[]; compact?:
   );
 }
 
-export function Credits({ asOf, now, basemapOk, threeD, sources }: { asOf: string | null; now: number; basemapOk: boolean | null; threeD: boolean; sources?: SourceRef[] }) {
+export function AgeLine({ sources, asOf, now }: { sources?: SourceRef[]; asOf: string; now?: number }) {
+  const tick = useNow(1000);
+  const effectiveNow = now ?? tick;
+  return <>{ageLine(sources, asOf, effectiveNow)}</>;
+}
+
+export function Credits({ asOf, now, basemapOk, threeD, sources }: { asOf: string | null; now?: number; basemapOk: boolean | null; threeD: boolean; sources?: SourceRef[] }) {
+  const tick = useNow(1000);
+  const effectiveNow = now ?? tick;
   return (
     <div className="credits">
-      {asOf && <span className="credits-age">{ageLine(sources, asOf, now)}</span>}
+      {asOf && <span className="credits-age">{ageLine(sources, asOf, effectiveNow)}</span>}
       <span>{threeD ? t("credits.3d") : basemapOk === false ? t("map.basemapFallback") : t("map.attribution")}</span>
       <span className="credits-licence">{t("credits.licence")}</span>
     </div>
@@ -373,6 +382,9 @@ export function ReplayBar({ from, to, at, playing, speed, onSeek, onPlay, onSpee
       <label className="replay-speed">
         <span className="visually-hidden">{t("replay.speed")}</span>
         <select value={speed} onChange={(e) => onSpeed(Number(e.target.value))}>
+          <option value={1}>1x</option>
+          <option value={2}>2x</option>
+          <option value={5}>5x</option>
           <option value={10}>10x</option>
           <option value={30}>30x</option>
           <option value={60}>60x</option>

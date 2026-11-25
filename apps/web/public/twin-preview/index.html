@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Halifax Twin · Clean 3D street engine prototype</title>
+  <link rel="stylesheet" href="../cesium/Widgets/widgets.css" />
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f4f3ee;
+      --paper-2: #eceae2;
+      --surface: #ffffff;
+      --ink: #13232e;
+      --ink-soft: #4f5d66;
+      --line: #d6dad3;
+      --night: #13232e;
+      --night-2: #1c3241;
+      --on-night: #e8edf0;
+      --on-night-soft: #b8c6cc;
+      --harbour: #0d5466;
+      --harbour-tint: #d9e7ec;
+      --harbour-on-ink: #8fd3e0;
+      --buoy: #f5b544;
+      --late: #b3410e;
+      --permit: #4b3a8c;
+      --plate: rgba(255, 255, 255, 0.94);
+      --plate-line: rgba(19, 35, 46, 0.16);
+      --shadow-1: 0 2px 6px rgba(19, 35, 46, 0.12), 0 8px 24px rgba(19, 35, 46, 0.12);
+      --font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", monospace;
+      --r-sm: 8px;
+      --r-md: 12px;
+      --r-pill: 999px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.4;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 58px;
+      padding: 8px 16px;
+      background: var(--night);
+      color: var(--on-night);
+      border-bottom: 1px solid rgba(232, 237, 240, 0.14);
+      z-index: 20;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: var(--night-2);
+      border: 1px solid rgba(143, 211, 224, 0.35);
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--on-night);
+      margin: 0;
+    }
+
+    .brand-sub {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--on-night-soft);
+      margin-top: 1px;
+    }
+
+    .cost-pill {
+      display: inline-block;
+      padding: 1px 8px;
+      border-radius: var(--r-pill);
+      background: rgba(143, 211, 224, 0.14);
+      border: 1px solid rgba(143, 211, 224, 0.35);
+      color: var(--harbour-on-ink);
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .camera-presets {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .preset-btn {
+      appearance: none;
+      border: 1px solid rgba(232, 237, 240, 0.22);
+      background: var(--night-2);
+      color: var(--on-night);
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 500;
+      padding: 7px 12px;
+      border-radius: var(--r-pill);
+      cursor: pointer;
+      transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+      white-space: nowrap;
+    }
+
+    .preset-btn:hover {
+      border-color: var(--harbour-on-ink);
+      background: #234052;
+    }
+
+    .preset-btn.is-active {
+      background: var(--buoy);
+      border-color: var(--buoy);
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    .viewport-wrap {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      background: #c7dce8;
+    }
+
+    #cesium-container {
+      width: 100%;
+      height: 100%;
+    }
+
+    .panel {
+      position: absolute;
+      background: var(--plate);
+      border: 1px solid var(--plate-line);
+      border-radius: var(--r-md);
+      box-shadow: var(--shadow-1);
+      backdrop-filter: blur(8px);
+      z-index: 10;
+    }
+
+    .controls-panel {
+      top: 14px;
+      left: 14px;
+      width: 280px;
+      padding: 14px 16px;
+      max-height: calc(100% - 76px);
+      overflow-y: auto;
+    }
+
+    .panel-heading {
+      margin: 0 0 10px 0;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: none;
+      letter-spacing: 0.01em;
+      color: var(--harbour);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .layer-list {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .layer-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--ink);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .layer-item input[type="checkbox"] {
+      accent-color: var(--harbour);
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    .sun-section {
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .sun-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .sun-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--harbour);
+    }
+
+    .sun-time {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .sun-slider {
+      width: 100%;
+      accent-color: var(--harbour);
+      cursor: pointer;
+    }
+
+    .sun-ticks {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--ink-soft);
+      margin-top: 2px;
+    }
+
+    .legend-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px 10px;
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+      font-size: 12px;
+      color: var(--ink-soft);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .swatch {
+      width: 12px;
+      height: 12px;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+
+    .swatch-disc {
+      border-radius: 50%;
+      background: var(--ink);
+    }
+
+    .swatch-diamond {
+      background: var(--late);
+      transform: rotate(45deg) scale(0.8);
+    }
+
+    .swatch-ring {
+      border-radius: 50%;
+      background: #ffffff;
+      border: 2.5px solid var(--ink);
+    }
+
+    .swatch-tri {
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-bottom: 11px solid #8a3a0c;
+    }
+
+    .swatch-house {
+      border-radius: 3px;
+      border: 2px solid var(--permit);
+      background: #ffffff;
+    }
+
+    .swatch-buslane {
+      border-radius: 2px;
+      background: var(--harbour);
+    }
+
+    .hybrid-note {
+      margin: 0;
+      font-size: 12px;
+      color: var(--ink-soft);
+      line-height: 1.45;
+      background: var(--paper);
+      padding: 8px 10px;
+      border-radius: var(--r-sm);
+      border-left: 3px solid var(--harbour);
+    }
+
+    .inspector-panel {
+      top: 14px;
+      right: 14px;
+      width: 310px;
+      padding: 14px 16px;
+      max-height: calc(100% - 76px);
+      overflow-y: auto;
+    }
+
+    .inspector-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .inspector-kind {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: var(--r-pill);
+      background: var(--harbour-tint);
+      color: var(--harbour);
+      margin-bottom: 4px;
+    }
+
+    .inspector-title {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.25;
+    }
+
+    .close-btn {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--ink-soft);
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .close-btn:hover {
+      background: var(--paper);
+      color: var(--ink);
+    }
+
+    .inspector-empty {
+      margin: 0;
+      font-size: 13px;
+      color: var(--ink-soft);
+    }
+
+    .kv-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 6px 12px;
+      margin-top: 10px;
+      font-size: 12.5px;
+      border-top: 1px solid var(--line);
+      padding-top: 10px;
+    }
+
+    .kv-key {
+      color: var(--ink-soft);
+      white-space: nowrap;
+    }
+
+    .kv-val {
+      color: var(--ink);
+      font-weight: 500;
+      text-align: right;
+      word-break: break-word;
+    }
+
+    .kv-mono {
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    .status-strip {
+      position: absolute;
+      left: 14px;
+      bottom: 14px;
+      padding: 6px 12px;
+      border-radius: var(--r-pill);
+      background: rgba(19, 35, 46, 0.88);
+      color: var(--on-night);
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--buoy);
+      display: inline-block;
+    }
+
+    .hidden-credits {
+      display: none;
+    }
+
+    @media (max-width: 900px) {
+      .controls-panel {
+        width: 240px;
+      }
+      .inspector-panel {
+        width: 260px;
+      }
+      .status-hint {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M3 10.5L12 4l9 6.5V20H3v-9.5Z" stroke="#8fd3e0" stroke-width="1.8" stroke-linejoin="round" />
+            <path d="M9 20v-5.5h6V20" stroke="#f5b544" stroke-width="1.8" stroke-linejoin="round" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">Halifax Twin · Clean 3D street engine prototype (North St &amp; Gottingen St)</h1>
+          <div class="brand-sub">
+            <span class="cost-pill">Local CesiumJS · $0 offline mode</span>
+            <span>Open Government Licence - Halifax</span>
+          </div>
+        </div>
+      </div>
+
+      <nav class="camera-presets" aria-label="Camera presets">
+        <button class="preset-btn is-active" data-preset="residential">Residential close-up</button>
+        <button class="preset-btn" data-preset="intersection">North &amp; Gottingen intersection</button>
+        <button class="preset-btn" data-preset="street-bus">Street-level bus view</button>
+        <button class="preset-btn" data-preset="overview">Neighbourhood overview</button>
+      </nav>
+    </header>
+
+    <main class="viewport-wrap">
+      <div id="cesium-container"></div>
+      <div id="cesium-credits" class="hidden-credits"></div>
+
+      <aside class="panel controls-panel" aria-label="Scene layers and daylight controls">
+        <h2 class="panel-heading">Scene layers</h2>
+        <div class="layer-list">
+          <label class="layer-item">
+            <input type="checkbox" id="toggle-buildings" checked />
+            <span>Pitched-roof buildings</span>
+          </label>
+          <label class="layer-item">
+            <input type="checkbox" id="toggle-streets" checked />
+            <span>Smooth streets &amp; markings</span>
+          </label>
+          <label class="layer-item">
+            <input type="checkbox" id="toggle-trees" checked />
+            <span>Clean 3D trees</span>
+          </label>
+          <label class="layer-item">
+            <input type="checkbox" id="toggle-transit" checked />
+            <span>Buses &amp; shelters</span>
+          </label>
+          <label class="layer-item">
+            <input type="checkbox" id="toggle-pins" checked />
+            <span>Analytics pins</span>
+          </label>
+        </div>
+
+        <div class="sun-section">
+          <div class="sun-header">
+            <label class="sun-label" for="sun-slider">Sun angle (Halifax time)</label>
+            <span class="sun-time" id="sun-time-readout">14:30</span>
+          </div>
+          <input class="sun-slider" id="sun-slider" type="range" min="420" max="1140" step="15" value="870" />
+          <div class="sun-ticks">
+            <span>07:00</span>
+            <span>13:00</span>
+            <span>19:00</span>
+          </div>
+        </div>
+
+        <h2 class="panel-heading">Pin grammar</h2>
+        <div class="legend-grid">
+          <div class="legend-item"><span class="swatch swatch-disc"></span><span>Bus on time</span></div>
+          <div class="legend-item"><span class="swatch swatch-diamond"></span><span>Bus late</span></div>
+          <div class="legend-item"><span class="swatch swatch-ring"></span><span>Bus early</span></div>
+          <div class="legend-item"><span class="swatch swatch-tri"></span><span>Work zone</span></div>
+          <div class="legend-item"><span class="swatch swatch-house"></span><span>Solar permit</span></div>
+          <div class="legend-item"><span class="swatch swatch-buslane"></span><span>Bus-only lane</span></div>
+        </div>
+
+        <p class="hybrid-note">
+          Hybrid LOD design: photogrammetry tiles stay above 300 m; below 300 m the engine cross-fades to crisp HRM Open Data footprints, LiDAR ridge heights, and procedural Maritime facades.
+        </p>
+      </aside>
+
+      <aside class="panel inspector-panel" id="inspector-panel" aria-live="polite">
+        <div class="inspector-header">
+          <div>
+            <span class="inspector-kind" id="inspector-kind">Street engine</span>
+            <h2 class="inspector-title" id="inspector-title">Inspect neighbourhood objects</h2>
+          </div>
+          <button class="close-btn" id="inspector-close" title="Clear selection" aria-label="Clear selection" hidden>&times;</button>
+        </div>
+        <p class="inspector-empty" id="inspector-empty">
+          Click any pitched-roof house, commercial block, bus, transit shelter, work zone, or solar permit pin to inspect its properties.
+        </p>
+        <div class="kv-grid" id="inspector-kv" hidden></div>
+      </aside>
+
+      <div class="status-strip">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span id="scene-stats">Loading Halifax corridor...</span>
+        <span class="status-hint">Drag to pan · Right-drag or Ctrl+drag to tilt · Scroll to zoom</span>
+      </div>
+    </main>
+  </div>
+
+  <script src="../cesium/Cesium.js"></script>
+  <script src="./engine.js"></script>
+</body>
+</html>

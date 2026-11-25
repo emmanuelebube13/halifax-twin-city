@@ -71,9 +71,9 @@ export const CAMERA_LIMITS = {
   east: -62.9,
   south: 44.3,
   north: 45.1,
-  minRange: 40, // metres from the target: close enough to read a bus, not inside it
+  minRange: 25, // metres from the target: close enough to read a bus, not inside it
   maxRange: 25_000, // the whole municipality core, no further
-  minHeight: 25, // metres above the ellipsoid surface under the camera: never underground
+  minHeight: 2, // metres above the WGS84 ellipsoid (~20 m above Halifax Harbour geoid at -18 m): never underground
   maxHeight: 20_000,
   minPitch: -90,
   maxPitch: -8, // keep a little tilt down so the horizon never fills the screen

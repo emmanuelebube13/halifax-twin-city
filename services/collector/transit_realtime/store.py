@@ -43,24 +43,38 @@ def upsert_events(conn, rows: list[dict], batch_id: int, keep_earliest_start: bo
     """Insert or update silver.event rows in one statement. Returns source_event_key -> event_id."""
     if not rows:
         return {}
+    rows = list({(r["source_id"], r["key"]): r for r in rows}.values())
     start_rule = ("LEAST(silver.event.event_start_ts, EXCLUDED.event_start_ts)" if keep_earliest_start
                   else "EXCLUDED.event_start_ts")
     cols = list(zip(*[(r["type"], r["start"], r["end"], r["date"], r["source_id"], r["key"], r["status"]) for r in rows]))
     result = conn.execute(
-        f"""INSERT INTO silver.event (event_type_code, event_start_ts, event_end_ts, event_date, subsector_id,
-                                      source_id, source_event_key, event_status_code, dw_batch_id)
-            SELECT t, s, e, d, %s, src, k, st, %s
-              FROM unnest(%s::text[], %s::timestamptz[], %s::timestamptz[], %s::date[], %s::text[], %s::text[], %s::text[])
-                   AS u(t, s, e, d, src, k, st)
-            ON CONFLICT ON CONSTRAINT ak1_event DO UPDATE
-               SET event_start_ts = {start_rule},
-                   event_end_ts = EXCLUDED.event_end_ts,
-                   event_date = EXCLUDED.event_date,   -- an arrival moving past midnight takes the new date (DQ-061)
-                   event_status_code = EXCLUDED.event_status_code,
-                   dw_loaded_ts = now(),
-                   dw_batch_id = EXCLUDED.dw_batch_id
-            RETURNING source_event_key, event_id""",
-        (SUBSECTOR, batch_id, *[list(c) for c in cols])).fetchall()
+        f"""WITH u(t, s, e, d, src, k, st) AS (
+                SELECT t, s, e, d, src, k, st
+                  FROM unnest(%s::text[], %s::timestamptz[], %s::timestamptz[], %s::date[], %s::text[], %s::text[], %s::text[])
+                       AS raw(t, s, e, d, src, k, st)
+            ),
+            ins AS (
+                INSERT INTO silver.event (event_type_code, event_start_ts, event_end_ts, event_date, subsector_id,
+                                          source_id, source_event_key, event_status_code, dw_batch_id)
+                SELECT t, s, e, d, %s, src, k, st, %s FROM u
+                ON CONFLICT ON CONSTRAINT ak1_event DO UPDATE
+                   SET event_start_ts = {start_rule},
+                       event_end_ts = EXCLUDED.event_end_ts,
+                       event_date = EXCLUDED.event_date,   -- an arrival moving past midnight takes the new date (DQ-061)
+                       event_status_code = EXCLUDED.event_status_code,
+                       dw_loaded_ts = now(),
+                       dw_batch_id = EXCLUDED.dw_batch_id
+                 WHERE (silver.event.event_start_ts, silver.event.event_end_ts, silver.event.event_date, silver.event.event_status_code)
+                       IS DISTINCT FROM ({start_rule}, EXCLUDED.event_end_ts, EXCLUDED.event_date, EXCLUDED.event_status_code)
+                RETURNING source_id, source_event_key, event_id
+            )
+            SELECT source_event_key, event_id FROM ins
+            UNION ALL
+            SELECT e.source_event_key, e.event_id
+              FROM u
+              JOIN silver.event e ON e.source_id = u.src AND e.source_event_key = u.k
+             WHERE NOT EXISTS (SELECT 1 FROM ins WHERE ins.source_id = u.src AND ins.source_event_key = u.k)""",
+        (*[list(c) for c in cols], SUBSECTOR, batch_id)).fetchall()
     return dict(result)
 
 
@@ -69,13 +83,18 @@ def ensure_vehicles(conn, lookups: Lookups, vehicles: dict[str, str], batch_id: 
     for key, label in vehicles.items():
         if key in lookups.vehicles:
             continue
-        asset_id = conn.execute(
+        row = conn.execute(
             """INSERT INTO silver.asset (asset_type_code, asset_name, subsector_id, source_id, source_asset_key,
                                          asset_status_code, dw_batch_id)
                VALUES ('Vehicle', %s, %s, 'SRC-001', %s, 'Active', %s)
-               ON CONFLICT ON CONSTRAINT ak1_asset DO UPDATE SET dw_loaded_ts = silver.asset.dw_loaded_ts
+               ON CONFLICT ON CONSTRAINT ak1_asset DO NOTHING
                RETURNING asset_id""",
-            (f"Bus {label}", SUBSECTOR, key, batch_id)).fetchone()[0]
+            (f"Bus {label}", SUBSECTOR, key, batch_id)).fetchone()
+        if row is None:
+            row = conn.execute(
+                "SELECT asset_id FROM silver.asset WHERE source_id = 'SRC-001' AND source_asset_key = %s",
+                (key,)).fetchone()
+        asset_id = row[0]
         conn.execute(
             """INSERT INTO silver.vehicle (asset_id, vehicle_label, vehicle_mode_code, dw_batch_id)
                VALUES (%s, %s, 'Bus', %s) ON CONFLICT (asset_id) DO NOTHING""",
@@ -100,7 +119,9 @@ def store_trips(conn, lookups: Lookups, trips: list[TripRow], batch_id: int) -> 
                ON CONFLICT (event_id) DO UPDATE
                   SET vehicle_asset_id = COALESCE(EXCLUDED.vehicle_asset_id, silver.trip.vehicle_asset_id),
                       trip_schedule_status_code = EXCLUDED.trip_schedule_status_code,
-                      dw_loaded_ts = now(), dw_batch_id = EXCLUDED.dw_batch_id""",
+                      dw_loaded_ts = now(), dw_batch_id = EXCLUDED.dw_batch_id
+                WHERE (silver.trip.vehicle_asset_id, silver.trip.trip_schedule_status_code)
+                      IS DISTINCT FROM (COALESCE(EXCLUDED.vehicle_asset_id, silver.trip.vehicle_asset_id), EXCLUDED.trip_schedule_status_code)""",
             (batch_id, *[list(c) for c in cols]))
     return ids, skipped
 
@@ -125,7 +146,9 @@ def store_arrivals(conn, lookups: Lookups, arrivals: list[ArrivalRow], trip_ids:
                ON CONFLICT (event_id) DO UPDATE
                   SET actual_departure_ts = EXCLUDED.actual_departure_ts,
                       reported_delay_seconds = EXCLUDED.reported_delay_seconds,
-                      dw_loaded_ts = now(), dw_batch_id = EXCLUDED.dw_batch_id""",
+                      dw_loaded_ts = now(), dw_batch_id = EXCLUDED.dw_batch_id
+                WHERE (silver.stop_arrival.actual_departure_ts, silver.stop_arrival.reported_delay_seconds)
+                      IS DISTINCT FROM (EXCLUDED.actual_departure_ts, EXCLUDED.reported_delay_seconds)""",
             (batch_id, *[list(c) for c in cols]))
     return len(known), len(arrivals) - len(known)
 
@@ -178,7 +201,13 @@ def store_alerts(conn, lookups: Lookups, alerts: list[AlertRow], fetched: dt.dat
                   SET alert_cause_code = EXCLUDED.alert_cause_code, alert_effect_code = EXCLUDED.alert_effect_code,
                       alert_header_text = EXCLUDED.alert_header_text,
                       alert_description_text = EXCLUDED.alert_description_text,
-                      alert_url = EXCLUDED.alert_url, dw_loaded_ts = now(), dw_batch_id = EXCLUDED.dw_batch_id""",
+                      alert_url = EXCLUDED.alert_url, dw_loaded_ts = now(), dw_batch_id = EXCLUDED.dw_batch_id
+                WHERE (silver.service_alert.alert_cause_code, silver.service_alert.alert_effect_code,
+                       silver.service_alert.alert_header_text, silver.service_alert.alert_description_text,
+                       silver.service_alert.alert_url)
+                      IS DISTINCT FROM (EXCLUDED.alert_cause_code, EXCLUDED.alert_effect_code,
+                                        EXCLUDED.alert_header_text, EXCLUDED.alert_description_text,
+                                        EXCLUDED.alert_url)""",
             (ids[a.key], a.cause_code, a.effect_code, a.header_text, a.description_text, a.url, batch_id))
         affected = ([(lookups.routes[r], "Affected route") for r in a.route_ids if r in lookups.routes]
                     + [(lookups.stops[s], "Affected stop") for s in a.stop_ids if s in lookups.stops])

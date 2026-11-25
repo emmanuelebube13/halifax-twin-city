@@ -12,5 +12,9 @@ if (!existsSync(from)) {
   process.exit(0);
 }
 rmSync(to, { recursive: true, force: true });
-cpSync(from, to, { recursive: true });
+const excluded = new Set([join(from, "index.js"), join(from, "index.cjs")]);
+cpSync(from, to, {
+  recursive: true,
+  filter: (src) => !excluded.has(src),
+});
 console.log("Copied CesiumJS into public/cesium");

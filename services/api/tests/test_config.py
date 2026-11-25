@@ -2,8 +2,19 @@
 from __future__ import annotations
 
 import re
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 
+import psycopg
+import pytest
+from psycopg_pool import PoolTimeout
+
+from halifax_api import stories
 from halifax_api.config import load_config
+from halifax_api.db import Database, SourceUnavailable
+from halifax_api.envelope import TTLCache
 from halifax_api.settings import REPO_DIR, Settings
 
 SILVER_SQL = (REPO_DIR / "database" / "sql" / "02_silver_tables.sql").read_text(encoding="utf-8")
@@ -53,3 +64,82 @@ def test_no_emoji_in_config_or_contract():
         for path in folder.rglob("*"):
             if path.is_file():
                 assert not emoji.search(path.read_text(encoding="utf-8")), path
+
+
+def test_ttl_cache_single_flight_and_maxsize_eviction():
+    cache = TTLCache(maxsize=2)
+    calls = 0
+    count_lock = threading.Lock()
+    barrier = threading.Barrier(8)
+
+    def compute():
+        nonlocal calls
+        time.sleep(0.05)
+        with count_lock:
+            calls += 1
+            return f"value-{calls}"
+
+    def worker():
+        barrier.wait(timeout=5)
+        return cache.get("shared-key", 60, compute)
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results = list(pool.map(lambda _: worker(), range(8)))
+
+    assert calls == 1
+    assert results == ["value-1"] * 8
+    assert cache._inflight == {}
+
+    # Maxsize eviction drops the oldest entry when full.
+    cache.clear()
+    cache.get("a", 60, lambda: 1)
+    time.sleep(0.02)
+    cache.get("b", 60, lambda: 2)
+    time.sleep(0.02)
+    cache.get("c", 60, lambda: 3)
+    assert set(cache._data) == {"b", "c"}
+
+
+def test_pool_timeout_does_not_trip_backoff(monkeypatch):
+    db = Database("postgresql://postgres@127.0.0.1:5433/halifax_twin_test_api")
+
+    @contextmanager
+    def raise_timeout():
+        raise PoolTimeout("pool exhausted")
+        yield
+
+    monkeypatch.setattr(db.pool, "connection", raise_timeout)
+    with pytest.raises(SourceUnavailable):
+        db.fetch("SELECT 1")
+    assert db._down_until == 0.0
+
+    @contextmanager
+    def raise_operational():
+        raise psycopg.OperationalError("connection refused")
+        yield
+
+    monkeypatch.setattr(db.pool, "connection", raise_operational)
+    with pytest.raises(SourceUnavailable):
+        db.fetch("SELECT 1")
+    assert db._down_until > 0.0
+
+
+def test_resolve_all_memoizes_checks_and_archive_span():
+    cfg = load_config(REPO_DIR / "config")
+    calls = []
+
+    class FakeDB:
+        def fetch_one(self, query, params=None):
+            text = str(query)
+            calls.append((text, params))
+            if "Stop Arrival" in text and "86400.0" in text:
+                return (3.0,)
+            if "to_regprocedure" in text:
+                return (True,)
+            return (True,)
+
+    fake = FakeDB()
+    resolved = stories.resolve_all(fake, cfg.stories)
+    archive_calls = [c for c in calls if "86400.0" in c[0]]
+    assert len(archive_calls) == 1
+    assert resolved == {sid: stories.resolve(fake, story) for sid, story in cfg.stories.items()}

@@ -53,6 +53,8 @@ class Collector:
         self.lookups = store.Lookups()
         self.last_sha: dict[str, str] = {}
         self.last_path: dict[str, Path | None] = {}
+        self.stored_sha: dict[str, str] = {}
+        self.last_trip_ids: dict[str, int] = {}
         self.log = log or Log("transit_realtime")
         self.fetch = fetch                      # replaced in tests with recorded feeds
         self.last_purge: float | None = None
@@ -70,6 +72,7 @@ class Collector:
                 self.on_locked()
                 self.on_locked = None
             self.lookups.loaded_at = None
+            self.stored_sha.clear()
         return self.conn
 
     def close(self):
@@ -103,37 +106,62 @@ class Collector:
         conn = self._connection()
         results = {s: self._fetch(conn, s) for s in FEEDS}
         if self.lookups.stale():
+            before = (len(self.lookups.routes), len(self.lookups.stops))
             self.lookups.refresh(conn)
+            if (len(self.lookups.routes), len(self.lookups.stops)) != before:
+                self.stored_sha.clear()
 
         parts = []
+        pending_sha: dict[str, str] = {}
+        pending_trip_ids: dict[str, int] | None = None
         with conn.transaction():
             trip_ids = {}
             d, msg, batch = results["SRC-002"]
             if msg is not None:
-                trips, arrivals = parse.parse_trip_updates(msg, d.fetched_ts)
-                trip_ids, no_route = store.store_trips(conn, self.lookups, trips, batch)
-                stored, no_stop = store.store_arrivals(conn, self.lookups, arrivals, trip_ids, batch)
-                note = f" ({no_route} waiting for routes from the schedule)" if no_route else ""
-                note += f" ({no_stop} arrivals waiting for stops)" if no_stop else ""
-                parts.append(f"{len(trip_ids)} trips, {stored} arrivals{note}")
+                if d.sha256 and d.sha256 == self.stored_sha.get("SRC-002"):
+                    trip_ids = dict(self.last_trip_ids)
+                    parts.append(f"{len(trip_ids)} trips, 0 arrivals (unchanged)")
+                else:
+                    trips, arrivals = parse.parse_trip_updates(msg, d.fetched_ts)
+                    trip_ids, no_route = store.store_trips(conn, self.lookups, trips, batch)
+                    stored, no_stop = store.store_arrivals(conn, self.lookups, arrivals, trip_ids, batch)
+                    note = f" ({no_route} waiting for routes from the schedule)" if no_route else ""
+                    note += f" ({no_stop} arrivals waiting for stops)" if no_stop else ""
+                    parts.append(f"{len(trip_ids)} trips, {stored} arrivals{note}")
+                    pending_trip_ids = dict(trip_ids)
+                    if no_route == 0 and no_stop == 0 and d.sha256:
+                        pending_sha["SRC-002"] = d.sha256
             else:
                 parts.append(f"trip updates failed: {d.error}")
 
             d, msg, batch = results["SRC-001"]
             if msg is not None:
-                positions = parse.parse_vehicle_positions(msg, d.fetched_ts)
-                new = store.store_positions(conn, self.lookups, positions, trip_ids, batch)
-                parts.insert(0, f"{len(positions)} buses ({new} new positions)")
+                if d.sha256 and d.sha256 == self.stored_sha.get("SRC-001"):
+                    parts.insert(0, f"{len(msg.entity)} buses (0 new positions)")
+                else:
+                    positions = parse.parse_vehicle_positions(msg, d.fetched_ts)
+                    new = store.store_positions(conn, self.lookups, positions, trip_ids, batch)
+                    parts.insert(0, f"{len(positions)} buses ({new} new positions)")
+                    if d.sha256 and self.lookups.routes:
+                        pending_sha["SRC-001"] = d.sha256
             else:
                 parts.insert(0, f"positions failed: {d.error}")
 
             d, msg, batch = results["SRC-003"]
             if msg is not None:
-                active, closed = store.store_alerts(conn, self.lookups, parse.parse_alerts(msg, d.fetched_ts),
-                                                    d.fetched_ts, batch)
-                parts.append(f"{active} alerts" + (f", {closed} ended" if closed else ""))
+                if d.sha256 and d.sha256 == self.stored_sha.get("SRC-003"):
+                    parts.append(f"{len(msg.entity)} alerts")
+                else:
+                    active, closed = store.store_alerts(conn, self.lookups, parse.parse_alerts(msg, d.fetched_ts),
+                                                        d.fetched_ts, batch)
+                    parts.append(f"{active} alerts" + (f", {closed} ended" if closed else ""))
+                    if d.sha256 and self.lookups.routes and self.lookups.stops:
+                        pending_sha["SRC-003"] = d.sha256
             else:
                 parts.append(f"alerts failed: {d.error}")
+        self.stored_sha.update(pending_sha)
+        if pending_trip_ids is not None:
+            self.last_trip_ids = pending_trip_ids
         return " | ".join(parts)
 
     def purge_if_due(self, now: float | None = None):

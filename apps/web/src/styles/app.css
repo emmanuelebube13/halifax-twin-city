@@ -794,6 +794,8 @@ ol {
 .globe-canvas {
   position: absolute;
   inset: 0;
+  touch-action: none;
+  user-select: none;
 }
 
 .globe-loading {
@@ -2359,7 +2361,21 @@ button.sector-row-main:hover .sector-row-name {
   display: none;
 }
 
-/* the 3D detail switch: under the zoom controls on a laptop, in the tool column on a phone */
+/* the 3D detail and close-up switches: stacked under the zoom controls on a laptop, in the tool column on a phone */
+.map-3d-switches {
+  position: absolute;
+  top: 184px;
+  right: 16px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.map-3d-switches .profile-switch {
+  position: static;
+}
+
 .profile-switch {
   position: absolute;
   top: 184px;

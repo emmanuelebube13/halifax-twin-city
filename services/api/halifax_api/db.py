@@ -23,11 +23,11 @@ class Database:
     # making every request wait for the pool timeout.
     BACKOFF_SECONDS = 10
 
-    def __init__(self, url: str, max_size: int = 8):
+    def __init__(self, url: str, max_size: int = 12):
         self.url = url
         self._down_until = 0.0
         self.pool = ConnectionPool(
-            url, min_size=0, max_size=max_size, open=False, timeout=4,
+            url, min_size=1, max_size=max_size, open=False, timeout=4,
             kwargs={"connect_timeout": 3, "options": SESSION_OPTIONS, "autocommit": True, "row_factory": tuple_row},
             name="halifax_api")
 
@@ -47,7 +47,11 @@ class Database:
             # The statement timeout ended one slow query: only this answer is affected, no back-off.
             log.warning("database query cancelled after the statement timeout")
             raise SourceUnavailable() from e
-        except (psycopg.OperationalError, PoolTimeout, OSError) as e:
+        except PoolTimeout as e:
+            # Pool exhausted under burst load: only this caller gives up, no global back-off.
+            log.warning("database connection pool timeout")
+            raise SourceUnavailable() from e
+        except (psycopg.OperationalError, OSError) as e:
             # Cannot reach the server: back off. Log the class only, as messages can carry connection details.
             self._down_until = time.monotonic() + self.BACKOFF_SECONDS
             log.warning("database unreachable: %s", type(e).__name__)

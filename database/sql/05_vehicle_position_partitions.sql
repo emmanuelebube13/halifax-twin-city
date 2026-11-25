@@ -28,3 +28,4 @@ CREATE TABLE silver.vehicle_position_2027_12 PARTITION OF silver.vehicle_positio
 -- Indexes declared on the parent are created on every partition automatically.
 -- (The trip_event_id foreign-key index is already made in script 03.)
 CREATE INDEX ix_vehicle_position_position_geom_gist ON silver.vehicle_position USING gist (position_geom);
+CREATE INDEX ix_vehicle_position_position_ts ON silver.vehicle_position (position_ts DESC);
